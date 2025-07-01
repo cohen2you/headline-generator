@@ -10,10 +10,14 @@ export default function Page() {
   const [articleText, setArticleText] = useState('');
   const [headlines, setHeadlines] = useState<string[]>([]);
   const [punchyHeadlines, setPunchyHeadlines] = useState<string[]>([]);
+  const [noColonHeadlines, setNoColonHeadlines] = useState<string[]>([]);
+  const [creativeHeadlines, setCreativeHeadlines] = useState<string[]>([]);
   const [similarHeadlines, setSimilarHeadlines] = useState<string[]>([]);
   const [seoHeadline, setSeoHeadline] = useState<string>('');
   const [loadingMain, setLoadingMain] = useState(false);
   const [loadingPunchy, setLoadingPunchy] = useState(false);
+  const [loadingNoColon, setLoadingNoColon] = useState(false);
+  const [loadingCreative, setLoadingCreative] = useState(false);
   const [loadingSimilar, setLoadingSimilar] = useState(false);
   const [loadingSeo, setLoadingSeo] = useState(false);
   const [error, setError] = useState('');
@@ -37,6 +41,8 @@ export default function Page() {
     setLoadingMain(true);
     setHeadlines([]);
     setPunchyHeadlines([]);
+    setNoColonHeadlines([]);
+    setCreativeHeadlines([]);
     setSimilarHeadlines([]);
     setSeoHeadline('');
     setSelectedHeadline(null);
@@ -49,9 +55,7 @@ export default function Page() {
       if (!res.ok) throw new Error('Failed to generate headlines');
       const data = await res.json();
 
-      const cleaned = data.headlines.map(cleanHeadline);
-
-      setHeadlines(cleaned);
+      setHeadlines(data.headlines.map(cleanHeadline));
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -63,6 +67,8 @@ export default function Page() {
     setError('');
     setLoadingPunchy(true);
     setPunchyHeadlines([]);
+    setNoColonHeadlines([]);
+    setCreativeHeadlines([]);
     setSimilarHeadlines([]);
     setSeoHeadline('');
     setSelectedHeadline(null);
@@ -75,13 +81,65 @@ export default function Page() {
       if (!res.ok) throw new Error('Failed to generate punchy headlines');
       const data = await res.json();
 
-      const cleaned = data.headlines.map(cleanHeadline);
-
-      setPunchyHeadlines(cleaned);
+      setPunchyHeadlines(data.headlines.map(cleanHeadline));
     } catch (err) {
       setError((err as Error).message);
     } finally {
       setLoadingPunchy(false);
+    }
+  }
+
+  async function generateNoColonHeadlines() {
+    setError('');
+    setLoadingNoColon(true);
+    setNoColonHeadlines([]);
+    setPunchyHeadlines([]);
+    setCreativeHeadlines([]);
+    setHeadlines([]);
+    setSimilarHeadlines([]);
+    setSeoHeadline('');
+    setSelectedHeadline(null);
+    try {
+      const res = await fetch('/api/generate/no-colon-headlines', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ articleText }),
+      });
+      if (!res.ok) throw new Error('Failed to generate no colon headlines');
+      const data = await res.json();
+
+      setNoColonHeadlines(data.headlines.map(cleanHeadline));
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setLoadingNoColon(false);
+    }
+  }
+
+  async function generateCreativeHeadlines() {
+    setError('');
+    setLoadingCreative(true);
+    setCreativeHeadlines([]);
+    setPunchyHeadlines([]);
+    setNoColonHeadlines([]);
+    setHeadlines([]);
+    setSimilarHeadlines([]);
+    setSeoHeadline('');
+    setSelectedHeadline(null);
+    try {
+      const res = await fetch('/api/generate/creative-headlines', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ articleText }),
+      });
+      if (!res.ok) throw new Error('Failed to generate creative headlines');
+      const data = await res.json();
+
+      setCreativeHeadlines(data.headlines.map(cleanHeadline));
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setLoadingCreative(false);
     }
   }
 
@@ -95,14 +153,12 @@ export default function Page() {
       const res = await fetch('/api/generate/similar-headlines', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ headline, articleText }), // Send articleText here!
+        body: JSON.stringify({ headline, articleText }),
       });
       if (!res.ok) throw new Error('Failed to generate similar headlines');
       const data = await res.json();
 
-      const cleaned = data.similar.map(cleanHeadline);
-
-      setSimilarHeadlines(cleaned);
+      setSimilarHeadlines(data.similar.map(cleanHeadline));
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -162,11 +218,11 @@ export default function Page() {
         onChange={(e) => setArticleText(e.target.value)}
       />
 
-      <div className="flex gap-4 mb-6">
+      <div className="flex flex-wrap gap-4 mb-6">
         <button
           onClick={generateHeadlines}
           disabled={loadingMain || !articleText.trim()}
-          className="bg-blue-600 text-white px-6 py-3 rounded-md disabled:bg-gray-400 flex-1"
+          className="bg-blue-600 text-white px-6 py-3 rounded-md disabled:bg-gray-400 flex-1 min-w-[180px]"
         >
           {loadingMain ? 'Generating Headlines...' : 'Generate 3 Headlines'}
         </button>
@@ -174,9 +230,25 @@ export default function Page() {
         <button
           onClick={generatePunchyHeadlines}
           disabled={loadingPunchy || !articleText.trim()}
-          className="bg-red-600 text-white px-6 py-3 rounded-md disabled:bg-gray-400 flex-1"
+          className="bg-red-600 text-white px-6 py-3 rounded-md disabled:bg-gray-400 flex-1 min-w-[180px]"
         >
           {loadingPunchy ? 'Generating Punchy Headlines...' : 'More Clicky & Punchy'}
+        </button>
+
+        <button
+          onClick={generateNoColonHeadlines}
+          disabled={loadingNoColon || !articleText.trim()}
+          className="bg-purple-600 text-white px-6 py-3 rounded-md disabled:bg-gray-400 flex-1 min-w-[180px]"
+        >
+          {loadingNoColon ? 'Generating No Colon Headlines...' : 'No Colon Headlines'}
+        </button>
+
+        <button
+          onClick={generateCreativeHeadlines}
+          disabled={loadingCreative || !articleText.trim()}
+          className="bg-indigo-600 text-white px-6 py-3 rounded-md disabled:bg-gray-400 flex-1 min-w-[180px]"
+        >
+          {loadingCreative ? 'Generating Creative Headlines...' : 'Creative Headlines'}
         </button>
       </div>
 
@@ -229,6 +301,62 @@ export default function Page() {
                 <button
                   onClick={() => copyToClipboard(hl, i)}
                   className="ml-4 bg-red-200 hover:bg-red-300 text-red-800 px-3 py-1 rounded text-sm"
+                >
+                  {copiedIndex === i ? 'Copied!' : 'Copy'}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {noColonHeadlines.length > 0 && (
+        <section className="mb-8">
+          <h2 className="text-xl font-semibold mb-2 text-purple-600">No Colon Headlines</h2>
+          <ul className="space-y-2">
+            {noColonHeadlines.map((hl, i) => (
+              <li
+                key={i}
+                className="flex items-center justify-between border border-purple-300 rounded-md px-4 py-2"
+              >
+                <button
+                  onClick={() => generateSimilar(hl)}
+                  disabled={loadingSimilar}
+                  className="text-left flex-1"
+                >
+                  {hl}
+                </button>
+                <button
+                  onClick={() => copyToClipboard(hl, i)}
+                  className="ml-4 bg-purple-200 hover:bg-purple-300 text-purple-800 px-3 py-1 rounded text-sm"
+                >
+                  {copiedIndex === i ? 'Copied!' : 'Copy'}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {creativeHeadlines.length > 0 && (
+        <section className="mb-8">
+          <h2 className="text-xl font-semibold mb-2 text-indigo-600">Creative Headlines</h2>
+          <ul className="space-y-2">
+            {creativeHeadlines.map((hl, i) => (
+              <li
+                key={i}
+                className="flex items-center justify-between border border-indigo-300 rounded-md px-4 py-2"
+              >
+                <button
+                  onClick={() => generateSimilar(hl)}
+                  disabled={loadingSimilar}
+                  className="text-left flex-1"
+                >
+                  {hl}
+                </button>
+                <button
+                  onClick={() => copyToClipboard(hl, i)}
+                  className="ml-4 bg-indigo-200 hover:bg-indigo-300 text-indigo-800 px-3 py-1 rounded text-sm"
                 >
                   {copiedIndex === i ? 'Copied!' : 'Copy'}
                 </button>

@@ -39,9 +39,39 @@ export function headlinePrompt(articleText: string) {
   `.trim();
   }
   
+  export function noColonHeadlinePrompt(articleText: string) {
+    return `
+  You are a headline editor for a high-traffic financial news site. Based on the article below, write 3 suspenseful, emotionally engaging, and click-worthy headlines. Do NOT use colons or punctuation that separates clauses. Vary the headline styles to include questions, statements, and unique formats.
+  
+  Article:
+  ${articleText}
+  
+  Respond with a numbered list of 3 headlines only.
+  `.trim();
+  }
+  
+  export function creativeHeadlinePrompt(articleText: string) {
+    return `
+  You are a headline editor for a high-traffic financial news site. Based on the article below, write 3 creative and unique headlines that stand out. Use metaphors, intriguing questions, or unexpected phrasing. Be suspenseful and emotionally engaging.
+  
+  Article:
+  ${articleText}
+  
+  Respond with a numbered list of 3 headlines only.
+  `.trim();
+  }
+  
   export function similarHeadlinePrompt(headline: string, articleText: string) {
     return `
-  Generate 3 alternative headlines similar in style and topic to the following headline, strictly based on the article text below:
+  You are a headline editor for a high-traffic financial news site.
+  
+  Based on the article text below and the headline provided, generate 3 alternative headlines that:
+  
+  - Are similar in style and topic to the given headline
+  - Are strictly based on facts and information contained in the article text
+  - Do NOT include any information not present in the article
+  - Avoid speculation or introducing new ideas
+  - Maintain suspense and emotional engagement appropriate for financial news headlines
   
   Headline:
   "${headline}"
