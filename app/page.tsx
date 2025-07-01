@@ -266,7 +266,7 @@ export default function Page() {
       {selectedHeadline && (
         <section className="mt-8 p-4 border border-blue-400 rounded-md bg-blue-50 max-w-xl">
           <h2 className="text-lg font-semibold mb-2">SEO Headline for:</h2>
-          <p className="italic mb-3">"{selectedHeadline}"</p>
+          <p className="italic mb-3">&quot;{selectedHeadline}&quot;</p>
           <button
             onClick={generateSeoHeadline}
             disabled={loadingSeo}
