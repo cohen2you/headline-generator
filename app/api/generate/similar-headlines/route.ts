@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import OpenAI from 'openai';
-import { similarHeadlinePrompt } from '@/lib/prompts';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -8,25 +7,29 @@ const openai = new OpenAI({
 
 export async function POST(request: Request) {
   try {
-    const { headline, articleText } = await request.json();
+    const { headline } = await request.json();
 
-    if (!headline || !articleText || !headline.trim() || !articleText.trim()) {
+    if (!headline || headline.trim().length === 0) {
       return NextResponse.json({ similar: [] });
     }
 
-    const prompt = similarHeadlinePrompt(headline, articleText);
+    const prompt = `Generate 3 alternative headlines similar in style and topic to the following headline:
+
+"${headline}"
+
+Respond with a numbered list of 3 headlines only.`;
 
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [{ role: 'user', content: prompt }],
-      max_tokens: 350,
+      max_tokens: 150,
     });
 
     const text = completion.choices[0].message?.content || '';
 
     const similar = text
       .split('\n')
-      .map((line) => line.replace(/^\d+\.?\s*/, '').trim())
+      .map(line => line.replace(/^\d+\.?\s*/, '').trim())
       .filter(Boolean)
       .slice(0, 3);
 
