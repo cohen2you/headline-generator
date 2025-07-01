@@ -22,7 +22,7 @@ export async function POST(request: Request) {
       max_tokens: 30,
     });
 
-    const seoHeadline = completion.choices[0].message?.content.trim() || '';
+    const seoHeadline = (completion.choices[0].message?.content ?? '').trim();
 
     return NextResponse.json({ seoHeadline });
   } catch (error) {
