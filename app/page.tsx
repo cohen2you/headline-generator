@@ -3,7 +3,6 @@
 import React, { useState } from 'react';
 
 export default function Page() {
-  // Utility: capitalize first letter of every word
   function toTitleCase(str: string) {
     return str.replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.slice(1));
   }
@@ -23,13 +22,12 @@ export default function Page() {
   const [copiedSeo, setCopiedSeo] = useState(false);
   const [selectedHeadline, setSelectedHeadline] = useState<string | null>(null);
 
-  // Clean and format headlines: remove quotes, **, trailing exclamations, then title case
   function cleanHeadline(text: string) {
     return toTitleCase(
       text
-        .replace(/^["“”']|["“”']$/g, '') // Remove surrounding quotes
-        .replace(/\*\*/g, '')             // Remove bold **
-        .replace(/!+$/g, '')              // Remove trailing exclamation marks
+        .replace(/^["“”']|["“”']$/g, '')
+        .replace(/\*\*/g, '')
+        .replace(/!+$/g, '')
         .trim()
     );
   }
@@ -51,7 +49,7 @@ export default function Page() {
       if (!res.ok) throw new Error('Failed to generate headlines');
       const data = await res.json();
 
-      const cleaned = data.headlines.map((hl: string) => cleanHeadline(hl));
+      const cleaned = data.headlines.map(cleanHeadline);
 
       setHeadlines(cleaned);
     } catch (err) {
@@ -77,7 +75,7 @@ export default function Page() {
       if (!res.ok) throw new Error('Failed to generate punchy headlines');
       const data = await res.json();
 
-      const cleaned = data.headlines.map((hl: string) => cleanHeadline(hl));
+      const cleaned = data.headlines.map(cleanHeadline);
 
       setPunchyHeadlines(cleaned);
     } catch (err) {
@@ -97,12 +95,12 @@ export default function Page() {
       const res = await fetch('/api/generate/similar-headlines', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ headline }),
+        body: JSON.stringify({ headline, articleText }), // Send articleText here!
       });
       if (!res.ok) throw new Error('Failed to generate similar headlines');
       const data = await res.json();
 
-      const cleaned = data.similar.map((hl: string) => cleanHeadline(hl));
+      const cleaned = data.similar.map(cleanHeadline);
 
       setSimilarHeadlines(cleaned);
     } catch (err) {

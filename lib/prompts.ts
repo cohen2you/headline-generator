@@ -39,11 +39,15 @@ export function headlinePrompt(articleText: string) {
   `.trim();
   }
   
-  export function similarHeadlinePrompt(headline: string) {
+  export function similarHeadlinePrompt(headline: string, articleText: string) {
     return `
-  Generate 3 alternative headlines similar in style and topic to the following headline:
+  Generate 3 alternative headlines similar in style and topic to the following headline, strictly based on the article text below:
   
+  Headline:
   "${headline}"
+  
+  Article:
+  ${articleText}
   
   Respond with a numbered list of 3 headlines only.
   `.trim();
