@@ -152,10 +152,8 @@ export default function Page() {
       });
       if (!res.ok) throw new Error('Failed to generate punchy variants');
       const data = await res.json();
-      // Clean quotes from punchy variants
-      const cleaned = (data.variants || []).map((hl: string) =>
-        hl.replace(/^["“”']|["“”']$/g, '').trim()
-      );
+      // Use cleanHeadline for consistent cleaning & formatting (removes quotes)
+      const cleaned = (data.variants || []).map((hl: string) => cleanHeadline(hl));
       setPunchyVariants(cleaned);
     } catch (err) {
       setError((err as Error).message);
