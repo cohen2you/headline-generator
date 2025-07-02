@@ -9,16 +9,16 @@ export default function Page() {
 
   const [articleText, setArticleText] = useState('');
   const [headlines, setHeadlines] = useState<string[]>([]);
-  const [punchyHeadlines, setPunchyHeadlines] = useState<string[]>([]);
   const [noColonHeadlines, setNoColonHeadlines] = useState<string[]>([]);
   const [creativeHeadlines, setCreativeHeadlines] = useState<string[]>([]);
   const [similarHeadlines, setSimilarHeadlines] = useState<string[]>([]);
+  const [punchyVariants, setPunchyVariants] = useState<string[]>([]);
   const [seoHeadline, setSeoHeadline] = useState<string>('');
   const [loadingMain, setLoadingMain] = useState(false);
-  const [loadingPunchy, setLoadingPunchy] = useState(false);
   const [loadingNoColon, setLoadingNoColon] = useState(false);
   const [loadingCreative, setLoadingCreative] = useState(false);
   const [loadingSimilar, setLoadingSimilar] = useState(false);
+  const [loadingPunchyVariants, setLoadingPunchyVariants] = useState(false);
   const [loadingSeo, setLoadingSeo] = useState(false);
   const [error, setError] = useState('');
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
@@ -40,10 +40,10 @@ export default function Page() {
     setError('');
     setLoadingMain(true);
     setHeadlines([]);
-    setPunchyHeadlines([]);
     setNoColonHeadlines([]);
     setCreativeHeadlines([]);
     setSimilarHeadlines([]);
+    setPunchyVariants([]);
     setSeoHeadline('');
     setSelectedHeadline(null);
     try {
@@ -54,7 +54,6 @@ export default function Page() {
       });
       if (!res.ok) throw new Error('Failed to generate headlines');
       const data = await res.json();
-
       setHeadlines(data.headlines.map(cleanHeadline));
     } catch (err) {
       setError((err as Error).message);
@@ -63,40 +62,14 @@ export default function Page() {
     }
   }
 
-  async function generatePunchyHeadlines() {
-    setError('');
-    setLoadingPunchy(true);
-    setPunchyHeadlines([]);
-    setNoColonHeadlines([]);
-    setCreativeHeadlines([]);
-    setSimilarHeadlines([]);
-    setSeoHeadline('');
-    setSelectedHeadline(null);
-    try {
-      const res = await fetch('/api/generate/punchy-headlines', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ articleText }),
-      });
-      if (!res.ok) throw new Error('Failed to generate punchy headlines');
-      const data = await res.json();
-
-      setPunchyHeadlines(data.headlines.map(cleanHeadline));
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setLoadingPunchy(false);
-    }
-  }
-
   async function generateNoColonHeadlines() {
     setError('');
     setLoadingNoColon(true);
     setNoColonHeadlines([]);
-    setPunchyHeadlines([]);
-    setCreativeHeadlines([]);
     setHeadlines([]);
+    setCreativeHeadlines([]);
     setSimilarHeadlines([]);
+    setPunchyVariants([]);
     setSeoHeadline('');
     setSelectedHeadline(null);
     try {
@@ -107,7 +80,6 @@ export default function Page() {
       });
       if (!res.ok) throw new Error('Failed to generate no colon headlines');
       const data = await res.json();
-
       setNoColonHeadlines(data.headlines.map(cleanHeadline));
     } catch (err) {
       setError((err as Error).message);
@@ -120,10 +92,10 @@ export default function Page() {
     setError('');
     setLoadingCreative(true);
     setCreativeHeadlines([]);
-    setPunchyHeadlines([]);
     setNoColonHeadlines([]);
     setHeadlines([]);
     setSimilarHeadlines([]);
+    setPunchyVariants([]);
     setSeoHeadline('');
     setSelectedHeadline(null);
     try {
@@ -134,8 +106,9 @@ export default function Page() {
       });
       if (!res.ok) throw new Error('Failed to generate creative headlines');
       const data = await res.json();
-
-      setCreativeHeadlines(data.headlines.map(cleanHeadline));
+      // Remove quotes for creative headlines
+      const cleaned = data.headlines.map(hl => hl.replace(/^["“”']|["“”']$/g, '').trim());
+      setCreativeHeadlines(cleaned);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -157,12 +130,31 @@ export default function Page() {
       });
       if (!res.ok) throw new Error('Failed to generate similar headlines');
       const data = await res.json();
-
       setSimilarHeadlines(data.similar.map(cleanHeadline));
     } catch (err) {
       setError((err as Error).message);
     } finally {
       setLoadingSimilar(false);
+    }
+  }
+
+  async function generatePunchyVariants(headline: string) {
+    setError('');
+    setLoadingPunchyVariants(true);
+    setPunchyVariants([]);
+    try {
+      const res = await fetch('/api/generate/punchy-variants', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ headline }),
+      });
+      if (!res.ok) throw new Error('Failed to generate punchy variants');
+      const data = await res.json();
+      setPunchyVariants(data.variants || []);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setLoadingPunchyVariants(false);
     }
   }
 
@@ -228,14 +220,6 @@ export default function Page() {
         </button>
 
         <button
-          onClick={generatePunchyHeadlines}
-          disabled={loadingPunchy || !articleText.trim()}
-          className="bg-red-600 text-white px-6 py-3 rounded-md disabled:bg-gray-400 flex-1 min-w-[180px]"
-        >
-          {loadingPunchy ? 'Generating Punchy Headlines...' : 'More Clicky & Punchy'}
-        </button>
-
-        <button
           onClick={generateNoColonHeadlines}
           disabled={loadingNoColon || !articleText.trim()}
           className="bg-purple-600 text-white px-6 py-3 rounded-md disabled:bg-gray-400 flex-1 min-w-[180px]"
@@ -263,44 +247,25 @@ export default function Page() {
                 key={i}
                 className="flex items-center justify-between border border-gray-300 rounded-md px-4 py-2"
               >
-                <button
-                  onClick={() => generateSimilar(hl)}
-                  disabled={loadingSimilar}
-                  className="text-left flex-1"
-                >
-                  {hl}
-                </button>
+                <div className="flex-1 flex items-center">
+                  <button
+                    onClick={() => generateSimilar(hl)}
+                    disabled={loadingSimilar}
+                    className="text-left flex-1"
+                  >
+                    {hl}
+                  </button>
+                  <button
+                    onClick={() => generatePunchyVariants(hl)}
+                    disabled={loadingPunchyVariants}
+                    className="ml-2 bg-red-500 text-white px-2 py-1 rounded text-sm"
+                  >
+                    More Clicky & Punchy
+                  </button>
+                </div>
                 <button
                   onClick={() => copyToClipboard(hl, i)}
                   className="ml-4 bg-gray-200 hover:bg-gray-300 text-gray-800 px-3 py-1 rounded text-sm"
-                >
-                  {copiedIndex === i ? 'Copied!' : 'Copy'}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      {punchyHeadlines.length > 0 && (
-        <section className="mb-8">
-          <h2 className="text-xl font-semibold mb-2 text-red-600">More Clicky & Punchy Headlines</h2>
-          <ul className="space-y-2">
-            {punchyHeadlines.map((hl, i) => (
-              <li
-                key={i}
-                className="flex items-center justify-between border border-red-300 rounded-md px-4 py-2"
-              >
-                <button
-                  onClick={() => generateSimilar(hl)}
-                  disabled={loadingSimilar}
-                  className="text-left flex-1"
-                >
-                  {hl}
-                </button>
-                <button
-                  onClick={() => copyToClipboard(hl, i)}
-                  className="ml-4 bg-red-200 hover:bg-red-300 text-red-800 px-3 py-1 rounded text-sm"
                 >
                   {copiedIndex === i ? 'Copied!' : 'Copy'}
                 </button>
@@ -326,12 +291,21 @@ export default function Page() {
                 >
                   {hl}
                 </button>
-                <button
-                  onClick={() => copyToClipboard(hl, i)}
-                  className="ml-4 bg-purple-200 hover:bg-purple-300 text-purple-800 px-3 py-1 rounded text-sm"
-                >
-                  {copiedIndex === i ? 'Copied!' : 'Copy'}
-                </button>
+                <div className="flex gap-2 ml-4">
+                  <button
+                    onClick={() => generatePunchyVariants(hl)}
+                    disabled={loadingPunchyVariants}
+                    className="bg-red-500 text-white px-2 py-1 rounded text-sm"
+                  >
+                    More Clicky & Punchy
+                  </button>
+                  <button
+                    onClick={() => copyToClipboard(hl, i)}
+                    className="bg-purple-200 hover:bg-purple-300 text-purple-800 px-3 py-1 rounded text-sm"
+                  >
+                    {copiedIndex === i ? 'Copied!' : 'Copy'}
+                  </button>
+                </div>
               </li>
             ))}
           </ul>
@@ -354,12 +328,21 @@ export default function Page() {
                 >
                   {hl}
                 </button>
-                <button
-                  onClick={() => copyToClipboard(hl, i)}
-                  className="ml-4 bg-indigo-200 hover:bg-indigo-300 text-indigo-800 px-3 py-1 rounded text-sm"
-                >
-                  {copiedIndex === i ? 'Copied!' : 'Copy'}
-                </button>
+                <div className="flex gap-2 ml-4">
+                  <button
+                    onClick={() => generatePunchyVariants(hl)}
+                    disabled={loadingPunchyVariants}
+                    className="bg-red-500 text-white px-2 py-1 rounded text-sm"
+                  >
+                    More Clicky & Punchy
+                  </button>
+                  <button
+                    onClick={() => copyToClipboard(hl, i)}
+                    className="bg-indigo-200 hover:bg-indigo-300 text-indigo-800 px-3 py-1 rounded text-sm"
+                  >
+                    {copiedIndex === i ? 'Copied!' : 'Copy'}
+                  </button>
+                </div>
               </li>
             ))}
           </ul>
@@ -380,6 +363,25 @@ export default function Page() {
                 <button
                   onClick={() => copyToClipboard(hl, i, true)}
                   className="ml-4 bg-gray-200 hover:bg-gray-300 text-gray-800 px-3 py-1 rounded text-sm"
+                >
+                  {copiedSimilarIndex === i ? 'Copied!' : 'Copy'}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {punchyVariants.length > 0 && (
+        <section className="mt-6">
+          <h2 className="text-xl font-semibold mb-2 text-red-700">Punchy Variants</h2>
+          <ul className="list-disc list-inside space-y-1">
+            {punchyVariants.map((hl, i) => (
+              <li key={i} className="flex items-center justify-between">
+                <span>{hl}</span>
+                <button
+                  onClick={() => copyToClipboard(hl, i, true)}
+                  className="ml-4 bg-red-200 hover:bg-red-300 text-red-800 px-3 py-1 rounded text-sm"
                 >
                   {copiedSimilarIndex === i ? 'Copied!' : 'Copy'}
                 </button>
