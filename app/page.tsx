@@ -7,6 +7,22 @@ export default function Page() {
     return str.replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.slice(1));
   }
 
+  // Updated cleanHeadline with optional flag to remove all exclamations anywhere
+  function cleanHeadline(text: string, removeAllExclamations = false) {
+    let cleaned = text
+      .replace(/^["“”']+|["“”']+$/g, '') // remove quotes at start/end
+      .replace(/\*\*/g, '')               // remove markdown bold
+      .trim();
+
+    if (removeAllExclamations) {
+      cleaned = cleaned.replace(/!/g, '');  // remove ALL exclamation marks anywhere
+    } else {
+      cleaned = cleaned.replace(/!+$/g, ''); // remove trailing exclamation marks only
+    }
+
+    return toTitleCase(cleaned);
+  }
+
   const [articleText, setArticleText] = useState('');
   const [headlines, setHeadlines] = useState<string[]>([]);
   const [noColonHeadlines, setNoColonHeadlines] = useState<string[]>([]);
@@ -25,16 +41,6 @@ export default function Page() {
   const [copiedSimilarIndex, setCopiedSimilarIndex] = useState<number | null>(null);
   const [copiedSeo, setCopiedSeo] = useState(false);
   const [selectedHeadline, setSelectedHeadline] = useState<string | null>(null);
-
-  function cleanHeadline(text: string) {
-    return toTitleCase(
-      text
-        .replace(/^["“”']|["“”']$/g, '')
-        .replace(/\*\*/g, '')
-        .replace(/!+$/g, '')
-        .trim()
-    );
-  }
 
   async function generateHeadlines() {
     setError('');
@@ -106,11 +112,10 @@ export default function Page() {
       });
       if (!res.ok) throw new Error('Failed to generate creative headlines');
       const data = await res.json();
-      // Remove quotes specifically for creative headlines
-      const cleaned = data.headlines.map((hl: string) =>
-        hl.replace(/^["“”']|["“”']$/g, '').trim()
-      );
-      setCreativeHeadlines(cleaned.map(cleanHeadline));
+      const cleaned = data.headlines
+        .map((hl: string) => hl.replace(/^["“”']|["“”']$/g, '').trim())
+        .map(cleanHeadline);
+      setCreativeHeadlines(cleaned);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -152,8 +157,8 @@ export default function Page() {
       });
       if (!res.ok) throw new Error('Failed to generate punchy variants');
       const data = await res.json();
-      // Use cleanHeadline for consistent cleaning & formatting (removes quotes)
-      const cleaned = (data.variants || []).map((hl: string) => cleanHeadline(hl));
+      // Remove all exclamation points anywhere for punchy variants
+      const cleaned = (data.variants || []).map((hl: string) => cleanHeadline(hl, true));
       setPunchyVariants(cleaned);
     } catch (err) {
       setError((err as Error).message);
@@ -242,7 +247,6 @@ export default function Page() {
 
       {error && <p className="text-red-600 mt-4">{error}</p>}
 
-      {/* Generated Headlines */}
       {headlines.length > 0 && (
         <section className="mb-8">
           <h2 className="text-xl font-semibold mb-2">Generated Headlines</h2>
@@ -280,7 +284,6 @@ export default function Page() {
         </section>
       )}
 
-      {/* No Colon Headlines */}
       {noColonHeadlines.length > 0 && (
         <section className="mb-8">
           <h2 className="text-xl font-semibold mb-2 text-purple-600">No Colon Headlines</h2>
@@ -318,7 +321,6 @@ export default function Page() {
         </section>
       )}
 
-      {/* Creative Headlines */}
       {creativeHeadlines.length > 0 && (
         <section className="mb-8">
           <h2 className="text-xl font-semibold mb-2 text-indigo-600">Creative Headlines</h2>
