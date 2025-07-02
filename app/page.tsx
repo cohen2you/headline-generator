@@ -54,7 +54,7 @@ export default function Page() {
       });
       if (!res.ok) throw new Error('Failed to generate headlines');
       const data = await res.json();
-      setHeadlines(data.headlines.map(cleanHeadline));
+      setHeadlines(data.headlines.map((hl: string) => cleanHeadline(hl)));
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -80,7 +80,7 @@ export default function Page() {
       });
       if (!res.ok) throw new Error('Failed to generate no colon headlines');
       const data = await res.json();
-      setNoColonHeadlines(data.headlines.map(cleanHeadline));
+      setNoColonHeadlines(data.headlines.map((hl: string) => cleanHeadline(hl)));
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -106,9 +106,11 @@ export default function Page() {
       });
       if (!res.ok) throw new Error('Failed to generate creative headlines');
       const data = await res.json();
-      // Remove quotes for creative headlines
-      const cleaned = data.headlines.map(hl => hl.replace(/^["“”']|["“”']$/g, '').trim());
-      setCreativeHeadlines(cleaned);
+      // Remove quotes specifically for creative headlines
+      const cleaned = data.headlines.map((hl: string) =>
+        hl.replace(/^["“”']|["“”']$/g, '').trim()
+      );
+      setCreativeHeadlines(cleaned.map(cleanHeadline));
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -130,7 +132,7 @@ export default function Page() {
       });
       if (!res.ok) throw new Error('Failed to generate similar headlines');
       const data = await res.json();
-      setSimilarHeadlines(data.similar.map(cleanHeadline));
+      setSimilarHeadlines(data.similar.map((hl: string) => cleanHeadline(hl)));
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -238,6 +240,7 @@ export default function Page() {
 
       {error && <p className="text-red-600 mt-4">{error}</p>}
 
+      {/* Generated Headlines */}
       {headlines.length > 0 && (
         <section className="mb-8">
           <h2 className="text-xl font-semibold mb-2">Generated Headlines</h2>
@@ -275,6 +278,7 @@ export default function Page() {
         </section>
       )}
 
+      {/* No Colon Headlines */}
       {noColonHeadlines.length > 0 && (
         <section className="mb-8">
           <h2 className="text-xl font-semibold mb-2 text-purple-600">No Colon Headlines</h2>
@@ -312,6 +316,7 @@ export default function Page() {
         </section>
       )}
 
+      {/* Creative Headlines */}
       {creativeHeadlines.length > 0 && (
         <section className="mb-8">
           <h2 className="text-xl font-semibold mb-2 text-indigo-600">Creative Headlines</h2>
