@@ -42,6 +42,14 @@ export default function Page() {
   const [copiedSeo, setCopiedSeo] = useState(false);
   const [selectedHeadline, setSelectedHeadline] = useState<string | null>(null);
 
+  // Updated Headline Checker state and loading
+  const [accuracyHeadline, setAccuracyHeadline] = useState('');
+  const [accuracyResult, setAccuracyResult] = useState<{
+    review: string;
+    suggestions: string[];
+  } | null>(null);
+  const [loadingAccuracy, setLoadingAccuracy] = useState(false);
+
   async function generateHeadlines() {
     setError('');
     setLoadingMain(true);
@@ -52,6 +60,7 @@ export default function Page() {
     setPunchyVariants([]);
     setSeoHeadline('');
     setSelectedHeadline(null);
+    setAccuracyResult(null);
     try {
       const res = await fetch('/api/generate/headlines', {
         method: 'POST',
@@ -78,6 +87,7 @@ export default function Page() {
     setPunchyVariants([]);
     setSeoHeadline('');
     setSelectedHeadline(null);
+    setAccuracyResult(null);
     try {
       const res = await fetch('/api/generate/no-colon-headlines', {
         method: 'POST',
@@ -104,6 +114,7 @@ export default function Page() {
     setPunchyVariants([]);
     setSeoHeadline('');
     setSelectedHeadline(null);
+    setAccuracyResult(null);
     try {
       const res = await fetch('/api/generate/creative-headlines', {
         method: 'POST',
@@ -129,6 +140,7 @@ export default function Page() {
     setSimilarHeadlines([]);
     setSeoHeadline('');
     setSelectedHeadline(headline);
+    setAccuracyResult(null);
     try {
       const res = await fetch('/api/generate/similar-headlines', {
         method: 'POST',
@@ -157,7 +169,6 @@ export default function Page() {
       });
       if (!res.ok) throw new Error('Failed to generate punchy variants');
       const data = await res.json();
-      // Remove all exclamation points anywhere for punchy variants
       const cleaned = (data.variants || []).map((hl: string) => cleanHeadline(hl, true));
       setPunchyVariants(cleaned);
     } catch (err) {
@@ -186,6 +197,31 @@ export default function Page() {
       setError((err as Error).message);
     } finally {
       setLoadingSeo(false);
+    }
+  }
+
+  async function checkHeadlineAccuracy() {
+    if (!accuracyHeadline.trim() || !articleText.trim()) {
+      setAccuracyResult(null);
+      setError('Please enter both article text and a headline to check.');
+      return;
+    }
+    setError('');
+    setLoadingAccuracy(true);
+    setAccuracyResult(null);
+    try {
+      const res = await fetch('/api/check-accuracy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ headline: accuracyHeadline, articleText }),
+      });
+      if (!res.ok) throw new Error('Failed to check headline accuracy');
+      const data = await res.json();
+      setAccuracyResult(data);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setLoadingAccuracy(false);
     }
   }
 
@@ -247,6 +283,7 @@ export default function Page() {
 
       {error && <p className="text-red-600 mt-4">{error}</p>}
 
+      {/* Generated Headlines */}
       {headlines.length > 0 && (
         <section className="mb-8">
           <h2 className="text-xl font-semibold mb-2">Generated Headlines</h2>
@@ -284,6 +321,7 @@ export default function Page() {
         </section>
       )}
 
+      {/* No Colon Headlines */}
       {noColonHeadlines.length > 0 && (
         <section className="mb-8">
           <h2 className="text-xl font-semibold mb-2 text-purple-600">No Colon Headlines</h2>
@@ -321,6 +359,7 @@ export default function Page() {
         </section>
       )}
 
+      {/* Creative Headlines */}
       {creativeHeadlines.length > 0 && (
         <section className="mb-8">
           <h2 className="text-xl font-semibold mb-2 text-indigo-600">Creative Headlines</h2>
@@ -400,6 +439,7 @@ export default function Page() {
         </section>
       )}
 
+      {/* SEO Headline Section */}
       {selectedHeadline && (
         <section className="mt-8 p-4 border border-blue-400 rounded-md bg-blue-50 max-w-xl">
           <h2 className="text-lg font-semibold mb-2">SEO Headline for:</h2>
@@ -424,6 +464,44 @@ export default function Page() {
           )}
         </section>
       )}
+
+      {/* Headline Checker Section */}
+      <section className="mt-8 p-4 border border-gray-400 rounded-md max-w-xl">
+        <h2 className="text-lg font-semibold mb-4">Headline Checker</h2>
+        <input
+          type="text"
+          placeholder="Paste or type headline here"
+          value={accuracyHeadline}
+          onChange={(e) => setAccuracyHeadline(e.target.value)}
+          className="w-full p-2 border border-gray-300 rounded mb-3"
+        />
+        <button
+          onClick={checkHeadlineAccuracy}
+          disabled={loadingAccuracy || !accuracyHeadline.trim() || !articleText.trim()}
+          className="bg-blue-600 text-white px-4 py-2 rounded disabled:bg-gray-400"
+        >
+          {loadingAccuracy ? 'Checking...' : 'Check Headline'}
+        </button>
+
+        {accuracyResult && (
+          <div className="mt-4 bg-gray-100 p-3 rounded">
+            <p>
+              <strong>Review:</strong>
+            </p>
+            <p className="mt-1 whitespace-pre-line">{accuracyResult.review}</p>
+            {accuracyResult.suggestions.length > 0 && (
+              <>
+                <p className="mt-3 font-semibold">Suggested Alternative Headlines:</p>
+                <ul className="list-disc list-inside ml-5">
+                  {accuracyResult.suggestions.map((sugg, i) => (
+                    <li key={i}>{sugg}</li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </div>
+        )}
+      </section>
     </main>
   );
 }
