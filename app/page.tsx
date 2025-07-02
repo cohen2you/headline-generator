@@ -152,7 +152,11 @@ export default function Page() {
       });
       if (!res.ok) throw new Error('Failed to generate punchy variants');
       const data = await res.json();
-      setPunchyVariants(data.variants || []);
+      // Clean quotes from punchy variants
+      const cleaned = (data.variants || []).map((hl: string) =>
+        hl.replace(/^["“”']|["“”']$/g, '').trim()
+      );
+      setPunchyVariants(cleaned);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -263,7 +267,7 @@ export default function Page() {
                     disabled={loadingPunchyVariants}
                     className="ml-2 bg-red-500 text-white px-2 py-1 rounded text-sm"
                   >
-                    More Clicky & Punchy
+                    {loadingPunchyVariants ? 'Generating...' : 'More Clicky & Punchy'}
                   </button>
                 </div>
                 <button
@@ -301,7 +305,7 @@ export default function Page() {
                     disabled={loadingPunchyVariants}
                     className="bg-red-500 text-white px-2 py-1 rounded text-sm"
                   >
-                    More Clicky & Punchy
+                    {loadingPunchyVariants ? 'Generating...' : 'More Clicky & Punchy'}
                   </button>
                   <button
                     onClick={() => copyToClipboard(hl, i)}
@@ -339,7 +343,7 @@ export default function Page() {
                     disabled={loadingPunchyVariants}
                     className="bg-red-500 text-white px-2 py-1 rounded text-sm"
                   >
-                    More Clicky & Punchy
+                    {loadingPunchyVariants ? 'Generating...' : 'More Clicky & Punchy'}
                   </button>
                   <button
                     onClick={() => copyToClipboard(hl, i)}
