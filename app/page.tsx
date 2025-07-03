@@ -291,7 +291,7 @@ export default function Page() {
       // Remove markdown H2 syntax (##) from each line starting with it
       const cleanedText = (data.articleWithH2s || '')
         .split('\n')
-        .map(line => line.replace(/^##\s*/, ''))
+        .map((line: string) => line.replace(/^##\s*/, ''))
         .join('\n');
       setArticleWithH2s(cleanedText);
     } catch (error: unknown) {
