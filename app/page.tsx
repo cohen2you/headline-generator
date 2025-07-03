@@ -7,17 +7,16 @@ export default function Page() {
     return str.replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.slice(1));
   }
 
-  // Updated cleanHeadline with optional flag to remove all exclamations anywhere
   function cleanHeadline(text: string, removeAllExclamations = false) {
     let cleaned = text
-      .replace(/^["“”']+|["“”']+$/g, '') // remove quotes at start/end
-      .replace(/\*\*/g, '')               // remove markdown bold
+      .replace(/^["“”']+|["“”']+$/g, '')
+      .replace(/\*\*/g, '')
       .trim();
 
     if (removeAllExclamations) {
-      cleaned = cleaned.replace(/!/g, '');  // remove ALL exclamation marks anywhere
+      cleaned = cleaned.replace(/!/g, '');
     } else {
-      cleaned = cleaned.replace(/!+$/g, ''); // remove trailing exclamation marks only
+      cleaned = cleaned.replace(/!+$/g, '');
     }
 
     return toTitleCase(cleaned);
@@ -75,8 +74,9 @@ export default function Page() {
       if (!res.ok) throw new Error('Failed to generate headlines');
       const data = await res.json();
       setHeadlines(data.headlines.map((hl: string) => cleanHeadline(hl)));
-    } catch (err) {
-      setError((err as Error).message);
+    } catch (error: unknown) {
+      if (error instanceof Error) setError(error.message);
+      else setError(String(error));
     } finally {
       setLoadingMain(false);
     }
@@ -102,8 +102,9 @@ export default function Page() {
       if (!res.ok) throw new Error('Failed to generate no colon headlines');
       const data = await res.json();
       setNoColonHeadlines(data.headlines.map((hl: string) => cleanHeadline(hl)));
-    } catch (err) {
-      setError((err as Error).message);
+    } catch (error: unknown) {
+      if (error instanceof Error) setError(error.message);
+      else setError(String(error));
     } finally {
       setLoadingNoColon(false);
     }
@@ -132,8 +133,9 @@ export default function Page() {
         .map((hl: string) => hl.replace(/^["“”']|["“”']$/g, '').trim())
         .map(cleanHeadline);
       setCreativeHeadlines(cleaned);
-    } catch (err) {
-      setError((err as Error).message);
+    } catch (error: unknown) {
+      if (error instanceof Error) setError(error.message);
+      else setError(String(error));
     } finally {
       setLoadingCreative(false);
     }
@@ -155,8 +157,9 @@ export default function Page() {
       if (!res.ok) throw new Error('Failed to generate similar headlines');
       const data = await res.json();
       setSimilarHeadlines(data.similar.map((hl: string) => cleanHeadline(hl)));
-    } catch (err) {
-      setError((err as Error).message);
+    } catch (error: unknown) {
+      if (error instanceof Error) setError(error.message);
+      else setError(String(error));
     } finally {
       setLoadingSimilar(false);
     }
@@ -176,8 +179,9 @@ export default function Page() {
       const data = await res.json();
       const cleaned = (data.variants || []).map((hl: string) => cleanHeadline(hl, true));
       setPunchyVariants(cleaned);
-    } catch (err) {
-      setError((err as Error).message);
+    } catch (error: unknown) {
+      if (error instanceof Error) setError(error.message);
+      else setError(String(error));
     } finally {
       setLoadingPunchyVariants(false);
     }
@@ -198,8 +202,9 @@ export default function Page() {
       if (!res.ok) throw new Error('Failed to generate SEO headline');
       const data = await res.json();
       setSeoHeadline(cleanHeadline(data.seoHeadline || ''));
-    } catch (err) {
-      setError((err as Error).message);
+    } catch (error: unknown) {
+      if (error instanceof Error) setError(error.message);
+      else setError(String(error));
     } finally {
       setLoadingSeo(false);
     }
@@ -223,14 +228,14 @@ export default function Page() {
       if (!res.ok) throw new Error('Failed to check headline accuracy');
       const data = await res.json();
       setAccuracyResult(data);
-    } catch (err) {
-      setError((err as Error).message);
+    } catch (error: unknown) {
+      if (error instanceof Error) setError(error.message);
+      else setError(String(error));
     } finally {
       setLoadingAccuracy(false);
     }
   }
 
-  // Lead generator function
   async function generateLead(style: string) {
     if (!articleText.trim()) {
       setLeadError('Please enter article text first.');
@@ -248,8 +253,9 @@ export default function Page() {
       if (!res.ok) throw new Error('Failed to generate lead');
       const data = await res.json();
       setLead(data.lead);
-    } catch (error: any) {
-      setLeadError(error.message);
+    } catch (error: unknown) {
+      if (error instanceof Error) setLeadError(error.message);
+      else setLeadError(String(error));
     } finally {
       setLeadLoading(false);
     }
@@ -450,7 +456,6 @@ export default function Page() {
         </section>
       )}
 
-      {/* Punchy Variants */}
       {punchyVariants.length > 0 && (
         <section className="mt-6">
           <h2 className="text-xl font-semibold mb-2 text-red-700">Punchy Variants</h2>
