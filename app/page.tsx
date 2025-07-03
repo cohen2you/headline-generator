@@ -282,10 +282,9 @@ export default function Page() {
       });
       if (!res.ok) throw new Error('Failed to generate H2 headings');
       const data = await res.json();
-      // Remove markdown H2 syntax (##) from each line starting with it
       const cleanedText = (data.articleWithH2s || '')
         .split('\n')
-        .map(line => line.replace(/^##\s*/, ''))
+        .map((line: string) => line.replace(/^##\s*/, ''))
         .join('\n');
       setArticleWithH2s(cleanedText);
     } catch (error: unknown) {
@@ -294,7 +293,7 @@ export default function Page() {
     } finally {
       setLoadingH2s(false);
     }
-  }
+  }  
   
 
   function copyToClipboard(text: string, index: number, isSimilar = false) {
