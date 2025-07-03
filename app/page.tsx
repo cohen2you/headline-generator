@@ -54,6 +54,11 @@ export default function Page() {
   const [leadLoading, setLeadLoading] = useState(false);
   const [leadError, setLeadError] = useState('');
 
+  // H2 Generator state & loading
+  const [articleWithH2s, setArticleWithH2s] = useState('');
+  const [loadingH2s, setLoadingH2s] = useState(false);
+  const [h2Error, setH2Error] = useState('');
+
   async function generateHeadlines() {
     setError('');
     setLoadingMain(true);
@@ -260,6 +265,37 @@ export default function Page() {
       setLeadLoading(false);
     }
   }
+
+  async function generateH2s() {
+    if (!articleText.trim()) {
+      setH2Error('Please enter article text first.');
+      return;
+    }
+    setArticleWithH2s('');
+    setH2Error('');
+    setLoadingH2s(true);
+    try {
+      const res = await fetch('/api/generate/h2s', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ articleText }),
+      });
+      if (!res.ok) throw new Error('Failed to generate H2 headings');
+      const data = await res.json();
+      // Remove markdown H2 syntax (##) from each line starting with it
+      const cleanedText = (data.articleWithH2s || '')
+        .split('\n')
+        .map(line => line.replace(/^##\s*/, ''))
+        .join('\n');
+      setArticleWithH2s(cleanedText);
+    } catch (error: unknown) {
+      if (error instanceof Error) setH2Error(error.message);
+      else setH2Error(String(error));
+    } finally {
+      setLoadingH2s(false);
+    }
+  }
+  
 
   function copyToClipboard(text: string, index: number, isSimilar = false) {
     navigator.clipboard.writeText(text);
@@ -578,6 +614,38 @@ export default function Page() {
               className="bg-green-700 text-white px-4 py-2 rounded"
             >
               Copy Lead
+            </button>
+          </>
+        )}
+      </section>
+
+      {/* H2 Generator Section */}
+      <section className="mt-8 p-4 border border-indigo-600 rounded-md max-w-4xl mx-auto">
+        <h2 className="text-lg font-semibold mb-4 text-indigo-700">H2 Generator</h2>
+        <button
+          onClick={generateH2s}
+          disabled={loadingH2s || !articleText.trim()}
+          className="bg-indigo-600 text-white px-4 py-2 rounded disabled:bg-indigo-300 mb-4"
+        >
+          {loadingH2s ? 'Generating H2 Headings...' : 'Generate H2 Headings'}
+        </button>
+        {h2Error && <p className="text-red-600 mb-4">{h2Error}</p>}
+        {articleWithH2s && (
+          <>
+            <textarea
+              readOnly
+              value={articleWithH2s}
+              rows={16}
+              className="w-full p-3 border border-indigo-400 rounded resize-none font-mono text-sm mb-2"
+            />
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(articleWithH2s);
+                alert('Article with H2s copied to clipboard!');
+              }}
+              className="bg-indigo-700 text-white px-4 py-2 rounded"
+            >
+              Copy Article with H2s
             </button>
           </>
         )}
