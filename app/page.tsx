@@ -59,6 +59,12 @@ export default function Page() {
   const [loadingH2s, setLoadingH2s] = useState(false);
   const [h2Error, setH2Error] = useState('');
 
+  // Price Action Generator state
+  const [tickers, setTickers] = useState('');
+  const [priceActions, setPriceActions] = useState<string[]>([]);
+  const [loadingPriceAction, setLoadingPriceAction] = useState(false);
+  const [priceActionError, setPriceActionError] = useState('');
+
   async function generateHeadlines() {
     setError('');
     setLoadingMain(true);
@@ -282,9 +288,10 @@ export default function Page() {
       });
       if (!res.ok) throw new Error('Failed to generate H2 headings');
       const data = await res.json();
+      // Remove markdown H2 syntax (##) from each line starting with it
       const cleanedText = (data.articleWithH2s || '')
         .split('\n')
-        .map((line: string) => line.replace(/^##\s*/, ''))
+        .map(line => line.replace(/^##\s*/, ''))
         .join('\n');
       setArticleWithH2s(cleanedText);
     } catch (error: unknown) {
@@ -292,6 +299,33 @@ export default function Page() {
       else setH2Error(String(error));
     } finally {
       setLoadingH2s(false);
+    }
+  }
+
+  async function generatePriceAction() {
+    setPriceActionError('');
+    setLoadingPriceAction(true);
+    setPriceActions([]);
+    try {
+      const res = await fetch('/api/generate/price-action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tickers }),
+      });
+      if (!res.ok) throw new Error('Failed to fetch price action');
+      const data = await res.json();
+      if (data.error) {
+        setPriceActionError(data.error);
+      } else if (Array.isArray(data.priceActions)) {
+        setPriceActions(data.priceActions);
+      } else {
+        setPriceActionError('Invalid response format');
+      }
+    } catch (error: unknown) {
+      if (error instanceof Error) setPriceActionError(error.message);
+      else setPriceActionError(String(error));
+    } finally {
+      setLoadingPriceAction(false);
     }
   }
 
@@ -614,6 +648,61 @@ export default function Page() {
               Copy Lead
             </button>
           </>
+        )}
+      </section>
+
+      {/* Price Action Generator Section */}
+      <section className="mt-8 p-4 border border-yellow-600 rounded-md max-w-4xl mx-auto">
+        <h2 className="text-lg font-semibold mb-4 text-yellow-700">Price Action Generator</h2>
+        <input
+          type="text"
+          placeholder="Enter ticker(s), comma separated (e.g., AAPL, MSFT)"
+          value={tickers}
+          onChange={(e) => setTickers(e.target.value.toUpperCase())}
+          className="w-full p-2 border border-yellow-400 rounded mb-4"
+        />
+        <button
+          onClick={generatePriceAction}
+          disabled={loadingPriceAction || !tickers.trim()}
+          className="bg-yellow-600 text-white px-4 py-2 rounded disabled:bg-yellow-300 mb-4"
+        >
+          {loadingPriceAction ? 'Generating Price Action...' : 'Generate Price Action'}
+        </button>
+        {priceActionError && <p className="text-red-600 mb-4">{priceActionError}</p>}
+
+        {priceActions.length > 0 && (
+          <ul className="space-y-2 font-mono text-sm">
+            {priceActions.map((line, i) => {
+              const phrase = ' according to Benzinga Pro';
+              const hasPhrase = line.includes(phrase);
+
+              if (!hasPhrase) return <li key={i}>{line}</li>;
+
+              const [before, after] = line.split(phrase);
+              const afterClean = after.startsWith('.') ? after.substring(1) : after;
+
+              // Extract and bold "SYMBOL Price Action:"
+              const colonIndex = before.indexOf(':');
+              const boldPart = colonIndex !== -1 ? before.slice(0, colonIndex + 1) : '';
+              const restPart = colonIndex !== -1 ? before.slice(colonIndex + 1) : before;
+
+              return (
+                <li key={i} className="break-words">
+                  <strong>{boldPart} </strong>
+                  {restPart}
+                  <a
+                    href="https://www.benzinga.com/pro/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-yellow-700 underline hover:text-yellow-900"
+                  >
+                    according to Benzinga Pro
+                  </a>
+                  {afterClean}
+                </li>
+              );
+            })}
+          </ul>
         )}
       </section>
 
