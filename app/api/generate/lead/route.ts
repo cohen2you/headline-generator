@@ -61,7 +61,7 @@ Lead paragraph:
       temperature: 0.7,
     });
 
-    const lead = completion.choices[0].message?.content.trim() || '';
+    const lead = completion.choices[0].message?.content?.trim() ?? '';
 
     return NextResponse.json({ lead });
   } catch (error) {
