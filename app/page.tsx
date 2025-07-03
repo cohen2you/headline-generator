@@ -42,13 +42,18 @@ export default function Page() {
   const [copiedSeo, setCopiedSeo] = useState(false);
   const [selectedHeadline, setSelectedHeadline] = useState<string | null>(null);
 
-  // Updated Headline Checker state and loading
+  // Headline Checker state and loading
   const [accuracyHeadline, setAccuracyHeadline] = useState('');
   const [accuracyResult, setAccuracyResult] = useState<{
     review: string;
     suggestions: string[];
   } | null>(null);
   const [loadingAccuracy, setLoadingAccuracy] = useState(false);
+
+  // Lead Generator state & loading
+  const [lead, setLead] = useState('');
+  const [leadLoading, setLeadLoading] = useState(false);
+  const [leadError, setLeadError] = useState('');
 
   async function generateHeadlines() {
     setError('');
@@ -222,6 +227,31 @@ export default function Page() {
       setError((err as Error).message);
     } finally {
       setLoadingAccuracy(false);
+    }
+  }
+
+  // Lead generator function
+  async function generateLead(style: string) {
+    if (!articleText.trim()) {
+      setLeadError('Please enter article text first.');
+      return;
+    }
+    setLead('');
+    setLeadError('');
+    setLeadLoading(true);
+    try {
+      const res = await fetch('/api/generate/lead', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ articleText, style }),
+      });
+      if (!res.ok) throw new Error('Failed to generate lead');
+      const data = await res.json();
+      setLead(data.lead);
+    } catch (error: any) {
+      setLeadError(error.message);
+    } finally {
+      setLeadLoading(false);
     }
   }
 
@@ -420,6 +450,7 @@ export default function Page() {
         </section>
       )}
 
+      {/* Punchy Variants */}
       {punchyVariants.length > 0 && (
         <section className="mt-6">
           <h2 className="text-xl font-semibold mb-2 text-red-700">Punchy Variants</h2>
@@ -500,6 +531,50 @@ export default function Page() {
               </>
             )}
           </div>
+        )}
+      </section>
+
+      {/* Lead Generator Section */}
+      <section className="mt-8 p-4 border border-green-500 rounded-md max-w-4xl mx-auto">
+        <h2 className="text-lg font-semibold mb-4 text-green-700">Lead Generator</h2>
+        <div className="flex flex-wrap gap-2 mb-4">
+          <button
+            onClick={() => generateLead('normal')}
+            disabled={leadLoading}
+            className="bg-green-600 text-white px-4 py-2 rounded disabled:bg-green-300"
+          >
+            {leadLoading ? 'Generating...' : 'Generate'}
+          </button>
+          {['longer', 'shorter', 'more narrative', 'more context'].map((style) => (
+            <button
+              key={style}
+              onClick={() => generateLead(style)}
+              disabled={leadLoading || !lead}
+              className="bg-green-600 text-white px-4 py-2 rounded disabled:bg-green-300"
+            >
+              {leadLoading ? 'Generating...' : style.charAt(0).toUpperCase() + style.slice(1)}
+            </button>
+          ))}
+        </div>
+        {leadError && <p className="text-red-600 mb-4">{leadError}</p>}
+        {lead && (
+          <>
+            <textarea
+              readOnly
+              value={lead}
+              rows={12}
+              className="w-full p-3 border border-green-400 rounded resize-none font-mono mb-2 text-sm"
+            />
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(lead);
+                alert('Lead copied to clipboard!');
+              }}
+              className="bg-green-700 text-white px-4 py-2 rounded"
+            >
+              Copy Lead
+            </button>
+          </>
         )}
       </section>
     </main>
