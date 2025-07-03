@@ -38,14 +38,17 @@ export async function POST(request: Request) {
 
       const symbol = q.symbol ?? 'UNKNOWN';
       const companyName = q.name ?? symbol;
-      const changePercent = q.changePercent?.toFixed(2) ?? '0.00';
+      const changePercent = typeof q.changePercent === 'number' ? q.changePercent : 0;
       const lastPrice = q.lastTradePrice?.toFixed(2) ?? '0.00';
+
+      const upDown = changePercent > 0 ? 'up' : changePercent < 0 ? 'down' : 'unchanged';
+      const absChange = Math.abs(changePercent).toFixed(2);
 
       // Format day of week from closeDate if available, else today
       const date = q.closeDate ? new Date(q.closeDate) : new Date();
       const dayOfWeek = date.toLocaleDateString('en-US', { weekday: 'long' });
 
-      return `${symbol} Price Action: ${companyName} shares were ${changePercent}% at $${lastPrice} at the time of publication ${dayOfWeek}, according to Benzinga Pro.`;
+      return `${symbol} Price Action: ${companyName} shares were ${upDown} ${absChange}% at $${lastPrice} at the time of publication ${dayOfWeek}, according to Benzinga Pro.`;
     });
 
     return NextResponse.json({ priceActions });
