@@ -9,7 +9,7 @@ export default function Page() {
 
   function cleanHeadline(text: string, removeAllExclamations = false) {
     let cleaned = text
-      .replace(/^["“”']+|["“”']+$/g, '')
+    .replace(/^\["“”']+|["“”']+$/g, '')
       .replace(/\*\*/g, '')
       .trim();
 
