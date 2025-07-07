@@ -1,3 +1,5 @@
+// Full updated page.tsx file
+/* eslint-disable @typescript-eslint/no-explicit-any, react/jsx-no-comment-textnodes */
 'use client';
 
 import React, { useState } from 'react';
@@ -9,7 +11,7 @@ export default function Page() {
 
   function cleanHeadline(text: string, removeAllExclamations = false) {
     let cleaned = text
-    .replace(/^\["“”']+|["“”']+$/g, '')
+      .replace(/^["“”']+|["“”']+$/g, '')
       .replace(/\*\*/g, '')
       .trim();
 
@@ -40,7 +42,6 @@ export default function Page() {
   const [copiedSimilarIndex, setCopiedSimilarIndex] = useState<number | null>(null);
   const [copiedSeo, setCopiedSeo] = useState(false);
   const [selectedHeadline, setSelectedHeadline] = useState<string | null>(null);
-
   // Headline Checker state and loading
   const [accuracyHeadline, setAccuracyHeadline] = useState('');
   const [accuracyResult, setAccuracyResult] = useState<{
@@ -59,12 +60,18 @@ export default function Page() {
   const [loadingH2s, setLoadingH2s] = useState(false);
   const [h2Error, setH2Error] = useState('');
 
+  // Analyst Ratings state
+// Analyst Ratings state
+const [analystTicker, setAnalystTicker] = useState<string>('');
+const [analystParagraph, setAnalystParagraph] = useState<string>('');
+const [loadingRatings,   setLoadingRatings]   = useState<boolean>(false);
+const [ratingsError,     setRatingsError]     = useState<string>('');
+
   // Price Action Generator state
   const [tickers, setTickers] = useState('');
   const [priceActions, setPriceActions] = useState<string[]>([]);
   const [loadingPriceAction, setLoadingPriceAction] = useState(false);
   const [priceActionError, setPriceActionError] = useState('');
-
   async function generateHeadlines() {
     setError('');
     setLoadingMain(true);
@@ -151,7 +158,6 @@ export default function Page() {
       setLoadingCreative(false);
     }
   }
-
   async function generateSimilar(headline: string) {
     setError('');
     setLoadingSimilar(true);
@@ -246,7 +252,6 @@ export default function Page() {
       setLoadingAccuracy(false);
     }
   }
-
   async function generateLead(style: string) {
     if (!articleText.trim()) {
       setLeadError('Please enter article text first.');
@@ -288,7 +293,6 @@ export default function Page() {
       });
       if (!res.ok) throw new Error('Failed to generate H2 headings');
       const data = await res.json();
-      // Remove markdown H2 syntax (##) from each line starting with it
       const cleanedText = (data.articleWithH2s || '')
         .split('\n')
         .map((line: string) => line.replace(/^##\s*/, ''))
@@ -302,6 +306,34 @@ export default function Page() {
     }
   }
 
+  async function fetchAnalystRatings() {
+    console.log('▶️ fetchAnalystRatings() called with', analystTicker);
+    setLoadingRatings(true);
+    setRatingsError('');
+    setAnalystParagraph('');        // clear out old text
+    
+    try {
+      const res = await fetch('/api/generate/analyst-ratings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ticker: analystTicker.trim().toUpperCase() }),
+      });
+      const data = await res.json();
+      console.log('◀️ /api/generate/analyst-ratings response:', data);
+      if (data.error) {
+        setRatingsError(data.error);
+      } else {
+        setAnalystParagraph(data.paragraph);
+      }
+    } catch (err) {
+      console.error('💥 fetchAnalystRatings error', err);
+      setRatingsError((err as Error).message);
+    } finally {
+      setLoadingRatings(false);
+    }
+  }
+   
+    
   async function generatePriceAction() {
     setPriceActionError('');
     setLoadingPriceAction(true);
@@ -346,7 +378,6 @@ export default function Page() {
     setCopiedSeo(true);
     setTimeout(() => setCopiedSeo(false), 2000);
   }
-
   return (
     <main className="max-w-3xl mx-auto p-6">
       <h1 className="text-3xl font-bold mb-6">Headline Generator</h1>
@@ -424,7 +455,6 @@ export default function Page() {
           </ul>
         </section>
       )}
-
       {/* No Colon Headlines */}
       {noColonHeadlines.length > 0 && (
         <section className="mb-8">
@@ -542,7 +572,6 @@ export default function Page() {
           </ul>
         </section>
       )}
-
       {/* SEO Headline Section */}
       {selectedHeadline && (
         <section className="mt-8 p-4 border border-blue-400 rounded-md bg-blue-50 max-w-xl">
@@ -651,6 +680,33 @@ export default function Page() {
         )}
       </section>
 
+
+{/* Analyst Ratings Section */}
+<section className="mt-8 p-4 border border-sky-600 rounded-md max-w-4xl mx-auto">
+  <h2 className="text-lg font-semibold mb-4 text-sky-700">Analyst Ratings</h2>
+  <input
+    type="text"
+    placeholder="Enter ticker (e.g., TSLA)"
+    value={analystTicker}
+    onChange={(e) => setAnalystTicker(e.target.value.toUpperCase())}
+    className="w-full p-2 border border-sky-400 rounded mb-4"
+  />
+  <button
+    onClick={fetchAnalystRatings}
+    disabled={loadingRatings || !analystTicker.trim()}
+    className="bg-sky-600 text-white px-4 py-2 rounded disabled:bg-sky-300 mb-4"
+  >
+    {loadingRatings ? 'Loading Ratings...' : 'Get Analyst Ratings'}
+  </button>
+  {ratingsError && <p className="text-red-600 mb-4">{ratingsError}</p>}
+  {analystParagraph && (
+    <p className="bg-sky-50 border border-sky-200 p-3 rounded text-sm">
+      {analystParagraph}
+    </p>
+  )}
+</section>
+
+
       {/* Price Action Generator Section */}
       <section className="mt-8 p-4 border border-yellow-600 rounded-md max-w-4xl mx-auto">
         <h2 className="text-lg font-semibold mb-4 text-yellow-700">Price Action Generator</h2>
@@ -705,7 +761,6 @@ export default function Page() {
           </ul>
         )}
       </section>
-
       {/* H2 Generator Section */}
       <section className="mt-8 p-4 border border-indigo-600 rounded-md max-w-4xl mx-auto">
         <h2 className="text-lg font-semibold mb-4 text-indigo-700">H2 Generator</h2>
