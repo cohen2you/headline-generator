@@ -94,7 +94,7 @@ export async function POST(request: Request) {
 
     const paragraph = completion.choices?.[0]?.message?.content.trim() || '';
     return NextResponse.json({ paragraph });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('Error in /api/generate/analyst-ratings:', err);
     return NextResponse.json(
       { paragraph: '', error: err.message || 'Failed to generate summary.' },
