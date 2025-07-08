@@ -36,8 +36,8 @@ async function fetchAnalystRatings(ticker: string): Promise<AnalystRating[]> {
   }
 
   const ratingsArray: AnalystRating[] = Array.isArray(parsed)
-    ? parsed as AnalystRating[]
-    : (parsed as { ratings?: AnalystRating[] }).ratings ?? [];
+    ? (parsed as AnalystRating[])
+    : ((parsed as { ratings?: AnalystRating[] }).ratings ?? []);
 
   return ratingsArray;
 }
@@ -65,7 +65,7 @@ function formatRatingsBlock(ratings: AnalystRating[]): string {
 
 export async function POST(request: Request) {
   try {
-    const { ticker } = await request.json() as { ticker?: string };
+    const { ticker } = (await request.json()) as { ticker?: string };
     const symbol = (ticker ?? '').trim().toUpperCase();
     if (!symbol) {
       return NextResponse.json({ paragraph: '', error: 'Ticker parameter is required.' }, { status: 400 });
@@ -76,7 +76,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ paragraph: `No recent analyst ratings found for ${symbol}.` });
     }
 
-    // Prepare block for AI
     const block = formatRatingsBlock(ratings);
     const prompt = `Here are the five most recent analyst actions for ${symbol}:\n${block}\n\n` +
       `Write a concise two-paragraph summary: first highlighting the overall trend, then listing each action in a reader-friendly flow.`;
@@ -92,12 +91,13 @@ export async function POST(request: Request) {
       max_tokens: 300
     });
 
-    const paragraph = completion.choices?.[0]?.message?.content.trim() || '';
+    const paragraph = completion.choices?.[0]?.message?.content?.trim() ?? '';
     return NextResponse.json({ paragraph });
   } catch (err: unknown) {
     console.error('Error in /api/generate/analyst-ratings:', err);
+    const message = err instanceof Error ? err.message : String(err);
     return NextResponse.json(
-      { paragraph: '', error: err.message || 'Failed to generate summary.' },
+      { paragraph: '', error: message },
       { status: 500 }
     );
   }
