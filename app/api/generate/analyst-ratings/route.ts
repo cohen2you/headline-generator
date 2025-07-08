@@ -1,172 +1,103 @@
 import { NextResponse } from 'next/server';
+import { OpenAI } from 'openai';
 
 interface AnalystRating {
   ticker: string;
   analyst: string;
-  action_company: string;   // e.g. "Upgrades", "Maintains", "Reiterates", "Downgrades"
+  action_company: string;
+  action_pt?: string;
   rating_current: string;
   rating_prior?: string;
-  date: string;             // ISO date string
+  date: string;
   pt_current?: string;
   pt_prior?: string;
 }
 
-// Converts "Upgrades" → "upgraded", "Maintains" → "maintained", etc.
-function toPastTense(verb: string) {
-  const stem = verb.endsWith('s') ? verb.slice(0, -1) : verb;
-  return stem.toLowerCase() + (stem.endsWith('e') ? 'd' : 'ed');
-}
+async function fetchAnalystRatings(ticker: string): Promise<AnalystRating[]> {
+  const url = 'https://api.benzinga.com/api/v2.1/calendar/ratings' +
+    `?token=${process.env.BENZINGA_API_KEY}` +
+    `&parameters[tickers]=${encodeURIComponent(ticker)}` +
+    `&parameters[range]=6m`;
 
-async function handleRatingsFetch(ticker: string): Promise<string> {
-  const base       = 'https://api.benzinga.com/api/v2.1/calendar/ratings';
-  const tokenParam = `token=${process.env.BENZINGA_API_KEY}`;
-  const url        = `${base}?${tokenParam}&parameters[tickers]=${encodeURIComponent(
-    ticker
-  )}&parameters[range]=6m`;
-
-  const response = await fetch(url, { headers: { accept: 'application/json' } });
-  const raw      = await response.text();
-  if (!response.ok) {
-    throw new Error(`Benzinga API error: ${raw}`);
+  const res = await fetch(url, { headers: { accept: 'application/json' } });
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(
+      `Benzinga API error ${res.status} ${res.statusText}: ${body || '<no body>'}`
+    );
   }
 
-  const trimmed = raw.trim();
-  if (!trimmed || trimmed.startsWith('<')) {
-    return '';
-  }
-
+  const raw = await res.text();
   let parsed: unknown;
   try {
-    parsed = JSON.parse(trimmed);
+    parsed = JSON.parse(raw.trim());
   } catch {
     throw new Error('Invalid JSON from Benzinga');
   }
 
   const ratingsArray: AnalystRating[] = Array.isArray(parsed)
-    ? (parsed as AnalystRating[])
+    ? parsed as AnalystRating[]
     : (parsed as { ratings?: AnalystRating[] }).ratings ?? [];
 
-  if (ratingsArray.length === 0) {
-    return `No recent analyst ratings found for ${ticker}.`;
-  }
-
-  // Sort descending by date and take the top 5
-  ratingsArray.sort((a, b) => Date.parse(b.date) - Date.parse(a.date));
-  const topFive = ratingsArray.slice(0, 5);
-
-  const formatDate = (d: string) =>
-    new Date(d).toLocaleDateString('en-US', {
-      month: 'long',
-      day: 'numeric',
-      timeZone: 'UTC',
-    });
-
-  let upgradeCount   = 0;
-  let downgradeCount = 0;
-  const sentences: string[] = [];
-
-  topFive.forEach(r => {
-    const dateStr = formatDate(r.date);
-    const action  = toPastTense(r.action_company);
-
-    if (action === 'upgraded')   upgradeCount++;
-    if (action === 'downgraded') downgradeCount++;
-
-    let sentence = `On ${dateStr}, ${r.analyst} ${action} ${ticker} to ${r.rating_current}`;
-    if (r.rating_prior && r.rating_prior !== r.rating_current) {
-      sentence += ` (from ${r.rating_prior})`;
-    }
-
-    if (r.pt_current) {
-      const currNum  = parseFloat(r.pt_current);
-      const currFmt  = currNum.toFixed(2);
-      sentence += ` and set a $${currFmt} target`;
-
-      if (r.pt_prior) {
-        const priorNum = parseFloat(r.pt_prior);
-        if (!isNaN(priorNum) && priorNum !== currNum) {
-          const priorFmt = priorNum.toFixed(2);
-          const direction = currNum > priorNum
-            ? 'up from'
-            : 'down from';
-          sentence += ` (${direction} $${priorFmt})`;
-        }
-      }
-    }
-
-    sentences.push(sentence + '.');
-  });
-
-  // First paragraph: enhanced big-picture takeaway
-  const upgradesText   = upgradeCount > 0   ? `${upgradeCount} upgrade${upgradeCount > 1 ? 's' : ''}`   : 'no upgrades';
-  const downgradesText = downgradeCount > 0 ? `${downgradeCount} downgrade${downgradeCount > 1 ? 's' : ''}` : 'no downgrades';
-
-  const trendSentence =
-    `In the past six months, analysts have shown a notably positive tilt, registering ${upgradesText} and ${downgradesText} among the five most recent actions. This suggests a gradual shift toward bullish sentiment on ${ticker}, even as a few remain cautious.`;
-
-  // Second paragraph: detailed chronology
-  const detailParagraph = sentences.join(' ');
-
-  return `${trendSentence}\n\n${detailParagraph}`;
+  return ratingsArray;
 }
 
-export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const ticker = (searchParams.get('ticker') ?? '').trim().toUpperCase();
-  const debug  = searchParams.get('debug') === 'true';
-
-  if (!ticker) {
-    return NextResponse.json(
-      { paragraph: '', error: 'Ticker parameter is required.' },
-      { status: 400 }
-    );
-  }
-
-  try {
-    if (debug) {
-      // Return raw JSON for inspection
-      const base       = 'https://api.benzinga.com/api/v2.1/calendar/ratings';
-      const tokenParam = `token=${process.env.BENZINGA_API_KEY}`;
-      const url        = `${base}?${tokenParam}&parameters[tickers]=${encodeURIComponent(
-        ticker
-      )}&parameters[range]=6m`;
-
-      const res       = await fetch(url, { headers: { accept: 'application/json' } });
-      const text      = await res.text();
-      const parsedAll = JSON.parse(text.trim());
-      return NextResponse.json(parsedAll);
-    }
-
-    // Otherwise, return the narrative paragraph
-    const paragraph = await handleRatingsFetch(ticker);
-    return NextResponse.json({ paragraph });
-  } catch (err) {
-    console.error(err);
-    return NextResponse.json(
-      { paragraph: '', error: (err as Error).message },
-      { status: 500 }
-    );
-  }
+function formatRatingsBlock(ratings: AnalystRating[]): string {
+  return ratings
+    .sort((a, b) => Date.parse(b.date) - Date.parse(a.date))
+    .slice(0, 5)
+    .map(r => {
+      const date = new Date(r.date).toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+      let line = `${date}: ${r.analyst} rated ${r.ticker} ${r.action_company} ${r.rating_current}`;
+      if (r.rating_prior && r.rating_prior !== r.rating_current) {
+        line += ` (prior ${r.rating_prior})`;
+      }
+      if (r.pt_current) {
+        line += ` and set a $${parseFloat(r.pt_current).toFixed(2)} target`;
+        if (r.pt_prior && parseFloat(r.pt_prior) !== parseFloat(r.pt_current)) {
+          line += ` (prior $${parseFloat(r.pt_prior).toFixed(2)})`;
+        }
+      }
+      return line;
+    })
+    .join('\n');
 }
 
 export async function POST(request: Request) {
-  const body = (await request.json()) as { ticker?: string };
-  const sym  = (body.ticker ?? '').trim().toUpperCase();
-
-  if (!sym) {
-    return NextResponse.json(
-      { paragraph: '', error: 'Ticker is required.' },
-      { status: 400 }
-    );
-  }
-
   try {
-    const paragraph = await handleRatingsFetch(sym);
+    const { ticker } = await request.json() as { ticker?: string };
+    const symbol = (ticker ?? '').trim().toUpperCase();
+    if (!symbol) {
+      return NextResponse.json({ paragraph: '', error: 'Ticker parameter is required.' }, { status: 400 });
+    }
+
+    const ratings = await fetchAnalystRatings(symbol);
+    if (ratings.length === 0) {
+      return NextResponse.json({ paragraph: `No recent analyst ratings found for ${symbol}.` });
+    }
+
+    // Prepare block for AI
+    const block = formatRatingsBlock(ratings);
+    const prompt = `Here are the five most recent analyst actions for ${symbol}:\n${block}\n\n` +
+      `Write a concise two-paragraph summary: first highlighting the overall trend, then listing each action in a reader-friendly flow.`;
+
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4',
+      messages: [
+        { role: 'system', content: 'You are a financial news writer.' },
+        { role: 'user', content: prompt }
+      ],
+      temperature: 0.7,
+      max_tokens: 300
+    });
+
+    const paragraph = completion.choices?.[0]?.message?.content.trim() || '';
     return NextResponse.json({ paragraph });
-  } catch (err) {
-    console.error(err);
+  } catch (err: any) {
+    console.error('Error in /api/generate/analyst-ratings:', err);
     return NextResponse.json(
-      { paragraph: '', error: (err as Error).message },
+      { paragraph: '', error: err.message || 'Failed to generate summary.' },
       { status: 500 }
     );
   }
