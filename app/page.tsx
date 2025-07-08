@@ -729,7 +729,7 @@ const [ratingsError,     setRatingsError]     = useState<string>('');
         {priceActions.length > 0 && (
           <ul className="space-y-2 font-mono text-sm">
             {priceActions.map((line, i) => {
-              const phrase = ' according to Benzinga Pro';
+              const phrase = '  according to Benzinga Pro.';
               const hasPhrase = line.includes(phrase);
 
               if (!hasPhrase) return <li key={i}>{line}</li>;

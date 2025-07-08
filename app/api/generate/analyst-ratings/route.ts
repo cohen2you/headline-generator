@@ -18,14 +18,14 @@ function toPastTense(verb: string) {
 }
 
 async function handleRatingsFetch(ticker: string): Promise<string> {
-  const base = 'https://api.benzinga.com/api/v2.1/calendar/ratings';
+  const base       = 'https://api.benzinga.com/api/v2.1/calendar/ratings';
   const tokenParam = `token=${process.env.BENZINGA_API_KEY}`;
-  const url = `${base}?${tokenParam}&parameters[tickers]=${encodeURIComponent(
+  const url        = `${base}?${tokenParam}&parameters[tickers]=${encodeURIComponent(
     ticker
   )}&parameters[range]=6m`;
 
   const response = await fetch(url, { headers: { accept: 'application/json' } });
-  const raw = await response.text();
+  const raw      = await response.text();
   if (!response.ok) {
     throw new Error(`Benzinga API error: ${raw}`);
   }
@@ -61,14 +61,15 @@ async function handleRatingsFetch(ticker: string): Promise<string> {
       timeZone: 'UTC',
     });
 
-  let upgradeCount = 0,
-      downgradeCount = 0;
+  let upgradeCount   = 0;
+  let downgradeCount = 0;
   const sentences: string[] = [];
 
   topFive.forEach(r => {
     const dateStr = formatDate(r.date);
-    const action = toPastTense(r.action_company);
-    if (action === 'upgraded') upgradeCount++;
+    const action  = toPastTense(r.action_company);
+
+    if (action === 'upgraded')   upgradeCount++;
     if (action === 'downgraded') downgradeCount++;
 
     let sentence = `On ${dateStr}, ${r.analyst} ${action} ${ticker} to ${r.rating_current}`;
@@ -77,13 +78,18 @@ async function handleRatingsFetch(ticker: string): Promise<string> {
     }
 
     if (r.pt_current) {
-      const curr = parseFloat(r.pt_current).toFixed(2);
-      sentence += ` and set a $${curr} target`;
+      const currNum  = parseFloat(r.pt_current);
+      const currFmt  = currNum.toFixed(2);
+      sentence += ` and set a $${currFmt} target`;
+
       if (r.pt_prior) {
         const priorNum = parseFloat(r.pt_prior);
-        const currNum  = parseFloat(r.pt_current);
         if (!isNaN(priorNum) && priorNum !== currNum) {
-          sentence += ` (up from $${priorNum.toFixed(2)})`;
+          const priorFmt = priorNum.toFixed(2);
+          const direction = currNum > priorNum
+            ? 'up from'
+            : 'down from';
+          sentence += ` (${direction} $${priorFmt})`;
         }
       }
     }
@@ -92,10 +98,11 @@ async function handleRatingsFetch(ticker: string): Promise<string> {
   });
 
   // First paragraph: enhanced big-picture takeaway
-  const upgradesText = upgradeCount > 0 ? `${upgradeCount} upgrade${upgradeCount > 1 ? 's' : ''}` : 'no upgrades';
+  const upgradesText   = upgradeCount > 0   ? `${upgradeCount} upgrade${upgradeCount > 1 ? 's' : ''}`   : 'no upgrades';
   const downgradesText = downgradeCount > 0 ? `${downgradeCount} downgrade${downgradeCount > 1 ? 's' : ''}` : 'no downgrades';
 
-  const trendSentence = `In the past six months, analysts have shown a notably positive tilt, registering ${upgradesText} and ${downgradesText} among the five most recent actions. This suggests a gradual shift toward bullish sentiment on ${ticker}, even as a few remain cautious.`;
+  const trendSentence =
+    `In the past six months, analysts have shown a notably positive tilt, registering ${upgradesText} and ${downgradesText} among the five most recent actions. This suggests a gradual shift toward bullish sentiment on ${ticker}, even as a few remain cautious.`;
 
   // Second paragraph: detailed chronology
   const detailParagraph = sentences.join(' ');
@@ -106,13 +113,31 @@ async function handleRatingsFetch(ticker: string): Promise<string> {
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const ticker = (searchParams.get('ticker') ?? '').trim().toUpperCase();
+  const debug  = searchParams.get('debug') === 'true';
+
   if (!ticker) {
     return NextResponse.json(
       { paragraph: '', error: 'Ticker parameter is required.' },
       { status: 400 }
     );
   }
+
   try {
+    if (debug) {
+      // Return raw JSON for inspection
+      const base       = 'https://api.benzinga.com/api/v2.1/calendar/ratings';
+      const tokenParam = `token=${process.env.BENZINGA_API_KEY}`;
+      const url        = `${base}?${tokenParam}&parameters[tickers]=${encodeURIComponent(
+        ticker
+      )}&parameters[range]=6m`;
+
+      const res       = await fetch(url, { headers: { accept: 'application/json' } });
+      const text      = await res.text();
+      const parsedAll = JSON.parse(text.trim());
+      return NextResponse.json(parsedAll);
+    }
+
+    // Otherwise, return the narrative paragraph
     const paragraph = await handleRatingsFetch(ticker);
     return NextResponse.json({ paragraph });
   } catch (err) {
@@ -126,13 +151,15 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   const body = (await request.json()) as { ticker?: string };
-  const sym = (body.ticker ?? '').trim().toUpperCase();
+  const sym  = (body.ticker ?? '').trim().toUpperCase();
+
   if (!sym) {
     return NextResponse.json(
       { paragraph: '', error: 'Ticker is required.' },
       { status: 400 }
     );
   }
+
   try {
     const paragraph = await handleRatingsFetch(sym);
     return NextResponse.json({ paragraph });
