@@ -1,95 +1,105 @@
-export function headlinePrompt(articleText: string) {
-    return `
-  You are a headline editor for a high-traffic financial news site. Based on the article below, write 3 suspenseful, emotionally engaging, and click-worthy headlines. Each headline should:
-  
-  - Tease a surprising development or turning point without revealing the full outcome
-  - Spark curiosity by raising a question, highlighting conflict, or implying big implications
-  - Use strong action verbs (e.g. “slams,” “soars,” “warns,” “backs”)
-  - Be under 12 words and easy to read on mobile
-  - Include stock tickers or company names only when helpful for SEO or clarity
-  - Avoid excessive jargon unless it adds intrigue (e.g. “AI,” “valuation,” “recession,” “DevOps”)
-  - Mirror the tone of top headlines on CNBC, Bloomberg, or Fortune
-  
-  Important: Base your headlines strictly on the article content. Don’t speculate or introduce facts not in the source.
-  
-  Article:
-  ${articleText}
-  
-  Respond with a numbered list of 3 headlines only.
-  `.trim();
-  }
-  
-  export function punchyHeadlinePrompt(articleText: string) {
-    return `
-  You are a headline editor for a high-traffic financial news site. Based on the article below, write 3 highly clicky and punchy headlines that grab immediate attention. Each headline should:
-  
-  - Be even more emotionally engaging and suspenseful than usual
-  - Use strong action verbs and vivid language
-  - Be short and snappy, under 10 words
-  - Avoid jargon unless it adds intrigue
-  - Include stock tickers or company names only when helpful for SEO or clarity
-  - Mirror the tone of viral headlines on CNBC, Bloomberg, or Fortune
-  
-  Important: Base your headlines strictly on the article content. Don’t speculate or introduce facts not in the source.
-  
-  Article:
-  ${articleText}
-  
-  Respond with a numbered list of 3 headlines only.
-  `.trim();
-  }
-  
-  export function noColonHeadlinePrompt(articleText: string) {
-    return `
-  You are a headline editor for a high-traffic financial news site. Based on the article below, write 3 suspenseful, emotionally engaging, and click-worthy headlines. Do NOT use colons or punctuation that separates clauses. Vary the headline styles to include questions, statements, and unique formats.
-  
-  Article:
-  ${articleText}
-  
-  Respond with a numbered list of 3 headlines only.
-  `.trim();
-  }
-  
-  export function creativeHeadlinePrompt(articleText: string) {
-    return `
-  You are a headline editor for a high-traffic financial news site. Based on the article below, write 3 creative and unique headlines that stand out. Use metaphors, intriguing questions, or unexpected phrasing. Be suspenseful and emotionally engaging.
-  
-  Article:
-  ${articleText}
-  
-  Respond with a numbered list of 3 headlines only.
-  `.trim();
-  }
-  
-  export function similarHeadlinePrompt(headline: string, articleText: string) {
-    return `
-  You are a headline editor for a high-traffic financial news site.
-  
-  Based on the article text below and the headline provided, generate 3 alternative headlines that:
-  
-  - Are similar in style and topic to the given headline
-  - Are strictly based on facts and information contained in the article text
-  - Do NOT include any information not present in the article
-  - Avoid speculation or introducing new ideas
-  - Maintain suspense and emotional engagement appropriate for financial news headlines
-  
-  Headline:
-  "${headline}"
-  
-  Article:
-  ${articleText}
-  
-  Respond with a numbered list of 3 headlines only.
-  `.trim();
-  }
-  
-  export function seoHeadlinePrompt(headline: string) {
-    return `
-  You are an SEO expert creating headlines for a financial news website. Based on the headline below, generate 1 SEO-optimized headline no longer than 8 words, clear and compelling for search engines:
-  
-  "${headline}"
-  
-  Respond with the SEO headline only, no explanation.
-  `.trim();
-  }
-  
+// lib/prompts.ts
+
+export function initialHeadlinePrompt(articleText: string) {
+  return `
+You write bold, engaging headlines that grab attention.
+
+Create 5 unique headlines under 12 words each. Use sharp, active verbs and concrete details:
+- Include one specific detail per headline (e.g., ALRG, 0.28%, $600B AUM, launch date).
+- Use numerals (e.g., 3, not three).
+- Vary styles: statement, question, metaphor, warning, “X stakes rise as Y shifts,” etc.
+- Inject urgency or surprise (e.g., “bets,” “crushes,” “abrupt,” “edge”).
+- Avoid generic hype; favor vivid, unexpected word choices.
+- Highlight the twist: actively managed, tax-free income, model edge.
+
+Article:
+${articleText}
+
+Respond with a numbered list of 5 headlines only.`;
+}
+
+// alias for backward compatibility
+export const headlinePrompt = initialHeadlinePrompt;
+
+export function punchyHeadlinePrompt(articleText: string) {
+  return `
+You write bold, punchy headlines under 10 words.
+
+Based on the article, write 3 headlines:
+- One urgent question (e.g., “Can ALRG beat the ETF crowd?”).
+- One strong statement (e.g., “ASCE crushes growth stocks”).
+- One metaphor or warning (e.g., “AUSM is your safe haven bomb”).
+
+Use:
+- Numerals and tickers (ALRG, ASCE, AUSM).
+- Sharp verbs (bets, surges, defies).
+- One detail each (expense ratio, model name, AUM).
+- Surprise or stakes-driven tone.
+
+Article:
+${articleText}
+
+Respond with a numbered list of 3 headlines only.`;
+}
+
+export function noColonHeadlinePrompt(articleText: string) {
+  return `
+You write gripping headlines under 12 words without colons.
+
+Create 3 headlines that:
+- Use numerals and tickers.
+- Highlight a surprising fact (0.18% ratio, $600B AUM).
+- Evoke urgency or intrigue with active verbs.
+
+Article:
+${articleText}
+
+Respond with a numbered list of 3 headlines only.`;
+}
+
+export function creativeHeadlinePrompt(articleText: string) {
+  return `
+You write standout headlines under 12 words.
+
+Draft 3 creative headlines that:
+- Use vivid metaphors or unexpected twists.
+- Reference a concrete detail (launch, fund name, AUM).
+- Show why this matters now (rate drop, tax-free edge).
+
+Article:
+${articleText}
+
+Respond with a numbered list of 3 headlines only.`;
+}
+
+export function similarHeadlinePrompt(headline: string, articleText: string) {
+  return `
+You write sharp, aligned headlines.
+
+Given the original, produce 3 alternatives that:
+- Mirror its style and tone.
+- Use numerals and one article detail.
+- Maintain urgency and clarity.
+
+Original Headline:
+"${headline}"
+
+Article:
+${articleText}
+
+Respond with a numbered list of 3 headlines only.`;
+}
+
+export function seoHeadlinePrompt(headline: string) {
+  return `
+You are an SEO pro.
+
+Turn the headline into a clear, SEO-ready title under 8 words:
+- Use the main ticker or figure.
+- Include a compelling verb or hook.
+
+Original Headline:
+"${headline}"
+
+Respond with the optimized headline only.`;
+}

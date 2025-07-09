@@ -12,47 +12,65 @@ export async function POST(request: Request) {
     }
 
     const stylePrompts: Record<string, string> = {
-      normal: `You are a professional financial journalist writing for a high-traffic news website.
+      normal: `You are a financial journalist writing clear, reader-friendly leads for a broad audience.
 
-Write an engaging lead paragraph that introduces the key story, sets the stakes, and entices readers to continue. Do NOT include detailed descriptions, product specs, or specific numbers that are covered later in the article. Instead, focus on:
+Write a lead that:
+- Gives a quick hint of what’s ahead in the article.
+- Explains the story’s industry context.
+- Shows why this news matters now.
+- Uses simple, direct language and avoids complex financial jargon.
+- Keeps any tickers, dates, and key terms exactly as in the article.
 
-- The big picture significance
-- What makes this story important or timely
-- Any relevant time references (dates, quarters, periods)
-- Preserving all ticker symbols, financial terms, and formatting exactly as they appear
+Lead:`,
 
-Make the lead paragraph ${style || 'normal'} in length and tone.`,
+      longer: `You are a financial journalist writing clear, reader-friendly leads for a broad audience.
 
-      longer: `You are a professional financial journalist writing for a high-traffic news website.
+Write a longer lead that:
+- Previews the main points of the article.
+- Gives background on the industry.
+- Explains why this development is important.
+- Uses simple, direct language and avoids complex financial jargon.
+- Keeps any tickers, dates, and key terms exactly as in the article.
 
-Write a detailed but still introductory lead paragraph that clearly frames the story’s importance and key narratives without revealing detailed data or figures that appear later. Use narrative and context to draw in the reader. Preserve ticker symbols, dates, and formatting exactly as in the article.
+Lead:`,
 
-Make the lead paragraph longer and richer in tone.`,
+      shorter: `You are a financial journalist writing clear, reader-friendly leads for a broad audience.
 
-      shorter: `You are a professional financial journalist writing for a high-traffic news website.
+Write a short, punchy lead that:
+- Briefly previews the article’s main point.
+- Highlights why the news matters now.
+- Uses simple, direct language without jargon.
+- Keeps any tickers, dates, and key terms exactly as in the article.
 
-Write a short, punchy lead that hooks readers by highlighting the story’s core significance and stakes, avoiding detailed numbers or descriptions. Preserve ticker symbols, dates, and formatting.`,
+Lead:`,
 
-      'more narrative': `You are a professional financial journalist writing for a high-traffic news website.
+      'more narrative': `You are a financial journalist writing clear, reader-friendly leads for a broad audience.
 
-Craft a storytelling-focused lead paragraph that draws readers in by emphasizing the narrative and importance of the story, without including detailed product info or numbers found later. Preserve tickers, dates, and financial terms.`,
+Write a narrative-style lead that:
+- Tells a quick story hinting at the article’s focus.
+- Sets the scene in the broader industry context.
+- Shows why this moment matters.
+- Uses simple, direct language without jargon.
+- Keeps any tickers, dates, and key terms exactly as in the article.
 
-      'more context': `You are a professional financial journalist writing for a high-traffic news website.
+Lead:`,
 
-Write a lead paragraph that provides clear background and context explaining why this story matters, while avoiding detailed data or specifics covered later. Maintain all ticker symbols, dates, and formatting.`,
+      'more context': `You are a financial journalist writing clear, reader-friendly leads for a broad audience.
+
+Write a context-rich lead that:
+- Explains the background of the issue.
+- Shows why this news changes the bigger picture.
+- Uses simple, direct language without jargon.
+- Keeps any tickers, dates, and key terms exactly as in the article.
+
+Lead:`,
     };
 
-    const chosenStyle = stylePrompts[style?.toLowerCase()] ? style?.toLowerCase() : 'normal';
-    const promptInstructions = stylePrompts[chosenStyle];
-
-    const prompt = `
-${promptInstructions}
+    const key = style?.toLowerCase() in stylePrompts ? style.toLowerCase() : 'normal';
+    const prompt = `${stylePrompts[key]}
 
 Article:
-${articleText}
-
-Lead paragraph:
-`.trim();
+${articleText}`;
 
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',

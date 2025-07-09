@@ -396,7 +396,7 @@ const [ratingsError,     setRatingsError]     = useState<string>('');
           disabled={loadingMain || !articleText.trim()}
           className="bg-blue-600 text-white px-6 py-3 rounded-md disabled:bg-gray-400 flex-1 min-w-[180px]"
         >
-          {loadingMain ? 'Generating Headlines...' : 'Generate 3 Headlines'}
+          {loadingMain ? 'Generating Headlines...' : 'Generate 5 Headlines'}
         </button>
 
         <button
