@@ -29,7 +29,7 @@ Instructions for "review":
 - After accuracy bullets, append "\nWhat Could Be Tweaked:\n" followed by bullets for each tweak, separated by "\n".
 
 Instructions for "suggestions":
-- Provide exactly three headline variants, preserving facts and tone.
+- Provide exactly three headline variants under 12 words each, preserving facts and tone.
 - Be creative: use vivid verbs, conversational phrasing, or playful twists that reflect the article’s voice.
 - Avoid clichés, generic templates, and ensure each headline retains a connection to the original phrase.
 
@@ -51,7 +51,7 @@ Respond with JSON only, one line with escaped newlines.`;
     const text = completion.choices[0].message?.content?.trim() || '';
 
     try {
-      let result = JSON.parse(text);
+      const result = JSON.parse(text);
       // Ensure suggestions is always an array to prevent undefined errors
       if (!Array.isArray(result.suggestions)) {
         result.suggestions = [];
