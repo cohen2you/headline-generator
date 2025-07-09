@@ -11,57 +11,54 @@ export async function POST(request: Request) {
       return NextResponse.json({ lead: '', error: 'Article text is required.' });
     }
 
+ 
     const stylePrompts: Record<string, string> = {
-      normal: `You are a financial journalist writing clear, reader-friendly leads for a broad audience.
+      normal: `You are a financial journalist writing for a broad audience.
 
 Write a lead that:
-- Gives a quick hint of what’s ahead in the article.
-- Explains the story’s industry context.
-- Shows why this news matters now.
-- Uses simple, direct language and avoids complex financial jargon.
-- Keeps any tickers, dates, and key terms exactly as in the article.
+- Opens with the broader industry shift or trend this story exemplifies.
+- Clearly states why this development changes the market or investor view.
+- Avoids rehashing the article’s first sentence; focus on significance.
+- Uses simple, direct language; no jargon.
 
 Lead:`,
 
-      longer: `You are a financial journalist writing clear, reader-friendly leads for a broad audience.
+      longer: `You are a financial journalist writing for a broad audience.
 
-Write a longer lead that:
-- Previews the main points of the article.
-- Gives background on the industry.
-- Explains why this development is important.
-- Uses simple, direct language and avoids complex financial jargon.
-- Keeps any tickers, dates, and key terms exactly as in the article.
-
-Lead:`,
-
-      shorter: `You are a financial journalist writing clear, reader-friendly leads for a broad audience.
-
-Write a short, punchy lead that:
-- Briefly previews the article’s main point.
-- Highlights why the news matters now.
-- Uses simple, direct language without jargon.
-- Keeps any tickers, dates, and key terms exactly as in the article.
+Write a detailed lead that:
+- Highlights the three most critical insights from the article.
+- Provides necessary background but emphasizes why each point matters today.
+- Connects these insights to bigger economic or sector-wide implications.
+- Uses clear, engaging language without technical jargon.
 
 Lead:`,
 
-      'more narrative': `You are a financial journalist writing clear, reader-friendly leads for a broad audience.
+      shorter: `You are a financial journalist writing for a broad audience.
+
+Write a very brief lead (under 20 words) that:
+- Delivers a clever hook or surprising angle related to the article’s core news.
+- Tells the reader why they should keep reading in one punchy sentence.
+- Avoids restating basic facts; focus on intrigue.
+
+Lead:`,
+
+      'more narrative': `You are a financial journalist writing for a broad audience.
 
 Write a narrative-style lead that:
-- Tells a quick story hinting at the article’s focus.
-- Sets the scene in the broader industry context.
-- Shows why this moment matters.
-- Uses simple, direct language without jargon.
-- Keeps any tickers, dates, and key terms exactly as in the article.
+- Opens with a compelling takeaway or surprising data point from the article (e.g., "Q3 revenue jumped 24% sequentially").
+- Shows why that detail matters for the industry or investors.
+- Reflects the article’s facts—no invented scenes or characters.
+- Maintains a conversational, engaging tone without jargon.
 
 Lead:`,
 
-      'more context': `You are a financial journalist writing clear, reader-friendly leads for a broad audience.
+      'more context': `You are a financial journalist writing for a broad audience.
 
 Write a context-rich lead that:
-- Explains the background of the issue.
-- Shows why this news changes the bigger picture.
-- Uses simple, direct language without jargon.
-- Keeps any tickers, dates, and key terms exactly as in the article.
+- Maps out the long-term trends or past events leading to this news.
+- Explains how this story fits into the broader economic backdrop.
+- Highlights potential future impacts or risks for investors.
+- Uses straightforward language; no jargon.
 
 Lead:`,
     };
