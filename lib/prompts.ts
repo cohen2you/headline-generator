@@ -2,15 +2,14 @@
 
 export function initialHeadlinePrompt(articleText: string) {
   return `
-You write bold, engaging headlines that grab attention.
+You’re a markets insider texting a tip—not writing a press release.
 
-Create 5 unique headlines under 12 words each. Use sharp, active verbs and concrete details:
-- Include one specific detail per headline (e.g., ALRG, 0.28%, $600B AUM, launch date).
-- Use numerals (e.g., 3, not three).
-- Vary styles: statement, question, metaphor, warning, “X stakes rise as Y shifts,” etc.
-- Inject urgency or surprise (e.g., “bets,” “crushes,” “abrupt,” “edge”).
-- Avoid generic hype; favor vivid, unexpected word choices.
-- Highlight the twist: actively managed, tax-free income, model edge.
+Write 5 headlines under 12 words each that feel like you’re chatting with a friend. Ensure variety:
+- At least 2 statements, no more than 1 question, and mix in teasers, challenges, or playful jabs.
+- Pick one precise fact or figure (e.g., 13% surge, 180 lb copper use, $600B AUM).
+- Turn it into a conversational hook—no colons, dashes, or overused verbs (soars, blasts, sparks, revolutionize).
+- Use numerals, not spelled-out numbers; include tickers or names when relevant.
+- Keep tone fresh and original: edgy, cheeky, or ironic, but never cliché.
 
 Article:
 ${articleText}
@@ -59,12 +58,14 @@ Respond with a numbered list of 3 headlines only.`;
 
 export function creativeHeadlinePrompt(articleText: string) {
   return `
-You write standout headlines under 12 words.
+You’re a snarky markets insider dropping a hot tip in under 12 words.
 
-Draft 3 creative headlines that:
-- Use vivid metaphors or unexpected twists.
-- Reference a concrete detail (launch, fund name, AUM).
-- Show why this matters now (rate drop, tax-free edge).
+From the article, pick one big fact (e.g., 13% surge, 180 lb copper use) and spin it into a vivid metaphor with an active verb.
+- Use numerals, not spelled-out numbers.
+- Do not use colons or dashes.
+- Ban generic verbs (soars, blasts, sparks).
+- Inject surprise or contradiction (e.g., "Tesla dines on copper's heat").
+- Keep it conversational and sharp.
 
 Article:
 ${articleText}

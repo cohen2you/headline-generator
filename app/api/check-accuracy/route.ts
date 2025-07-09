@@ -17,11 +17,19 @@ export async function POST(request: Request) {
     const prompt = `
 You are an expert headline editor for a financial news website.
 
-Given the article below and a headline, provide:
+Task: Verify each element of the headline against the article and then offer improved alternatives that preserve key elements of the original.
 
-- A thoughtful and balanced review highlighting how well the headline draws readers and its strengths in engagement.
-- Politely note any areas where the headline might cause minor confusion or could be clearer, without being overly critical.
-- Suggest two alternative headlines that preserve the strong engagement but improve clarity or accuracy slightly.
+Instructions:
+- Break the headline into bulletized components under "Headline Components"."
+- For each component, indicate:
+    • Supported: quote the exact article sentence or fact that confirms it.
+    • Unsupported: mark it as "unsupported detail".
+- List any overall accuracy issues in one brief sentence under "Overall Accuracy Issues".
+- Under "Suggested Alternatives", provide 3 new headlines that:
+    • Keep the core structure or key phrase from the original (e.g., "This Smart", "Snapdragon 8 Elite").
+    • Fix any unsupported or unclear details.
+    • Use fresh, specific wording but avoid generic or overused verbs.
+    • Maintain the original tone (conversational, engaging) and stay under 12 words.
 
 Article:
 ${articleText}
