@@ -41,7 +41,7 @@ ${articleText}
 Respond with a numbered list of 3 headlines only.`;
 }
 
-export function noColonHeadlinePrompt(articleText: string, companyName: string) {
+export function noColonHeadlinePrompt(articleText: string) {
   return `
 You write imaginative, insight-driven headlines under 12 words without colons, starting with the company name.
 
