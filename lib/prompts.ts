@@ -43,12 +43,14 @@ Respond with a numbered list of 3 headlines only.`;
 
 export function noColonHeadlinePrompt(articleText: string) {
   return `
-You write gripping headlines under 12 words without colons.
+You write imaginative, under-12-word headlines—no colons—starting with the company name.
 
-Create 3 headlines that:
-- Use numerals and tickers.
-- Highlight a surprising fact (0.18% ratio, $600B AUM).
-- Evoke urgency or intrigue with active verbs.
+Each headline must:
+- Begin with full company name (e.g., “Penguin Solutions”).
+- Uncover an unexpected angle or tension in the story (e.g., “Penguin Solutions’ Q3 Win Masks Hidden Costs”)
+- Use a vivid, active verb or metaphor (“masks,” “hides,” “sparks,” “tugs,” “clashes”)
+- Ground it with one concrete fact or figure (use numerals)
+- Spark curiosity or urgency—feel like a hot take, not a press release
 
 Article:
 ${articleText}
