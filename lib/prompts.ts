@@ -46,7 +46,7 @@ export function noColonHeadlinePrompt(articleText: string, companyName: string) 
 You write imaginative, insight-driven headlines under 12 words without colons, starting with the company name.
 
 Each headline must:
-- Start with “${companyName}”
+- Start with the company name.
 - Reveal a deeper takeaway or tension (e.g. “Penguin Solutions’ Q3 Win Masks Cost Squeeze”)
 - Use numerals for any data points
 - Employ a vivid, unexpected verb or metaphor (e.g. “masks,” “hides,” “tugs,” “clashes”)
