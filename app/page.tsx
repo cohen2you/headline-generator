@@ -42,13 +42,17 @@ export default function Page() {
   const [copiedSimilarIndex, setCopiedSimilarIndex] = useState<number | null>(null);
   const [copiedSeo, setCopiedSeo] = useState(false);
   const [selectedHeadline, setSelectedHeadline] = useState<string | null>(null);
-  // Headline Checker state and loading
-  const [accuracyHeadline, setAccuracyHeadline] = useState('');
-  const [accuracyResult, setAccuracyResult] = useState<{
-    review: string;
-    suggestions: string[];
-  } | null>(null);
-  const [loadingAccuracy, setLoadingAccuracy] = useState(false);
+ // For the headline‐adjuster
+const [baseHeadline, setBaseHeadline] = useState('');
+const [adjustPrompt, setAdjustPrompt] = useState('');
+const [adjustedHeadlines, setAdjustedHeadlines] = useState<string[]>([]);
+const [loadingAdjust, setLoadingAdjust] = useState(false);
+
+// For the headline‐checker
+const [accuracyHeadline, setAccuracyHeadline] = useState('');
+const [accuracyResult, setAccuracyResult] =
+  useState<{ review: string; suggestions: string[] } | null>(null);
+const [loadingAccuracy, setLoadingAccuracy] = useState(false);
 
   // Lead Generator state & loading
   const [lead, setLead] = useState('');
@@ -598,43 +602,108 @@ const [ratingsError,     setRatingsError]     = useState<string>('');
         </section>
       )}
 
-      {/* Headline Checker Section */}
-      <section className="mt-8 p-4 border border-gray-400 rounded-md max-w-xl">
-        <h2 className="text-lg font-semibold mb-4">Headline Checker</h2>
-        <input
-          type="text"
-          placeholder="Paste or type headline here"
-          value={accuracyHeadline}
-          onChange={(e) => setAccuracyHeadline(e.target.value)}
-          className="w-full p-2 border border-gray-300 rounded mb-3"
-        />
-        <button
-          onClick={checkHeadlineAccuracy}
-          disabled={loadingAccuracy || !accuracyHeadline.trim() || !articleText.trim()}
-          className="bg-blue-600 text-white px-4 py-2 rounded disabled:bg-gray-400"
-        >
-          {loadingAccuracy ? 'Checking...' : 'Check Headline'}
-        </button>
 
-        {accuracyResult && (
-          <div className="mt-4 bg-gray-100 p-3 rounded">
-            <p>
-              <strong>Review:</strong>
-            </p>
-            <p className="mt-1 whitespace-pre-line">{accuracyResult.review}</p>
-            {accuracyResult.suggestions.length > 0 && (
-              <>
-                <p className="mt-3 font-semibold">Suggested Alternative Headlines:</p>
-                <ul className="list-disc list-inside ml-5">
-                  {accuracyResult.suggestions.map((sugg, i) => (
-                    <li key={i}>{sugg}</li>
-                  ))}
-                </ul>
-              </>
-            )}
-          </div>
-        )}
-      </section>
+
+
+{/* Adjust Existing Headline */}
+<section className="mt-8 p-4 border border-yellow-500 rounded-md max-w-xl mx-auto">
+  <h2 className="text-lg font-semibold mb-2 text-yellow-700">
+    Adjust Existing Headline
+  </h2>
+  <input
+    type="text"
+    placeholder="Paste headline to adjust"
+    value={baseHeadline}
+    onChange={e => setBaseHeadline(e.target.value)}
+    className="w-full p-2 border border-gray-300 rounded mb-3"
+  />
+  <input
+    type="text"
+    placeholder="I like this headline… but"
+    value={adjustPrompt}
+    onChange={e => setAdjustPrompt(e.target.value)}
+    className="w-full p-2 border border-yellow-300 rounded mb-3"
+  />
+  <button
+    onClick={async () => {
+      if (!baseHeadline.trim() || !adjustPrompt.trim()) return;
+      setLoadingAdjust(true);
+      try {
+        const res = await fetch('/api/adjust-headline', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            headline: baseHeadline,
+            tweak: adjustPrompt,
+            articleText,
+          }),
+        });
+        const { headlines } = await res.json();
+        setAdjustedHeadlines(headlines || []);
+      } finally {
+        setLoadingAdjust(false);
+      }
+    }}
+    disabled={loadingAdjust || !baseHeadline.trim() || !adjustPrompt.trim()}
+    className="bg-yellow-600 text-white px-4 py-2 rounded disabled:bg-yellow-300 mb-6"
+  >
+    {loadingAdjust ? 'Adjusting…' : 'Adjust Headline'}
+  </button>
+  {adjustedHeadlines.length > 0 && (
+    <ul className="list-disc list-inside ml-5 mb-6">
+      {adjustedHeadlines.map((hl, i) => (
+        <li key={i} className="flex justify-between items-center">
+          <span>{hl}</span>
+          <button
+            onClick={() => navigator.clipboard.writeText(hl)}
+            className="ml-4 bg-gray-200 hover:bg-gray-300 text-gray-800 px-2 py-1 rounded text-sm"
+          >
+            Copy
+          </button>
+        </li>
+      ))}
+    </ul>
+  )}
+</section>
+
+{/* Headline Checker */}
+<section className="mt-8 p-4 border border-gray-400 rounded-md max-w-xl mx-auto">
+  <h2 className="text-lg font-semibold mb-2 text-gray-800">
+    Headline Checker
+  </h2>
+  <input
+    type="text"
+    placeholder="Type headline to check"
+    value={accuracyHeadline}
+    onChange={e => setAccuracyHeadline(e.target.value)}
+    className="w-full p-2 border border-gray-300 rounded mb-3"
+  />
+  <button
+    onClick={checkHeadlineAccuracy}
+    disabled={loadingAccuracy || !accuracyHeadline.trim() || !articleText.trim()}
+    className="bg-blue-600 text-white px-4 py-2 rounded disabled:bg-gray-400"
+  >
+    {loadingAccuracy ? 'Checking…' : 'Check Headline'}
+  </button>
+  {accuracyResult && (
+    <div className="mt-4 bg-gray-100 p-3 rounded whitespace-pre-line">
+      <strong>Review:</strong>
+      <p className="mt-1">{accuracyResult.review}</p>
+      {accuracyResult.suggestions.length > 0 && (
+        <>
+          <strong className="block mt-3">Alternative Headlines:</strong>
+          <ul className="list-disc list-inside ml-5">
+            {accuracyResult.suggestions.map((s, i) => (
+              <li key={i}>{s}</li>
+            ))}
+          </ul>
+        </>
+      )}
+    </div>
+  )}
+</section>
+
+
 
       {/* Lead Generator Section */}
       <section className="mt-8 p-4 border border-green-500 rounded-md max-w-4xl mx-auto">
