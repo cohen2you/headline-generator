@@ -8,45 +8,38 @@ export async function POST(request: Request) {
     const { headline, articleText } = await request.json();
 
     if (!headline?.trim() || !articleText?.trim()) {
-      return NextResponse.json({
-        review: 'Headline or article text missing.',
-        suggestions: [],
-      });
+      return NextResponse.json({ review: 'Headline or article text missing.', suggestions: [] });
     }
 
-    const prompt = `
-You are an expert headline editor for a financial news website.
+    const prompt = `You are an expert headline editor for a financial news website.
 
-Task: Verify each element of the headline against the article and then offer improved alternatives that preserve key elements of the original.
+Given an article and a headline, return a JSON object with two keys in this exact format, using literal "\n" to indicate line breaks within strings:
 
-Instructions:
-- Break the headline into bulletized components under "Headline Components"."
-- For each component, indicate:
-    • Supported: quote the exact article sentence or fact that confirms it.
-    • Unsupported: mark it as "unsupported detail".
-- List any overall accuracy issues in one brief sentence under "Overall Accuracy Issues".
-- Under "Suggested Alternatives", provide 3 new headlines that:
-    • Keep the core structure or key phrase from the original (e.g., "This Smart", "Snapdragon 8 Elite").
-    • Fix any unsupported or unclear details.
-    • Use fresh, specific wording but avoid generic or overused verbs.
-    • Maintain the original tone (conversational, engaging) and stay under 12 words.
+{"review":"What's Accurate:
+• Claim A
+• Claim B
+
+What Could Be Tweaked:
+• Tweak A
+• Tweak B","suggestions":["Alt1","Alt2","Alt3"]}
+
+Instructions for "review":
+- Use "\n" to separate lines within the review string.
+- Begin with "What's Accurate:\n" then bullet each factual claim prefixed by "• " and separated by "\n".
+- After accuracy bullets, append "\nWhat Could Be Tweaked:\n" followed by bullets for each tweak, separated by "\n".
+
+Instructions for "suggestions":
+- Provide exactly three headline variants, preserving facts and tone.
+- Be creative: use vivid verbs, conversational phrasing, or playful twists that reflect the article’s voice.
+- Avoid clichés, generic templates, and ensure each headline retains a connection to the original phrase.
 
 Article:
 ${articleText}
 
-Headline to review:
+Headline:
 "${headline}"
 
-Respond in JSON format exactly as follows:
-
-{
-  "review": "Your balanced review highlighting engagement strengths and polite notes on clarity.",
-  "suggestions": [
-    "Alternative headline 1",
-    "Alternative headline 2"
-  ]
-}
-`;
+Respond with JSON only, one line with escaped newlines.`;
 
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
@@ -55,26 +48,26 @@ Respond in JSON format exactly as follows:
       temperature: 0.7,
     });
 
-    const text = completion.choices[0].message?.content || '';
+    const text = completion.choices[0].message?.content?.trim() || '';
 
-    let jsonResult;
     try {
-      jsonResult = JSON.parse(text);
-    } catch {
-      return NextResponse.json({
-        review: 'Could not parse response from AI.',
-        suggestions: [],
-      });
+      let result = JSON.parse(text);
+      // Ensure suggestions is always an array to prevent undefined errors
+      if (!Array.isArray(result.suggestions)) {
+        result.suggestions = [];
+      }
+      return NextResponse.json(result);
+    } catch (err) {
+      console.error('Parsing error:', err, 'raw response:', text);
+      return NextResponse.json(
+        { review: 'Could not parse response from AI.', suggestions: [] },
+        { status: 502 }
+      );
     }
-
-    return NextResponse.json(jsonResult);
   } catch (error) {
     console.error('Error in headline context review:', error);
     return NextResponse.json(
-      {
-        review: 'Failed to review headline context.',
-        suggestions: [],
-      },
+      { review: 'Failed to review headline context.', suggestions: [] },
       { status: 500 }
     );
   }
