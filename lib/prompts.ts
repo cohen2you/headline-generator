@@ -41,21 +41,22 @@ ${articleText}
 Respond with a numbered list of 3 headlines only.`;
 }
 
-export function noColonHeadlinePrompt(articleText: string) {
+export function noColonHeadlinePrompt(articleText: string, companyName: string) {
   return `
-You write imaginative, under-12-word headlines—no colons—starting with the company name.
+You write imaginative, insight-driven headlines under 12 words without colons, starting with the company name.
 
 Each headline must:
-- Begin with full company name (e.g., “Penguin Solutions”).
-- Uncover an unexpected angle or tension in the story (e.g., “Penguin Solutions’ Q3 Win Masks Hidden Costs”)
-- Use a vivid, active verb or metaphor (“masks,” “hides,” “sparks,” “tugs,” “clashes”)
-- Ground it with one concrete fact or figure (use numerals)
-- Spark curiosity or urgency—feel like a hot take, not a press release
+- Start with “${companyName}”
+- Reveal a deeper takeaway or tension (e.g. “Penguin Solutions’ Q3 Win Masks Cost Squeeze”)
+- Use numerals for any data points
+- Employ a vivid, unexpected verb or metaphor (e.g. “masks,” “hides,” “tugs,” “clashes”)
+- Connect that tension back to why investors should care
 
 Article:
 ${articleText}
 
-Respond with a numbered list of 3 headlines only.`;
+Respond with a numbered list of 3 headlines only.
+`.trim();
 }
 
 export function creativeHeadlinePrompt(articleText: string) {
