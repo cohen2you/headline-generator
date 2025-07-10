@@ -2,22 +2,23 @@
 
 export function initialHeadlinePrompt(articleText: string) {
   return `
-You’re a markets insider texting a tip—not scripting a press release. Prioritize what matters most to investors:
+You’re a markets insider texting a tip—not scripting a press release. Write 5 **unique** headlines (under 15 words each), **each in a different format**:
 
-• Did a major acquisition just close?
-• Was a stock upgraded or downgraded?
-• Is the company pivoting strategy (e.g. crypto → AI)?
-• Are there cost savings or revenue impacts in sight?
-• Is valuation, dilution, or sentiment under scrutiny?
+1. **Question**: Pose an urgent question about the key event or risk.  
+2. **Statement–But**: State the main fact, then contrast with a “but” clause.  
+3. **How/Why**: Begin with “How” or “Why” to explain the impact.  
+4. **Metaphor/Action**: Use a vivid metaphor or action verb to dramatize the shift.  
+5. **Number/List**: Open with a number or list style (e.g. “3 Reasons …”).
 
-Each of your 5 headlines (under 15 words) must:
-- Start with the company name.
-- Include one of these value drivers: Action (acquisition, downgrade, rally), Impact (cost savings, stock move), or Tension (analyst skepticism, risk vs. reward).
-- Use numerals for data and sparingly use em-dashes or colons for suspense.
-- Highlight tickers or buzzwords (AI, crypto) when relevant.
-- End with a kicker phrase: “…but Analyst Hits Pause,” “…Triggers Downgrade,” “…Sparks $500M Bet.”
+**Rules for all headlines**  
+- Start with the full company name (no “Inc.” or tickers)  
+- Focus on the single biggest investor takeaway (acquisition, upgrade/downgrade, pivot, cost/revenue impact, valuation risk)  
+- Use plain, everyday language—no jargon  
+- Use numerals for any data points  
+- Sparingly use an em-dash or colon for suspense  
+- End with a clear kicker phrase if it adds punch (e.g. “…but Analysts Remain Wary”)
 
-Article:
+Article: 
 ${articleText}
 
 Respond with a numbered list of 5 headlines only.`;
@@ -28,21 +29,26 @@ export const headlinePrompt = initialHeadlinePrompt;
 
 export function punchyHeadlinePrompt(articleText: string) {
   return `
-You write bold, punchy headlines under 10 words.
-
-Based on the article, write 3 headlines:
-- One urgent question (e.g., “Can ALRG beat the ETF crowd?”).
-- One strong statement (e.g., “ASCE crushes growth stocks”).
-- One metaphor or warning (e.g., “AUSM is your safe haven bomb”).
-
-Use:
-- Numerals and tickers (ALRG, ASCE, AUSM).
-- Sharp verbs (bets, surges, defies).
-- One detail each (expense ratio, model name, AUM).
-- Surprise or stakes-driven tone.
+You’re a markets insider texting a tip—write 3 punchy headlines (each under 12 words) in three **distinct** formats. **Do not use colons** or dashes in any headline.
 
 Article:
 ${articleText}
+
+1. **Question**  
+   Pose a tight, urgent question about the core event or risk (e.g. “Will CoreWeave’s deal survive cost pressure?”)
+
+2. **Statement But**  
+   Make a bold statement then add but for tension (e.g. “CoreWeave wins big but investors stay cautious”)
+
+3. **Action Metaphor**  
+   Use a vivid verb or metaphor to dramatize the shift (e.g. “CoreWeave rides a cost wave with warning undercurrents”)
+
+**Rules for all headlines**  
+- Start with the full company name (no “Inc.” or tickers)  
+- Use clear, everyday language—no jargon  
+- Include one core takeaway (acquisition, downgrade, pivot, cost impact)  
+- Use numerals for any figures  
+- End with a quick hook or twist if it adds punch (e.g. “…but questions linger”)
 
 Respond with a numbered list of 3 headlines only.`;
 }
