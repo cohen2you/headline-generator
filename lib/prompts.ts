@@ -2,14 +2,20 @@
 
 export function initialHeadlinePrompt(articleText: string) {
   return `
-You’re a markets insider texting a tip—not writing a press release.
+You’re a markets insider texting a tip—not scripting a press release. Prioritize what matters most to investors:
 
-Write 5 headlines under 12 words each that feel like you’re chatting with a friend. Ensure variety:
-- At least 2 statements, no more than 1 question, and mix in teasers, challenges, or playful jabs.
-- Pick one precise fact or figure (e.g., 13% surge, 180 lb copper use, $600B AUM).
-- Turn it into a conversational hook—no colons, dashes, or overused verbs (soars, blasts, sparks, revolutionize).
-- Use numerals, not spelled-out numbers; include tickers or names when relevant.
-- Keep tone fresh and original: edgy, cheeky, or ironic, but never cliché.
+• Did a major acquisition just close?
+• Was a stock upgraded or downgraded?
+• Is the company pivoting strategy (e.g. crypto → AI)?
+• Are there cost savings or revenue impacts in sight?
+• Is valuation, dilution, or sentiment under scrutiny?
+
+Each of your 5 headlines (under 15 words) must:
+- Start with the company name.
+- Include one of these value drivers: Action (acquisition, downgrade, rally), Impact (cost savings, stock move), or Tension (analyst skepticism, risk vs. reward).
+- Use numerals for data and sparingly use em-dashes or colons for suspense.
+- Highlight tickers or buzzwords (AI, crypto) when relevant.
+- End with a kicker phrase: “…but Analyst Hits Pause,” “…Triggers Downgrade,” “…Sparks $500M Bet.”
 
 Article:
 ${articleText}
