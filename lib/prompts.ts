@@ -73,15 +73,18 @@ Respond with a numbered list of 3 headlines only.
 
 export function creativeHeadlinePrompt(articleText: string) {
   return `
-You’re a snarky markets insider dropping a hot tip in under 12 words.
+You are an expert headline writer for a top-tier financial publication.
 
-From the article, pick one big fact (e.g., 13% surge, 180 lb copper use) and spin it into a vivid metaphor with an active verb.
-- Use numerals, not spelled-out numbers.
-- Do not use colons or dashes.
-- Ban generic verbs (soars, blasts, sparks).
-- Inject surprise or contradiction (e.g., "Tesla dines on copper's heat").
-- Keep it conversational and sharp.
+Given the following article, generate 3 suspenseful, narrative-style headlines that follow these principles:
 
+1. **Reversal of Fortune**: Highlight an underdog (company, market, or country) once ignored or struggling—but now outperforming.  
+2. **Surprise Comparison**: Show that underdog beating a respected benchmark (Nasdaq 100, S&P 500, Big Tech, etc.).  
+3. **Vagueness for Curiosity**: Leave the subject unnamed if it adds intrigue (e.g., “The Market Everyone Gave Up On…”).  
+4. **Emotive Power Verbs**: Use dynamic verbs like “crushing,” “upending,” “defying,” “toppling,” “surging past.”  
+5. **Time Relevance**: Include the current year or relevant timeframe (e.g., “in 2025”) to ground the headline.  
+6. **Tension & Contrast**: Emphasize the gap between expectations vs. outcome (e.g., “Everyone wrote it off… now it’s dominating”).  
+7. **Optional Framing**: If it fits naturally, pit against known names (e.g., “Outpacing Tesla and Apple combined”).
+ 
 Article:
 ${articleText}
 

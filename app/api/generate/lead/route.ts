@@ -70,9 +70,9 @@ Article:
 ${articleText}`;
 
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
+      model: 'gpt-4o',
       messages: [{ role: 'user', content: prompt }],
-      max_tokens: 300,
+      max_tokens: 700,
       temperature: 0.7,
     });
 

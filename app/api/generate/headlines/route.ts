@@ -17,9 +17,10 @@ export async function POST(request: Request) {
     const prompt = headlinePrompt(articleText);
 
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
+      model: 'gpt-4o',
       messages: [{ role: 'user', content: prompt }],
-      max_tokens: 350,
+      max_tokens: 700,
+      temperature: 0.9,
     });
 
     const text = completion.choices[0].message?.content || '';

@@ -11,7 +11,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ headlines: [] });
     }
 
-    const prompt = `You are a financial headline editor tasked with tweaking an existing headline based on a short instruction.
+    const prompt = `You are a financial headline editor for a high-impact news site.
+
+Your task is to revise an existing headline based on a specific instruction. Your edits should reflect the requested tweak **while preserving the structure, tone, and main phrasing of the original headline** wherever possible.
+
+You're allowed to reword or restructure only as much as necessary to fulfill the instruction or improve clarity/engagement.
+
+Avoid clichés. Be punchy, vivid, and stay under 12 words.
 
 Original Headline:
 "${headline}"
@@ -22,26 +28,27 @@ Instruction:
 Article Text:
 ${articleText}
 
-Generate exactly 3 alternative headlines under 12 words each that apply the instruction while preserving core facts and engagement. Respond with a JSON object:
-{ "headlines": ["...", "...", "..."] }`;    
+Respond only with valid JSON in this format, no code block, no explanation:
+{"headlines":["Adjusted Headline 1","Adjusted Headline 2","Adjusted Headline 3"]}`;
 
     const response = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
+      model: 'gpt-4o',
       messages: [{ role: 'user', content: prompt }],
-      max_tokens: 300,
+      max_tokens: 700,
       temperature: 0.7,
     });
 
     const raw = response.choices[0].message?.content?.trim() ?? '';
+    const cleaned = raw.replace(/```json|```/g, '').trim();
+
     let result;
     try {
-      result = JSON.parse(raw);
+      result = JSON.parse(cleaned);
     } catch (e) {
       console.error('Adjust-headline parse error:', e, 'raw:', raw);
       return NextResponse.json({ headlines: [] }, { status: 502 });
     }
 
-    // Ensure array
     if (!Array.isArray(result.headlines)) {
       result.headlines = [];
     }
