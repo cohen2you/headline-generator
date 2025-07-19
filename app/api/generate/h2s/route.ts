@@ -25,9 +25,12 @@ export async function POST(request: Request) {
     
     Given The Article Below, Insert Exactly 3 Short, Compelling, And Unique H2 Headings Into The Article Text.
     
-    Requirements:
+    CRITICAL REQUIREMENTS:
+    - You MUST insert EXACTLY 3 H2 headings - no more, no less. This is non-negotiable.
+    - If the article is short, still insert 3 H2s at appropriate intervals.
     - Do NOT place any H2 heading before the lead paragraph (assumed to be the first paragraph).
-    - Insert H2 headings only *after* the lead, at natural points where the article shifts topic or highlights key insights.
+    - The FIRST H2 must appear within the first 2-3 paragraphs after the lead paragraph.
+    - Insert H2 headings at natural points where the article shifts topic or highlights key insights.
     - Each H2 must be no longer than 4 words.
     - H2s should be very clicky and engaging, previewing the specific upcoming content with energy and unique perspective.
     - Avoid generic, bland, or obvious headings.
@@ -39,6 +42,8 @@ export async function POST(request: Request) {
       - Do not use the same format twice.
     - Format the article with the H2 headings as plain text lines, followed by exactly one blank line, then the paragraph that follows.
     - Preserve the original article text except for adding these 3 H2 headings.
+    - MANDATORY: You must insert exactly 3 H2 headings. If the article is too short, add more content or insert H2s at shorter intervals.
+    - FINAL VERIFICATION: Before submitting, ensure you have exactly 3 H2 headings in your response.
     
     Article:
     ${articleText}
@@ -50,7 +55,7 @@ export async function POST(request: Request) {
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [{ role: 'user', content: prompt }],
-      max_tokens: 1000,
+      max_tokens: 1500,
       temperature: 0.7,
     });
 

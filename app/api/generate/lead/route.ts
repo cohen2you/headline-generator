@@ -13,57 +13,54 @@ export async function POST(request: Request) {
 
  
     const stylePrompts: Record<string, string> = {
-      normal: `You are a financial journalist writing for a broad audience.
+      standard: `You are a financial journalist writing for a broad audience.
 
-Write a lead that:
-- Opens with the broader industry shift or trend this story exemplifies.
-- Clearly states why this development changes the market or investor view.
-- Avoids rehashing the article’s first sentence; focus on significance.
+Write a standard lead that:
+- Is concise (2-3 sentences maximum).
+- Provides broader context that sets up the specific story in the article.
+- Creates a smooth transition into the existing first paragraph.
+- Does NOT repeat or reword what's already in the article's first paragraph.
+- Focuses on the bigger picture or trend that leads to this specific development.
 - Uses simple, direct language; no jargon.
+- Can be added to the beginning of the article without requiring any changes to existing content.
+- IMPORTANT: Do NOT start with "In a..." or similar phrases. Vary your opening structure.
+- The lead should flow naturally into the article's existing first paragraph.
 
 Lead:`,
 
-      longer: `You are a financial journalist writing for a broad audience.
+      hook: `You are a financial journalist writing for a broad audience.
 
-Write a detailed lead that:
-- Highlights the three most critical insights from the article.
-- Provides necessary background but emphasizes why each point matters today.
-- Connects these insights to bigger economic or sector-wide implications.
-- Uses clear, engaging language without technical jargon.
-
-Lead:`,
-
-      shorter: `You are a financial journalist writing for a broad audience.
-
-Write a very brief lead (under 20 words) that:
-- Delivers a clever hook or surprising angle related to the article’s core news.
-- Tells the reader why they should keep reading in one punchy sentence.
-- Avoids restating basic facts; focus on intrigue.
+Write a hook lead that:
+- Is concise (2-3 sentences maximum).
+- Creates an attention-grabbing opening that hints at the story without revealing it.
+- Poses a question or presents a surprising angle that leads to the article's topic.
+- Makes readers want to continue reading to discover the answer or details.
+- Does NOT repeat or reword what's already in the article's first paragraph.
+- Can be added to the beginning of the article without requiring any changes to existing content.
+- IMPORTANT: Do NOT start with "In a..." or similar phrases. Vary your opening structure.
+- The hook should create curiosity that flows into the article's existing first paragraph.
+- Examples: "What if the biggest story in tech isn't about AI, but about..." or "Few expected this development to reshape the industry..."
 
 Lead:`,
 
-      'more narrative': `You are a financial journalist writing for a broad audience.
+      context: `You are a financial journalist writing for a broad audience.
 
-Write a narrative-style lead that:
-- Opens with a compelling takeaway or surprising data point from the article (e.g., "Q3 revenue jumped 24% sequentially").
-- Shows why that detail matters for the industry or investors.
-- Reflects the article’s facts—no invented scenes or characters.
-- Maintains a conversational, engaging tone without jargon.
-
-Lead:`,
-
-      'more context': `You are a financial journalist writing for a broad audience.
-
-Write a context-rich lead that:
-- Maps out the long-term trends or past events leading to this news.
-- Explains how this story fits into the broader economic backdrop.
-- Highlights potential future impacts or risks for investors.
+Write a context lead that:
+- Is concise (2-3 sentences maximum).
+- Provides broader market context and background that sets up the specific story.
+- Explains the bigger picture or trend that leads to this particular development.
+- Gives readers the necessary background to understand why this story matters.
+- Does NOT repeat or reword what's already in the article's first paragraph.
 - Uses straightforward language; no jargon.
+- Can be added to the beginning of the article without requiring any changes to existing content.
+- IMPORTANT: Do NOT start with "In a..." or similar phrases. Vary your opening structure.
+- The context should provide background that flows naturally into the article's existing first paragraph.
+- Examples: "Digital transformation continues reshaping traditional finance..." or "As blockchain technology matures, new opportunities emerge..."
 
 Lead:`,
     };
 
-    const key = style?.toLowerCase() in stylePrompts ? style.toLowerCase() : 'normal';
+    const key = style?.toLowerCase() in stylePrompts ? style.toLowerCase() : 'standard';
     const prompt = `${stylePrompts[key]}
 
 Article:
