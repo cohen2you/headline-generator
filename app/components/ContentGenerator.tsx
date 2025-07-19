@@ -201,25 +201,24 @@ const ContentGenerator = forwardRef<ContentGeneratorRef, ContentGeneratorProps>(
         const initialHeadings = headings.slice(0, 3);
         
         // If we don't have exactly 3 headings, generate a fallback H2
-        let finalHeadings = [...initialHeadings];
+        const fallbackH2s = [
+          'Market Analysis',
+          'Technical Insights',
+          'Investment Strategy',
+          'Risk Factors',
+          'Growth Potential',
+          'Market Trends',
+          'Trading Signals',
+          'Future Outlook'
+        ];
         
-        if (finalHeadings.length < 3) {
-          const fallbackH2s = [
-            'Market Analysis',
-            'Technical Insights',
-            'Investment Strategy',
-            'Risk Factors',
-            'Growth Potential',
-            'Market Trends',
-            'Trading Signals',
-            'Future Outlook'
-          ];
-          
-          // Add fallback H2s until we have 3
-          for (let i = finalHeadings.length; i < 3; i++) {
-            const fallbackIndex = (i - finalHeadings.length) % fallbackH2s.length;
-            finalHeadings.push(fallbackH2s[fallbackIndex]);
-          }
+        // Build final headings array
+        const finalHeadings = [...initialHeadings];
+        
+        // Add fallback H2s until we have 3
+        for (let i = finalHeadings.length; i < 3; i++) {
+          const fallbackIndex = (i - initialHeadings.length) % fallbackH2s.length;
+          finalHeadings.push(fallbackH2s[fallbackIndex]);
         }
         
         setH2HeadingsOnly(finalHeadings);
