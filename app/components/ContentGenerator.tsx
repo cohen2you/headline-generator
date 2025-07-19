@@ -197,7 +197,7 @@ const ContentGenerator = forwardRef<ContentGeneratorRef, ContentGeneratorProps>(
           }
         }
         
-        // Take the first 3 headings found
+        // Take the first 3 headings found (ESLint fix: using let since it gets reassigned)
         let finalHeadings = headings.slice(0, 3);
         
         // If we don't have exactly 3 headings, generate a fallback H2
