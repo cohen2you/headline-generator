@@ -411,7 +411,6 @@ const ContentGenerator = forwardRef<ContentGeneratorRef, ContentGeneratorProps>(
                         const priceAction = action.priceAction;
                         const labelMatch = priceAction.match(/^(.*?:)(.*)$/);
                         let mainText = priceAction;
-                        let afterText = '';
                         let beforeText = '';
                         if (labelMatch) {
                           beforeText = labelMatch[1];
