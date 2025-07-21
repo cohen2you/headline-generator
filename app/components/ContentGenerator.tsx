@@ -42,6 +42,7 @@ const ContentGenerator = forwardRef<ContentGeneratorRef, ContentGeneratorProps>(
       priceAction: string;
       technicalAnalysis?: string;
       historicalContext?: string;
+      fiftyTwoWeekRangeLine?: string; // Added this field
     };
     const [priceActions, setPriceActions] = useState<(string | PriceActionObj)[]>([]);
     const [loadingPriceAction, setLoadingPriceAction] = useState(false);
@@ -445,25 +446,12 @@ const ContentGenerator = forwardRef<ContentGeneratorRef, ContentGeneratorProps>(
                           </span>
                         );
                       })()}
-                      {/* Extract and display 52-week range if present, with a space above */}
-                      {action.technicalAnalysis && (() => {
-                        const lines = action.technicalAnalysis.split('\n');
-                        const rangeLineIndex = lines.findIndex(line => line.includes('52-week range') || line.includes('52-week high') || line.includes('52-week low') || line.match(/\$\d+\.\d{2} to \$\d+\.\d{2}/));
-                        let rangeLine = '';
-                        if (rangeLineIndex !== -1) {
-                          rangeLine = lines[rangeLineIndex];
-                          lines.splice(rangeLineIndex, 1);
-                        }
-                        return (
-                          <>
-                            {rangeLine && <span className="block text-black mb-2 mt-2">{rangeLine}</span>}
-                            <span className="block h-4" />
-                            <pre className="whitespace-pre-wrap text-black" style={{ fontFamily: 'inherit', marginTop: 0 }}>
-                              {lines.join('\n')}
-                            </pre>
-                          </>
-                        );
-                      })()}
+                      {/* Always display the 52-week range line if present, with a space above */}
+                      {action.fiftyTwoWeekRangeLine && <span className="block text-black mb-2 mt-2">{action.fiftyTwoWeekRangeLine}</span>}
+                      <span className="block h-4" />
+                      <pre className="whitespace-pre-wrap text-black" style={{ fontFamily: 'inherit', marginTop: 0 }}>
+                        {action.technicalAnalysis}
+                      </pre>
                       <button
                         onClick={() => {
                           const textToCopy = `${action.ticker}: ${action.companyName}\n${action.priceAction}\n${action.technicalAnalysis || ''}\n${action.historicalContext || ''}`.trim();

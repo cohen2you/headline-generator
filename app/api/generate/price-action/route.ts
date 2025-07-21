@@ -305,18 +305,30 @@ export async function POST(request: Request) {
         }
       }
 
-      // Append historicalContext to technicalAnalysis if present
+      // Extract 52-week range line from historicalContext if present
+      let fiftyTwoWeekRangeLine = '';
+      if (historicalContext) {
+        const lines = historicalContext.split('\n');
+        const rangeLineIndex = lines.findIndex(line => line.includes('52-week range') || line.includes('52-week high') || line.includes('52-week low') || line.match(/\$\d+\.\d{2} to \$\d+\.\d{2}/));
+        if (rangeLineIndex !== -1) {
+          fiftyTwoWeekRangeLine = lines[rangeLineIndex];
+          lines.splice(rangeLineIndex, 1);
+          historicalContext = lines.join('\n');
+        }
+      }
+      // Append remaining historicalContext to technicalAnalysis if present
       if (technicalAnalysis && historicalContext) {
         technicalAnalysis = technicalAnalysis + '\n' + historicalContext.trim();
       } else if (historicalContext) {
         technicalAnalysis = historicalContext.trim();
       }
-      // Return only technicalAnalysis (with historical context appended)
+      // Return the 52-week range line as a separate field
       return {
         ticker: symbol,
         companyName: companyName,
         priceAction: priceActionText,
-        technicalAnalysis: technicalAnalysis
+        technicalAnalysis: technicalAnalysis,
+        fiftyTwoWeekRangeLine: fiftyTwoWeekRangeLine
       };
     }));
 
