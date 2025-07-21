@@ -30,25 +30,41 @@ interface BenzingaQuote {
   sharesFloat?: number;
 }
 
+// Utility function to truncate to two decimal places
+function truncateToTwoDecimals(num: number): number {
+  return Math.trunc(num * 100) / 100;
+}
+
+// Helper to format price with truncation or N/A
+function formatPrice(val: number | undefined): string {
+  return typeof val === 'number' ? truncateToTwoDecimals(val).toFixed(2) : 'N/A';
+}
+
 async function generateTechnicalAnalysis(quote: BenzingaQuote, sectorComparison?: BenzingaQuote[]): Promise<string> {
   try {
     let sectorComparisonText = '';
     if (sectorComparison && sectorComparison.length > 0) {
       // Patch sector peers to clarify P/E status
       const patchedSectorComparison = sectorComparison.map(stock => {
-        let patchedPE: string | number = stock.pe;
-        if (typeof stock.pe !== 'number' || stock.pe <= 0) {
+        let patchedPE: string | number;
+        if (typeof stock.pe === 'number' && stock.pe > 0) {
+          patchedPE = stock.pe;
+        } else {
           patchedPE = 'N/A (unprofitable)';
         }
         return { ...stock, pe: patchedPE };
       });
       const comparisonData = patchedSectorComparison.map(stock => {
-        const marketCap = stock.marketCap ? (stock.marketCap >= 1000000000000 ? (stock.marketCap / 1000000000000).toFixed(2) + 'T' : (stock.marketCap / 1000000000).toFixed(2) + 'B') : 'N/A';
-        const volume = stock.volume ? stock.volume.toLocaleString() : 'N/A';
-        const changePercent = stock.changePercent ? `${stock.changePercent.toFixed(2)}%` : 'N/A';
-        // Use patched P/E
-        const pe = stock.pe;
-        return `${stock.symbol}: Price $${stock.lastTradePrice || 'N/A'}, Change ${changePercent}, Volume ${volume}, Market Cap ${marketCap}, P/E: ${pe}`;
+        const formattedMarketCap = typeof stock.marketCap === 'number'
+          ? (stock.marketCap >= 1000000000000
+              ? (stock.marketCap / 1000000000000).toFixed(2) + 'T'
+              : (stock.marketCap / 1000000000).toFixed(2) + 'B')
+          : 'N/A';
+        const volume = typeof stock.volume === 'number' ? stock.volume.toLocaleString() : 'N/A';
+        const changePercent = typeof stock.changePercent === 'number' ? `${stock.changePercent.toFixed(2)}%` : 'N/A';
+        const pe = typeof stock.pe === 'number' ? stock.pe.toString() : (typeof stock.pe === 'string' ? stock.pe : 'N/A');
+        const symbol = typeof stock.symbol === 'string' ? stock.symbol : 'N/A';
+        return `${symbol}: Price $${formatPrice(stock.lastTradePrice)}, Change ${changePercent}, Volume ${volume}, Market Cap ${formattedMarketCap}, P/E: ${pe}`;
       }).join('\n');
       // Determine if we're comparing against sector peers or sector ETFs
       const isSectorETF = patchedSectorComparison.some(stock => ['XLI', 'XLF', 'XLK', 'XLV', 'XLE', 'XLP', 'XLY'].includes(stock.symbol || ''));
@@ -59,21 +75,21 @@ async function generateTechnicalAnalysis(quote: BenzingaQuote, sectorComparison?
     const prompt = `You are a technical analyst providing concise market insights. Analyze this stock data and provide technical analysis broken into separate paragraphs.
 
 Stock: ${quote.symbol} (${quote.name})
-Current Price: $${quote.lastTradePrice}
+Current Price: $${formatPrice(quote.lastTradePrice)}
 Daily Change: ${quote.changePercent}%
 
 Technical Indicators:
-- 50-day Moving Average: $${quote.fiftyDayAveragePrice}
-- 100-day Moving Average: $${quote.hundredDayAveragePrice}
-- 200-day Moving Average: $${quote.twoHundredDayAveragePrice}
-- 52-week Range: $${quote.fiftyTwoWeekLow} - $${quote.fiftyTwoWeekHigh}
+- 50-day Moving Average: $${formatPrice(quote.fiftyDayAveragePrice)}
+- 100-day Moving Average: $${formatPrice(quote.hundredDayAveragePrice)}
+- 200-day Moving Average: $${formatPrice(quote.twoHundredDayAveragePrice)}
+- 52-week Range: $${formatPrice(quote.fiftyTwoWeekLow)} - $${formatPrice(quote.fiftyTwoWeekHigh)}
 - Volume: ${quote.volume?.toLocaleString()} (Avg: ${quote.averageVolume?.toLocaleString()})
 
 Intraday Data:
-- Open: $${quote.open}
-- High: $${quote.high}
-- Low: $${quote.low}
-- Close: $${quote.close}
+- Open: $${formatPrice(quote.open)}
+- High: $${formatPrice(quote.high)}
+- Low: $${formatPrice(quote.low)}
+- Close: $${formatPrice(quote.close)}
 
 Valuation Metrics:
 - Market Cap: $${quote.marketCap ? (quote.marketCap >= 1000000000000 ? (quote.marketCap / 1000000000000).toFixed(2) + 'T' : (quote.marketCap / 1000000000).toFixed(2) + 'B') : 'N/A'}
@@ -236,7 +252,7 @@ export async function POST(request: Request) {
       const symbol = q.symbol ?? 'UNKNOWN';
       const companyName = q.name ?? symbol;
       const changePercent = typeof q.changePercent === 'number' ? q.changePercent : 0;
-      const lastPrice = q.lastTradePrice?.toFixed(2) ?? '0.00';
+      const lastPrice = formatPrice(q.lastTradePrice);
 
       const upDown = changePercent > 0 ? 'up' : changePercent < 0 ? 'down' : 'unchanged';
       const absChange = Math.abs(changePercent).toFixed(2);
@@ -279,77 +295,34 @@ export async function POST(request: Request) {
         // Determine position within 52-week range
         const rangePosition = ((currentPrice - low) / (high - low)) * 100;
         
+        // 52-week range context block - force overwrite to fix unterminated template literal
         if (rangePosition > 80) {
-          historicalContext += `The stock is trading near its 52-week high of $${high.toFixed(2)}. `;
+          historicalContext += `The stock is trading near its 52-week high of $${formatPrice(high)}. `;
         } else if (rangePosition < 20) {
-          historicalContext += `The stock is trading near its 52-week low of $${low.toFixed(2)}. `;
+          historicalContext += `The stock is trading near its 52-week low of $${formatPrice(low)}. `;
         } else {
-          historicalContext += `The stock is trading within its 52-week range of $${low.toFixed(2)} to $${high.toFixed(2)}. `;
-        }
-      }
-      
-      if (q.fiftyDayAveragePrice && q.lastTradePrice) {
-        const currentPrice = q.lastTradePrice;
-        const avg50 = q.fiftyDayAveragePrice;
-        
-        if (currentPrice > avg50) {
-          historicalContext += `Shares are above the 50-day moving average of $${avg50.toFixed(2)}. `;
-        } else {
-          historicalContext += `Shares are below the 50-day moving average of $${avg50.toFixed(2)}. `;
-        }
-      }
-      
-      if (q.volume && q.averageVolume) {
-        const volumeRatio = q.volume / q.averageVolume;
-        
-        if (volumeRatio > 1.5) {
-          historicalContext += `Trading volume is above average. `;
-        } else if (volumeRatio < 0.7) {
-          historicalContext += `Trading volume is below average. `;
+          historicalContext += `The stock is trading within its 52-week range of $${formatPrice(low)} to $${formatPrice(high)}. `;
         }
       }
 
-      if (historicalContext) {
-        priceActionText += '\n\n' + historicalContext;
+      // Append historicalContext to technicalAnalysis if present
+      if (technicalAnalysis && historicalContext) {
+        technicalAnalysis = technicalAnalysis + '\n' + historicalContext.trim();
+      } else if (historicalContext) {
+        technicalAnalysis = historicalContext.trim();
       }
-      
-      if (technicalAnalysis) {
-        // Clean up the analysis text and ensure proper formatting
-        let formattedAnalysis = technicalAnalysis
-          .replace(/\.\.+$/, '.') // Remove multiple periods at end
-          .replace(/\s+\.$/, '.') // Remove extra spaces before final period
-          .replace(/\.\.$/, '.') // Remove double period at end
-          .replace(/\.\./g, '.') // Remove any double periods anywhere
-          .trim();
-        
-        // Add proper spacing around headers (do this after other cleanup)
-        formattedAnalysis = formattedAnalysis
-          .replace(/(TECHNICAL MOMENTUM):/g, '\n$1:\n')
-          .replace(/(VOLUME & INTRADAY):/g, '\n$1:\n')
-          .replace(/(VALUATION CONTEXT):/g, '\n$1:\n')
-          .replace(/\n\s*\n\s*\n/g, '\n\n') // Remove extra line breaks
-          .replace(/\n\s*\n/g, '\n\n'); // Ensure consistent double line breaks
-        
-        // Ensure we start with proper spacing
-        if (!formattedAnalysis.startsWith('\n')) {
-          formattedAnalysis = '\n' + formattedAnalysis;
-        }
-        
-        // Final cleanup to remove any remaining double periods
-        formattedAnalysis = formattedAnalysis.replace(/\.\./g, '.');
-        
-        priceActionText += '\n' + formattedAnalysis;
-      }
-
-      return priceActionText;
+      // Return only technicalAnalysis (with historical context appended)
+      return {
+        ticker: symbol,
+        companyName: companyName,
+        priceAction: priceActionText,
+        technicalAnalysis: technicalAnalysis
+      };
     }));
 
     return NextResponse.json({ priceActions });
   } catch (error) {
-    console.error('Error fetching price action:', error);
-    return NextResponse.json(
-      { priceActions: [], error: 'Failed to fetch price action.' },
-      { status: 500 }
-    );
+    console.error('Error generating price actions:', error);
+    return NextResponse.json({ priceActions: [], error: 'Failed to generate price actions.' });
   }
 }
