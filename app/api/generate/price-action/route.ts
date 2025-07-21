@@ -34,16 +34,24 @@ async function generateTechnicalAnalysis(quote: BenzingaQuote, sectorComparison?
   try {
     let sectorComparisonText = '';
     if (sectorComparison && sectorComparison.length > 0) {
-      const comparisonData = sectorComparison.map(stock => {
+      // Patch sector peers to clarify P/E status
+      const patchedSectorComparison = sectorComparison.map(stock => {
+        let patchedPE: string | number = stock.pe;
+        if (typeof stock.pe !== 'number' || stock.pe <= 0) {
+          patchedPE = 'N/A (unprofitable)';
+        }
+        return { ...stock, pe: patchedPE };
+      });
+      const comparisonData = patchedSectorComparison.map(stock => {
         const marketCap = stock.marketCap ? (stock.marketCap >= 1000000000000 ? (stock.marketCap / 1000000000000).toFixed(2) + 'T' : (stock.marketCap / 1000000000).toFixed(2) + 'B') : 'N/A';
         const volume = stock.volume ? stock.volume.toLocaleString() : 'N/A';
         const changePercent = stock.changePercent ? `${stock.changePercent.toFixed(2)}%` : 'N/A';
-        
-        return `${stock.symbol}: Price $${stock.lastTradePrice || 'N/A'}, Change ${changePercent}, Volume ${volume}, Market Cap ${marketCap}`;
+        // Use patched P/E
+        const pe = stock.pe;
+        return `${stock.symbol}: Price $${stock.lastTradePrice || 'N/A'}, Change ${changePercent}, Volume ${volume}, Market Cap ${marketCap}, P/E: ${pe}`;
       }).join('\n');
-      
       // Determine if we're comparing against sector peers or sector ETFs
-      const isSectorETF = sectorComparison.some(stock => ['XLI', 'XLF', 'XLK', 'XLV', 'XLE', 'XLP', 'XLY'].includes(stock.symbol || ''));
+      const isSectorETF = patchedSectorComparison.some(stock => ['XLI', 'XLF', 'XLK', 'XLV', 'XLE', 'XLP', 'XLY'].includes(stock.symbol || ''));
       const comparisonType = isSectorETF ? 'Sector ETF Comparison' : 'Sector Comparison';
       sectorComparisonText = `\n\n${comparisonType}:\n${comparisonData}`;
     }
@@ -69,8 +77,10 @@ Intraday Data:
 
 Valuation Metrics:
 - Market Cap: $${quote.marketCap ? (quote.marketCap >= 1000000000000 ? (quote.marketCap / 1000000000000).toFixed(2) + 'T' : (quote.marketCap / 1000000000).toFixed(2) + 'B') : 'N/A'}
-- P/E Ratio: ${quote.pe || 'N/A'}
+- P/E Ratio: ${typeof quote.pe === 'number' && quote.pe > 0 ? quote.pe : 'N/A (unprofitable)'}
 - Forward P/E: ${quote.forwardPE || 'N/A'}${sectorComparisonText}
+
+Note: If a company's P/E is listed as N/A (unprofitable), it means the company has negative earnings and should not be compared on this metric. Do not invent or estimate P/E values for such companies.
 
 Provide analysis in exactly this format with proper spacing:
 
