@@ -400,7 +400,9 @@ const ContentGenerator = forwardRef<ContentGeneratorRef, ContentGeneratorProps>(
                 }
 
                 const [before, after] = line.split(phrase);
-                const afterClean = after.startsWith('.') ? after.substring(1) : after;
+                // Check if the original line had a period immediately after the phrase
+                const hadPeriodAfterPhrase = after.startsWith('.');
+                const afterClean = hadPeriodAfterPhrase ? after.substring(1) : after;
 
                 // Extract and bold "SYMBOL Price Action:"
                 const colonIndex = before.indexOf(':');
@@ -420,6 +422,7 @@ const ContentGenerator = forwardRef<ContentGeneratorRef, ContentGeneratorProps>(
                       >
                         {phrase}
                       </a>
+                      {hadPeriodAfterPhrase && '.'}
                       {afterClean}
                     </span>
                     <button

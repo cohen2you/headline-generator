@@ -206,6 +206,9 @@ export async function POST(request: Request) {
     }
     const data = await res.json();
 
+    // Log the raw Benzinga API response for debugging
+    console.log('Benzinga API raw response:', JSON.stringify(data, null, 2));
+
     if (!data || typeof data !== 'object') {
       return NextResponse.json({ priceActions: [], error: 'Invalid Benzinga response' });
     }
@@ -216,6 +219,9 @@ export async function POST(request: Request) {
       if (typeof quote !== 'object' || quote === null) return '';
 
       const q = quote as BenzingaQuote;
+
+      // Log the parsed BenzingaQuote for debugging
+      console.log('Parsed BenzingaQuote:', JSON.stringify(q, null, 2));
 
       const symbol = q.symbol ?? 'UNKNOWN';
       const companyName = q.name ?? symbol;
@@ -230,15 +236,26 @@ export async function POST(request: Request) {
       const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
       const dayOfWeek = dayNames[date.getDay()];
 
-      let priceActionText = `${symbol} Price Action: ${companyName} shares were ${upDown} ${absChange}% at $${lastPrice} at the time of publication ${dayOfWeek}, according to Benzinga Pro.`;
+      let priceActionText = `${symbol} Price Action: ${companyName} shares were ${upDown} ${absChange}% at $${lastPrice} at the time of publication ${dayOfWeek}, according to Benzinga Pro`;
+
+      // Ensure the summary line ends with a period
+      if (!priceActionText.trim().endsWith('.')) {
+        priceActionText += '.';
+      }
 
       // Generate technical analysis using OpenAI
       let technicalAnalysis = '';
-      if (q.fiftyDayAveragePrice && q.hundredDayAveragePrice && q.twoHundredDayAveragePrice && 
-          q.open && q.high && q.low && q.close) {
+      // Use q.close if available, otherwise q.lastTradePrice
+      const closeValue = q.close ?? q.lastTradePrice;
+      if (
+        q.fiftyDayAveragePrice && q.hundredDayAveragePrice && q.twoHundredDayAveragePrice &&
+        q.open && q.high && q.low && closeValue
+      ) {
+        // Patch the quote object to always have a close value
+        const patchedQuote = { ...q, close: closeValue };
         // Get sector peers for comparison
         const sectorPeers = await getSectorPeers(symbol);
-        technicalAnalysis = await generateTechnicalAnalysis(q, sectorPeers);
+        technicalAnalysis = await generateTechnicalAnalysis(patchedQuote, sectorPeers);
       }
 
       // Add historical context using available Benzinga data
