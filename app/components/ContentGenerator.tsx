@@ -35,7 +35,15 @@ const ContentGenerator = forwardRef<ContentGeneratorRef, ContentGeneratorProps>(
 
     // Price Action Generator state
     const [tickers, setTickers] = useState('');
-    const [priceActions, setPriceActions] = useState<string[]>([]);
+    // Update the priceActions state type
+    type PriceActionObj = {
+      ticker: string;
+      companyName: string;
+      priceAction: string;
+      technicalAnalysis?: string;
+      historicalContext?: string;
+    };
+    const [priceActions, setPriceActions] = useState<(string | PriceActionObj)[]>([]);
     const [loadingPriceAction, setLoadingPriceAction] = useState(false);
     const [priceActionError, setPriceActionError] = useState('');
     const [copiedPriceActionIndex, setCopiedPriceActionIndex] = useState<number | null>(null);
@@ -114,10 +122,10 @@ const ContentGenerator = forwardRef<ContentGeneratorRef, ContentGeneratorProps>(
           .map((line: string) => line.replace(/^##\s*/, ''))
           .filter((line: string) => {
             const trimmedLine = line.trim();
-            return !trimmedLine.includes('Count of H2 headings:') && 
-                   !trimmedLine.includes('Count Of H2 Headings:') &&
-                   !trimmedLine.includes('Count of H2s:') &&
-                   !trimmedLine.includes('Count Of H2s:') &&
+            return (typeof trimmedLine === 'string' && !trimmedLine.includes('Count of H2 headings:')) && 
+                   (typeof trimmedLine === 'string' && !trimmedLine.includes('Count Of H2 Headings:')) &&
+                   (typeof trimmedLine === 'string' && !trimmedLine.includes('Count of H2s:')) &&
+                   (typeof trimmedLine === 'string' && !trimmedLine.includes('Count Of H2s:')) &&
                    !trimmedLine.match(/^-+$/); // Remove lines that are just dashes
           })
           .join('\n');
@@ -137,14 +145,14 @@ const ContentGenerator = forwardRef<ContentGeneratorRef, ContentGeneratorProps>(
             !line.endsWith('.') &&
             !line.endsWith('!') &&
             !line.endsWith('?') &&
-            !line.includes('Price Action:') && // Exclude the main title
-            !line.includes('according to Benzinga Pro') && // Exclude attribution
-            !line.includes('Count of H2 headings:') && // Exclude the count text
-            !line.includes('Count Of H2 Headings:') && // Exclude the count text
-            !line.includes('Count of H2s:') && // Exclude the count text
-            !line.includes('Count Of H2s:') && // Exclude the count text
+            (typeof line === 'string' && !line.includes('Price Action:')) && // Exclude the main title
+            (typeof line === 'string' && !line.includes('according to Benzinga Pro')) && // Exclude attribution
+            (typeof line === 'string' && !line.includes('Count of H2 headings:')) && // Exclude the count text
+            (typeof line === 'string' && !line.includes('Count Of H2 Headings:')) && // Exclude the count text
+            (typeof line === 'string' && !line.includes('Count of H2s:')) && // Exclude the count text
+            (typeof line === 'string' && !line.includes('Count Of H2s:')) && // Exclude the count text
             !line.match(/^-+$/) && // Exclude lines that are just dashes
-            !line.includes('H2:') && // Exclude lines that start with H2:
+            (typeof line === 'string' && !line.includes('H2:')) && // Exclude lines that start with H2:
             i > 0 // Not the first line
           ) {
             // Check if it's Title Case (first letter of each word capitalized)
@@ -172,10 +180,10 @@ const ContentGenerator = forwardRef<ContentGeneratorRef, ContentGeneratorProps>(
               !line.endsWith('.') &&
               !line.endsWith('!') &&
               !line.endsWith('?') &&
-              !line.includes('Price Action:') &&
-              !line.includes('according to Benzinga Pro') &&
-              !line.includes('Count') &&
-              !line.includes('H2:') &&
+              (typeof line === 'string' && !line.includes('Price Action:')) &&
+              (typeof line === 'string' && !line.includes('according to Benzinga Pro')) &&
+              (typeof line === 'string' && !line.includes('Count')) &&
+              (typeof line === 'string' && !line.includes('H2:')) &&
               !line.match(/^-+$/) &&
               !headings.includes(line) && // Don't duplicate
               i > 0
@@ -377,17 +385,14 @@ const ContentGenerator = forwardRef<ContentGeneratorRef, ContentGeneratorProps>(
 
           {priceActions.length > 0 && (
             <ul className="space-y-2 font-mono text-sm">
-              {priceActions.map((line, i) => {
-                const phrase = 'according to Benzinga Pro';
-                const hasPhrase = line.includes(phrase);
-
-                if (!hasPhrase) {
+              {priceActions.map((action, i) => {
+                if (typeof action === 'string') {
                   return (
                     <li key={i} className="flex justify-between items-start">
-                      <span className="flex-1 whitespace-pre-wrap">{line}</span>
+                      <span className="flex-1 whitespace-pre-wrap">{action}</span>
                       <button
                         onClick={() => {
-                          navigator.clipboard.writeText(line);
+                          navigator.clipboard.writeText(action);
                           setCopiedPriceActionIndex(i);
                           setTimeout(() => setCopiedPriceActionIndex(null), 2000);
                         }}
@@ -397,46 +402,83 @@ const ContentGenerator = forwardRef<ContentGeneratorRef, ContentGeneratorProps>(
                       </button>
                     </li>
                   );
-                }
-
-                const [before, after] = line.split(phrase);
-                // Check if the original line had a period immediately after the phrase
-                const hadPeriodAfterPhrase = after.startsWith('.');
-                const afterClean = hadPeriodAfterPhrase ? after.substring(1) : after;
-
-                // Extract and bold "SYMBOL Price Action:"
-                const colonIndex = before.indexOf(':');
-                const boldPart = colonIndex !== -1 ? before.slice(0, colonIndex + 1) : '';
-                const restPart = colonIndex !== -1 ? before.slice(colonIndex + 1) : before;
-
-                return (
-                  <li key={i} className="flex justify-between items-start break-words">
-                    <span className="flex-1 whitespace-pre-wrap">
-                      <strong>{boldPart}</strong>
-                      {restPart}{' '}
-                      <a
-                        href="https://www.benzinga.com/pro/"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-yellow-700 underline hover:text-yellow-900"
+                } else {
+                  return (
+                    <li key={i} className="flex flex-col items-start border-b border-yellow-200 pb-2 mb-2">
+                      {/* Remove ticker/company line at the top */}
+                      {/* Render price action with only the label bold and hyperlink 'according to Benzinga Pro.' */}
+                      {(() => {
+                        const priceAction = action.priceAction;
+                        const labelMatch = priceAction.match(/^(.*?:)(.*)$/);
+                        let mainText = priceAction;
+                        let afterText = '';
+                        let beforeText = '';
+                        if (labelMatch) {
+                          beforeText = labelMatch[1];
+                          mainText = labelMatch[2];
+                        }
+                        const phrase = 'according to Benzinga Pro.';
+                        const phraseIndex = mainText.indexOf(phrase);
+                        let mainBefore = mainText;
+                        let mainAfter = '';
+                        if (phraseIndex !== -1) {
+                          mainBefore = mainText.slice(0, phraseIndex);
+                          mainAfter = mainText.slice(phraseIndex + phrase.length);
+                        }
+                        return (
+                          <span className="mb-1 font-semibold text-black">
+                            <strong>{beforeText}</strong>
+                            <span className="font-normal">{mainBefore}
+                              {phraseIndex !== -1 && (
+                                <>
+                                  <a
+                                    href="https://www.benzinga.com/pro/"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-yellow-700 underline hover:text-yellow-900"
+                                  >
+                                    {phrase}
+                                  </a>
+                                  {mainAfter}
+                                </>
+                              )}
+                            </span>
+                          </span>
+                        );
+                      })()}
+                      {/* Extract and display 52-week range if present, with a space above */}
+                      {action.technicalAnalysis && (() => {
+                        const lines = action.technicalAnalysis.split('\n');
+                        const rangeLineIndex = lines.findIndex(line => line.includes('52-week range') || line.includes('52-week high') || line.includes('52-week low') || line.match(/\$\d+\.\d{2} to \$\d+\.\d{2}/));
+                        let rangeLine = '';
+                        if (rangeLineIndex !== -1) {
+                          rangeLine = lines[rangeLineIndex];
+                          lines.splice(rangeLineIndex, 1);
+                        }
+                        return (
+                          <>
+                            {rangeLine && <span className="block text-black mb-2 mt-2">{rangeLine}</span>}
+                            <span className="block h-4" />
+                            <pre className="whitespace-pre-wrap text-black" style={{ fontFamily: 'inherit', marginTop: 0 }}>
+                              {lines.join('\n')}
+                            </pre>
+                          </>
+                        );
+                      })()}
+                      <button
+                        onClick={() => {
+                          const textToCopy = `${action.ticker}: ${action.companyName}\n${action.priceAction}\n${action.technicalAnalysis || ''}\n${action.historicalContext || ''}`.trim();
+                          navigator.clipboard.writeText(textToCopy);
+                          setCopiedPriceActionIndex(i);
+                          setTimeout(() => setCopiedPriceActionIndex(null), 2000);
+                        }}
+                        className="mt-2 bg-yellow-200 hover:bg-yellow-300 text-yellow-800 px-2 py-1 rounded text-xs"
                       >
-                        {phrase}
-                      </a>
-                      {hadPeriodAfterPhrase && '.'}
-                      {afterClean}
-                    </span>
-                    <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(line);
-                        setCopiedPriceActionIndex(i);
-                        setTimeout(() => setCopiedPriceActionIndex(null), 2000);
-                      }}
-                      className="ml-4 bg-yellow-200 hover:bg-yellow-300 text-yellow-800 px-2 py-1 rounded text-xs"
-                    >
-                      {copiedPriceActionIndex === i ? 'Copied!' : 'Copy'}
-                    </button>
-                  </li>
-                );
+                        {copiedPriceActionIndex === i ? 'Copied!' : 'Copy'}
+                      </button>
+                    </li>
+                  );
+                }
               })}
             </ul>
           )}
