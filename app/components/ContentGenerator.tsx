@@ -1,3 +1,4 @@
+// Force update: marketStatusNote is no longer used; summary line includes market status
 'use client';
 
 import React, { useState, forwardRef, useImperativeHandle } from 'react';

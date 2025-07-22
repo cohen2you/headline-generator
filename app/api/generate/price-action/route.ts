@@ -1,3 +1,4 @@
+// Force update: Market status summary logic is present (premarket/after-hours/closed in summary line)
 import { NextResponse } from 'next/server';
 import OpenAI from 'openai';
 
@@ -215,6 +216,27 @@ async function getSectorPeers(symbol: string): Promise<BenzingaQuote[]> {
   }
 }
 
+// Utility function to detect US market status (Eastern Time)
+function getMarketStatus(): 'open' | 'premarket' | 'afterhours' | 'closed' {
+  const now = new Date();
+  // Convert to UTC, then to New York time (Eastern Time)
+  const nowUtc = now.getTime() + (now.getTimezoneOffset() * 60000);
+  // New York is UTC-4 (EDT) or UTC-5 (EST); for simplicity, use UTC-4 (EDT)
+  // For more accuracy, use a timezone library like luxon or moment-timezone
+  const nyOffset = -4; // hours
+  const nyTime = new Date(nowUtc + (3600000 * nyOffset));
+  const day = nyTime.getDay(); // 0 = Sunday, 6 = Saturday
+  const hour = nyTime.getHours();
+  const minute = nyTime.getMinutes();
+  const time = hour * 100 + minute;
+
+  if (day === 0 || day === 6) return 'closed'; // Weekend
+  if (time >= 400 && time < 930) return 'premarket';
+  if (time >= 930 && time < 1600) return 'open';
+  if (time >= 1600 && time < 2000) return 'afterhours';
+  return 'closed';
+}
+
 export async function POST(request: Request) {
   try {
     const { tickers } = await request.json();
@@ -222,6 +244,17 @@ export async function POST(request: Request) {
     if (!tickers?.trim()) {
       return NextResponse.json({ priceActions: [], error: 'Ticker(s) required.' });
     }
+
+    // Detect market status and prepare a phrase for the summary line
+    const marketStatus = getMarketStatus();
+    let marketStatusPhrase = '';
+    if (marketStatus === 'premarket') {
+      marketStatusPhrase = ' during premarket trading';
+    } else if (marketStatus === 'afterhours') {
+      marketStatusPhrase = ' during after-hours trading';
+    } else if (marketStatus === 'closed') {
+      marketStatusPhrase = ' while the market was closed';
+    } // if open, leave as empty string
 
     const url = `https://api.benzinga.com/api/v2/quoteDelayed?token=${process.env.BENZINGA_API_KEY}&symbols=${tickers}`;
 
@@ -262,7 +295,7 @@ export async function POST(request: Request) {
       const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
       const dayOfWeek = dayNames[date.getDay()];
 
-      let priceActionText = `${symbol} Price Action: ${companyName} shares were ${upDown} ${absChange}% at $${lastPrice} at the time of publication ${dayOfWeek}, according to Benzinga Pro`;
+      let priceActionText = `${symbol} Price Action: ${companyName} shares were ${upDown} ${absChange}% at $${lastPrice}${marketStatusPhrase} on ${dayOfWeek}, according to Benzinga Pro`;
 
       // Ensure the summary line ends with a period
       if (!priceActionText.trim().endsWith('.')) {
@@ -273,15 +306,16 @@ export async function POST(request: Request) {
       let technicalAnalysis = '';
       // Use q.close if available, otherwise q.lastTradePrice
       const closeValue = q.close ?? q.lastTradePrice;
-      if (
-        q.fiftyDayAveragePrice && q.hundredDayAveragePrice && q.twoHundredDayAveragePrice &&
-        q.open && q.high && q.low && closeValue
-      ) {
+      // Check if at least one technical field is present
+      const hasAnyTechnicalField = q.fiftyDayAveragePrice || q.hundredDayAveragePrice || q.twoHundredDayAveragePrice || q.open || q.high || q.low || closeValue;
+      if (hasAnyTechnicalField) {
         // Patch the quote object to always have a close value
         const patchedQuote = { ...q, close: closeValue };
         // Get sector peers for comparison
         const sectorPeers = await getSectorPeers(symbol);
         technicalAnalysis = await generateTechnicalAnalysis(patchedQuote, sectorPeers);
+      } else {
+        technicalAnalysis = 'Full technical analysis is unavailable due to limited data.';
       }
 
       // Add historical context using available Benzinga data
@@ -329,6 +363,7 @@ export async function POST(request: Request) {
         priceAction: priceActionText,
         technicalAnalysis: technicalAnalysis,
         fiftyTwoWeekRangeLine: fiftyTwoWeekRangeLine
+        // marketStatusNote removed
       };
     }));
 
