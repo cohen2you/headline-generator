@@ -29,6 +29,30 @@ interface BenzingaQuote {
   forwardPE?: number;
   sharesOutstanding?: number;
   sharesFloat?: number;
+  // Extended hours trading data
+  ethPrice?: number;
+  ethVolume?: number;
+  ethTime?: number;
+  // Additional fields from API response
+  change?: number;
+  previousCloseDate?: string;
+  lastTradeTime?: number;
+  bidPrice?: number;
+  askPrice?: number;
+  bidSize?: number;
+  askSize?: number;
+  size?: number;
+  bidTime?: number;
+  askTime?: number;
+  exchange?: string;
+  isoExchange?: string;
+  bzExchange?: string;
+  type?: string;
+  sector?: string;
+  industry?: string;
+  currency?: string;
+  dividendYield?: number;
+  dividend?: number;
 }
 
 // Utility function to truncate to two decimal places
@@ -287,6 +311,20 @@ export async function POST(request: Request) {
       const changePercent = typeof q.changePercent === 'number' ? q.changePercent : 0;
       const lastPrice = formatPrice(q.lastTradePrice);
 
+      // Calculate separate changes for regular session and after-hours
+      let regularSessionChange = 0;
+      let afterHoursChange = 0;
+      let hasAfterHoursData = false;
+
+      if (q.previousClosePrice && q.close && q.ethPrice) {
+        // Regular session change: (close - previousClose) / previousClose * 100
+        regularSessionChange = ((q.close - q.previousClosePrice) / q.previousClosePrice) * 100;
+        
+        // After-hours change: (ethPrice - close) / close * 100
+        afterHoursChange = ((q.ethPrice - q.close) / q.close) * 100;
+        hasAfterHoursData = true;
+      }
+
       const upDown = changePercent > 0 ? 'up' : changePercent < 0 ? 'down' : 'unchanged';
       const absChange = Math.abs(changePercent).toFixed(2);
 
@@ -295,7 +333,21 @@ export async function POST(request: Request) {
       const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
       const dayOfWeek = dayNames[date.getDay()];
 
-      let priceActionText = `${symbol} Price Action: ${companyName} shares were ${upDown} ${absChange}% at $${lastPrice}${marketStatusPhrase} on ${dayOfWeek}, according to Benzinga Pro`;
+      // Build the price action text based on market status and available data
+      let priceActionText = '';
+      
+      if (marketStatus === 'afterhours' && hasAfterHoursData) {
+        // Show both regular session and after-hours changes
+        const regularUpDown = regularSessionChange > 0 ? 'up' : regularSessionChange < 0 ? 'down' : 'unchanged';
+        const afterHoursUpDown = afterHoursChange > 0 ? 'up' : afterHoursChange < 0 ? 'down' : 'unchanged';
+        const absRegularChange = Math.abs(regularSessionChange).toFixed(2);
+        const absAfterHoursChange = Math.abs(afterHoursChange).toFixed(2);
+        
+        priceActionText = `${symbol} Price Action: ${companyName} shares were ${regularUpDown} ${absRegularChange}% during regular trading and ${afterHoursUpDown} ${absAfterHoursChange}% in after-hours trading on ${dayOfWeek}, according to Benzinga Pro`;
+      } else {
+        // Use the original logic for other market statuses
+        priceActionText = `${symbol} Price Action: ${companyName} shares were ${upDown} ${absChange}% at $${lastPrice}${marketStatusPhrase} on ${dayOfWeek}, according to Benzinga Pro`;
+      }
 
       // Ensure the summary line ends with a period
       if (!priceActionText.trim().endsWith('.')) {
