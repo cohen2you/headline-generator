@@ -321,6 +321,33 @@ const ContentGenerator = forwardRef<ContentGeneratorRef, ContentGeneratorProps>(
       }
     }
 
+    async function generateBriefAnalysis() {
+      setPriceActionError('');
+      setLoadingPriceAction(true);
+      setPriceActions([]);
+      try {
+        const res = await fetch('/api/generate/price-action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tickers, briefAnalysis: true }),
+        });
+        if (!res.ok) throw new Error('Failed to fetch brief analysis');
+        const data = await res.json();
+        if (data.error) {
+          setPriceActionError(data.error);
+        } else if (Array.isArray(data.priceActions)) {
+          setPriceActions(data.priceActions);
+        } else {
+          setPriceActionError('Invalid response format');
+        }
+      } catch (error: unknown) {
+        if (error instanceof Error) setPriceActionError(error.message);
+        else setPriceActionError(String(error));
+      } finally {
+        setLoadingPriceAction(false);
+      }
+    }
+
     return (
       <>
         {/* Lead Generator Section */}
@@ -412,6 +439,13 @@ const ContentGenerator = forwardRef<ContentGeneratorRef, ContentGeneratorProps>(
               {loadingPriceAction ? 'Generating...' : 'Price Action Only'}
             </button>
             <button
+              onClick={() => generateBriefAnalysis()}
+              disabled={loadingPriceAction || !tickers.trim()}
+              className="bg-yellow-400 text-white px-4 py-2 rounded disabled:bg-yellow-300 mb-4"
+            >
+              {loadingPriceAction ? 'Generating...' : 'Brief Analysis'}
+            </button>
+            <button
               onClick={generatePriceAction}
               disabled={loadingPriceAction || !tickers.trim()}
               className="bg-yellow-600 text-white px-4 py-2 rounded disabled:bg-yellow-300 mb-4"
@@ -424,35 +458,96 @@ const ContentGenerator = forwardRef<ContentGeneratorRef, ContentGeneratorProps>(
           {priceActions.length > 0 && (
             <ul className="space-y-2 font-mono text-sm">
               {priceActions.map((action, i) => {
-                if (typeof action === 'string') {
-                  // Price Action Only mode (string)
-                  // Render with Benzinga Pro hyperlink
-                  const priceAction = action;
+                if (action && typeof action === 'object' && 'briefAnalysis' in action) {
+                  // Brief Analysis mode (always prioritize this if present)
+                  const priceAction = action.priceAction;
+                  const labelMatch = priceAction.match(/^(.*?:)(.*)$/);
+                  let beforeText = '';
+                  let mainText = priceAction;
+                  if (labelMatch) {
+                    beforeText = labelMatch[1];
+                    mainText = labelMatch[2];
+                  }
                   const phrase = 'according to Benzinga Pro.';
-                  const phraseIndex = priceAction.indexOf(phrase);
-                  let mainBefore = priceAction;
+                  const phraseIndex = mainText.indexOf(phrase);
+                  let mainBefore = mainText;
                   let mainAfter = '';
                   if (phraseIndex !== -1) {
-                    mainBefore = priceAction.slice(0, phraseIndex);
-                    mainAfter = priceAction.slice(phraseIndex + phrase.length);
+                    mainBefore = mainText.slice(0, phraseIndex);
+                    mainAfter = mainText.slice(phraseIndex + phrase.length);
+                  }
+                  return (
+                    <li key={i} className="flex flex-col items-start border-b border-yellow-200 pb-2 mb-2">
+                      <span className="mb-1 text-black">
+                        <strong>{beforeText}</strong>
+                        <span className="font-normal">{mainBefore}
+                          {phraseIndex !== -1 && (
+                            <>
+                              <a
+                                href="https://www.benzinga.com/pro/"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-yellow-700 underline hover:text-yellow-900"
+                              >
+                                {phrase}
+                              </a>
+                              {mainAfter}
+                            </>
+                          )}
+                        </span>
+                      </span>
+                      <span className="block text-black mt-2 mb-2">{typeof action.briefAnalysis === 'string' ? action.briefAnalysis : ''}</span>
+                      <button
+                        onClick={() => {
+                          const textToCopy = `${action.priceAction}\n${action.briefAnalysis}`.trim();
+                          navigator.clipboard.writeText(textToCopy);
+                          setCopiedPriceActionIndex(i);
+                          setTimeout(() => setCopiedPriceActionIndex(null), 2000);
+                        }}
+                        className="mt-2 bg-yellow-200 hover:bg-yellow-300 text-yellow-800 px-2 py-1 rounded text-xs"
+                      >
+                        {copiedPriceActionIndex === i ? 'Copied!' : 'Copy'}
+                      </button>
+                    </li>
+                  );
+                } else if (typeof action === 'string') {
+                  // Price Action Only mode (string)
+                  // Render with Benzinga Pro hyperlink and correct bolding
+                  const priceAction = action;
+                  const labelMatch = priceAction.match(/^(.*?:)(.*)$/);
+                  let beforeText = '';
+                  let mainText = priceAction;
+                  if (labelMatch) {
+                    beforeText = labelMatch[1];
+                    mainText = labelMatch[2];
+                  }
+                  const phrase = 'according to Benzinga Pro.';
+                  const phraseIndex = mainText.indexOf(phrase);
+                  let mainBefore = mainText;
+                  let mainAfter = '';
+                  if (phraseIndex !== -1) {
+                    mainBefore = mainText.slice(0, phraseIndex);
+                    mainAfter = mainText.slice(phraseIndex + phrase.length);
                   }
                   return (
                     <li key={i} className="flex justify-between items-start">
-                      <span className="flex-1 whitespace-pre-wrap">
-                        {mainBefore}
-                        {phraseIndex !== -1 && (
-                          <>
-                            <a
-                              href="https://www.benzinga.com/pro/"
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-yellow-700 underline hover:text-yellow-900"
-                            >
-                              {phrase}
-                            </a>
-                            {mainAfter}
-                          </>
-                        )}
+                      <span className="flex-1 text-black">
+                        <strong>{beforeText}</strong>
+                        <span className="font-normal">{mainBefore}
+                          {phraseIndex !== -1 && (
+                            <>
+                              <a
+                                href="https://www.benzinga.com/pro/"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-yellow-700 underline hover:text-yellow-900"
+                              >
+                                {phrase}
+                              </a>
+                              {mainAfter}
+                            </>
+                          )}
+                        </span>
                       </span>
                       <button
                         onClick={() => {

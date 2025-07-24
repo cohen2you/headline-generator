@@ -263,7 +263,7 @@ function getMarketStatus(): 'open' | 'premarket' | 'afterhours' | 'closed' {
 
 export async function POST(request: Request) {
   try {
-    const { tickers, priceActionOnly } = await request.json();
+    const { tickers, priceActionOnly, briefAnalysis } = await request.json();
 
     if (!tickers?.trim()) {
       return NextResponse.json({ priceActions: [], error: 'Ticker(s) required.' });
@@ -352,6 +352,30 @@ export async function POST(request: Request) {
       // Ensure the summary line ends with a period
       if (!priceActionText.trim().endsWith('.')) {
         priceActionText += '.';
+      }
+
+      // Move briefAnalysis check before priceActionOnly
+      if (briefAnalysis) {
+        // Generate a brief, insightful analysis paragraph using OpenAI
+        let briefAnalysisText = '';
+        try {
+          const briefPrompt = `You are a financial news analyst. Write a single, concise, insightful analysis (2-3 sentences, no more than 60% the length of a typical news paragraph) about the following stock's current trading context. Do NOT restate the price, percentage change, or ticker in the first sentence. Focus on context, causes, or implications. Use as many of the following data points as possible to provide a unique angle or highlight a notable fact: volume, after-hours price/volume, 52-week range, sector, industry, market cap, P/E ratio, regular session close, previous close, dividend yield. Avoid generic statements and do NOT repeat the price action line. Do not include the ticker in the analysis line.\n\nCompany: ${companyName}\nSector: ${q.sector || 'N/A'}\nIndustry: ${q.industry || 'N/A'}\nMarket Cap: $${q.marketCap ? (q.marketCap >= 1e12 ? (q.marketCap / 1e12).toFixed(2) + 'T' : (q.marketCap / 1e9).toFixed(2) + 'B') : 'N/A'}\nP/E Ratio: ${typeof q.pe === 'number' && q.pe > 0 ? q.pe : 'N/A'}\nDividend Yield: ${q.dividendYield || 'N/A'}\nRegular Close: $${formatPrice(q.close)}\nPrevious Close: $${formatPrice(q.previousClosePrice)}\nAfter-hours Price: $${formatPrice(q.ethPrice)}\nAfter-hours Volume: ${q.ethVolume?.toLocaleString() || 'N/A'}\n52-week Range: $${formatPrice(q.fiftyTwoWeekLow)} - $${formatPrice(q.fiftyTwoWeekHigh)}\nVolume: ${q.volume?.toLocaleString() || 'N/A'} (Avg: ${q.averageVolume?.toLocaleString() || 'N/A'})`;
+          const completion = await openai.chat.completions.create({
+            model: 'gpt-4o-mini',
+            messages: [{ role: 'user', content: briefPrompt }],
+            max_tokens: 100,
+            temperature: 0.5,
+          });
+          briefAnalysisText = completion.choices[0].message?.content?.trim() || '';
+        } catch (err) {
+          briefAnalysisText = 'Brief analysis unavailable due to an error.';
+        }
+        return {
+          ticker: symbol,
+          companyName: companyName,
+          priceAction: priceActionText,
+          briefAnalysis: briefAnalysisText
+        };
       }
 
       if (priceActionOnly) {
