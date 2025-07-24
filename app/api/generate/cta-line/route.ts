@@ -18,7 +18,19 @@ function hyperlinkSentence(sentence: string, ticker: string) {
   return `<a href="${link}" target="_blank" rel="noopener noreferrer">${sentence}</a>`;
 }
 
-function getFirstSentence(ticker: string, quote: Record<string, any>) {
+type Quote = {
+  changePercent?: number;
+  volume?: number;
+  averageVolume?: number;
+  lastTradePrice?: number;
+  fiftyTwoWeekHigh?: number;
+  fiftyTwoWeekLow?: number;
+  pe?: number;
+  sector?: string;
+  industry?: string;
+};
+
+function getFirstSentence(ticker: string, quote: Quote) {
   const symbol = ticker.toUpperCase();
   const changePercent = typeof quote.changePercent === 'number' ? quote.changePercent : 0;
   const volume = quote.volume;
@@ -91,9 +103,9 @@ function getFirstSentence(ticker: string, quote: Record<string, any>) {
   };
 
   // Determine scenario
-  if (fiftyTwoWeekHigh && lastPrice >= fiftyTwoWeekHigh * 0.995) {
+  if (fiftyTwoWeekHigh && lastPrice !== undefined && lastPrice >= fiftyTwoWeekHigh * 0.995) {
     return templates.high[Math.floor(Math.random() * templates.high.length)];
-  } else if (fiftyTwoWeekLow && lastPrice <= fiftyTwoWeekLow * 1.005) {
+  } else if (fiftyTwoWeekLow && lastPrice !== undefined && lastPrice <= fiftyTwoWeekLow * 1.005) {
     return templates.low[Math.floor(Math.random() * templates.low.length)];
   } else if (volume && avgVolume && volume > avgVolume * 2) {
     return templates.volume[Math.floor(Math.random() * templates.volume.length)];
@@ -108,7 +120,7 @@ function getFirstSentence(ticker: string, quote: Record<string, any>) {
   } else {
     // For steady, pick a random descriptive template
     // Use 52-week range position for more context
-    if (fiftyTwoWeekHigh && fiftyTwoWeekLow && lastPrice) {
+    if (fiftyTwoWeekHigh && fiftyTwoWeekLow && lastPrice !== undefined) {
       const range = fiftyTwoWeekHigh - fiftyTwoWeekLow;
       const pos = (lastPrice - fiftyTwoWeekLow) / range;
       if (pos > 0.7) {
