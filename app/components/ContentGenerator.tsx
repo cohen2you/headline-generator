@@ -1,7 +1,7 @@
 // Force update: marketStatusNote is no longer used; summary line includes market status
 'use client';
 
-import React, { useState, forwardRef, useImperativeHandle } from 'react';
+import React, { useState, forwardRef, useImperativeHandle, useRef } from 'react';
 
 interface ContentGeneratorProps {
   articleText: string;
@@ -49,6 +49,9 @@ const ContentGenerator = forwardRef<ContentGeneratorRef, ContentGeneratorProps>(
     const [loadingPriceAction, setLoadingPriceAction] = useState(false);
     const [priceActionError, setPriceActionError] = useState('');
     const [copiedPriceActionIndex, setCopiedPriceActionIndex] = useState<number | null>(null);
+
+    // Array of refs for price action lines
+    const priceActionRefs = useRef<(HTMLSpanElement | null)[]>([]);
 
     const clearData = () => {
       setLead('');
@@ -459,7 +462,7 @@ const ContentGenerator = forwardRef<ContentGeneratorRef, ContentGeneratorProps>(
             <ul className="space-y-2 font-mono text-sm">
               {priceActions.map((action, i) => {
                 // Helper to render price action line with only the label bolded
-                const renderPriceActionWithBoldLabel = (priceAction: string) => {
+                const renderPriceActionWithBoldLabel = (priceAction: string, idx: number) => {
                   const labelMatch = priceAction.match(/^(.*?:)(.*)$/);
                   let beforeText = '';
                   let mainText = priceAction;
@@ -476,7 +479,7 @@ const ContentGenerator = forwardRef<ContentGeneratorRef, ContentGeneratorProps>(
                     mainAfter = mainText.slice(phraseIndex + phrase.length);
                   }
                   return (
-                    <span className="mb-1 text-black">
+                    <span className="mb-1 text-black" ref={el => { priceActionRefs.current[idx] = el; }}>
                       <strong>{beforeText}</strong>
                       <span className="font-normal">{mainBefore}
                         {phraseIndex !== -1 && (
@@ -497,19 +500,36 @@ const ContentGenerator = forwardRef<ContentGeneratorRef, ContentGeneratorProps>(
                   );
                 };
 
+                // Helper to copy the rendered HTML of the price action line
+                const copyPriceActionHTML = async () => {
+                  const ref = priceActionRefs.current[i];
+                  if (ref) {
+                    const outer = ref.outerHTML;
+                    try {
+                      await navigator.clipboard.write([
+                        new window.ClipboardItem({ 'text/html': new Blob([outer], { type: 'text/html' }) })
+                      ]);
+                      setCopiedPriceActionIndex(i);
+                      setTimeout(() => setCopiedPriceActionIndex(null), 2000);
+                      return;
+                    } catch {
+                      // fallback: copy as plain text
+                      await navigator.clipboard.writeText(ref.textContent || '');
+                      setCopiedPriceActionIndex(i);
+                      setTimeout(() => setCopiedPriceActionIndex(null), 2000);
+                      return;
+                    }
+                  }
+                };
+
                 if (action && typeof action === 'object' && 'briefAnalysis' in action) {
                   // Brief Analysis mode
                   return (
                     <li key={i} className="flex flex-col items-start border-b border-yellow-200 pb-2 mb-2">
-                      {renderPriceActionWithBoldLabel(action.priceAction)}
+                      {renderPriceActionWithBoldLabel(action.priceAction, i)}
                       <span className="block text-black mt-2 mb-2">{typeof action.briefAnalysis === 'string' ? action.briefAnalysis : ''}</span>
                       <button
-                        onClick={() => {
-                          const textToCopy = `${action.priceAction}\n${action.briefAnalysis}`.trim();
-                          navigator.clipboard.writeText(textToCopy);
-                          setCopiedPriceActionIndex(i);
-                          setTimeout(() => setCopiedPriceActionIndex(null), 2000);
-                        }}
+                        onClick={copyPriceActionHTML}
                         className="mt-2 bg-yellow-200 hover:bg-yellow-300 text-yellow-800 px-2 py-1 rounded text-xs"
                       >
                         {copiedPriceActionIndex === i ? 'Copied!' : 'Copy'}
@@ -521,14 +541,10 @@ const ContentGenerator = forwardRef<ContentGeneratorRef, ContentGeneratorProps>(
                   return (
                     <li key={i} className="flex justify-between items-start">
                       <span className="flex-1 text-black">
-                        {renderPriceActionWithBoldLabel(action)}
+                        {renderPriceActionWithBoldLabel(action, i)}
                       </span>
                       <button
-                        onClick={() => {
-                          navigator.clipboard.writeText(action);
-                          setCopiedPriceActionIndex(i);
-                          setTimeout(() => setCopiedPriceActionIndex(null), 2000);
-                        }}
+                        onClick={copyPriceActionHTML}
                         className="ml-4 bg-yellow-200 hover:bg-yellow-300 text-yellow-800 px-2 py-1 rounded text-xs"
                       >
                         {copiedPriceActionIndex === i ? 'Copied!' : 'Copy'}
@@ -540,14 +556,10 @@ const ContentGenerator = forwardRef<ContentGeneratorRef, ContentGeneratorProps>(
                   return (
                     <li key={i} className="flex justify-between items-start">
                       <span className="flex-1 text-black">
-                        {renderPriceActionWithBoldLabel(action.priceAction)}
+                        {renderPriceActionWithBoldLabel(action.priceAction, i)}
                       </span>
                       <button
-                        onClick={() => {
-                          navigator.clipboard.writeText(action.priceAction);
-                          setCopiedPriceActionIndex(i);
-                          setTimeout(() => setCopiedPriceActionIndex(null), 2000);
-                        }}
+                        onClick={copyPriceActionHTML}
                         className="ml-4 bg-yellow-200 hover:bg-yellow-300 text-yellow-800 px-2 py-1 rounded text-xs"
                       >
                         {copiedPriceActionIndex === i ? 'Copied!' : 'Copy'}
@@ -558,7 +570,7 @@ const ContentGenerator = forwardRef<ContentGeneratorRef, ContentGeneratorProps>(
                   // Full Analysis mode
                   return (
                     <li key={i} className="flex flex-col items-start border-b border-yellow-200 pb-2 mb-2">
-                      {renderPriceActionWithBoldLabel(action.priceAction)}
+                      {renderPriceActionWithBoldLabel(action.priceAction, i)}
                       {/* Always display the 52-week range line if present, with a space above */}
                       {action.fiftyTwoWeekRangeLine && <span className="block text-black mb-2 mt-2">{action.fiftyTwoWeekRangeLine}</span>}
                       <span className="block h-4" />
@@ -566,12 +578,7 @@ const ContentGenerator = forwardRef<ContentGeneratorRef, ContentGeneratorProps>(
                         {action.technicalAnalysis}
                       </pre>
                       <button
-                        onClick={() => {
-                          const textToCopy = `${action.ticker}: ${action.companyName}\n${action.priceAction}\n${action.technicalAnalysis || ''}\n${action.historicalContext || ''}`.trim();
-                          navigator.clipboard.writeText(textToCopy);
-                          setCopiedPriceActionIndex(i);
-                          setTimeout(() => setCopiedPriceActionIndex(null), 2000);
-                        }}
+                        onClick={copyPriceActionHTML}
                         className="mt-2 bg-yellow-200 hover:bg-yellow-300 text-yellow-800 px-2 py-1 rounded text-xs"
                       >
                         {copiedPriceActionIndex === i ? 'Copied!' : 'Copy'}
