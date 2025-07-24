@@ -263,7 +263,7 @@ function getMarketStatus(): 'open' | 'premarket' | 'afterhours' | 'closed' {
 
 export async function POST(request: Request) {
   try {
-    const { tickers } = await request.json();
+    const { tickers, priceActionOnly } = await request.json();
 
     if (!tickers?.trim()) {
       return NextResponse.json({ priceActions: [], error: 'Ticker(s) required.' });
@@ -354,6 +354,15 @@ export async function POST(request: Request) {
         priceActionText += '.';
       }
 
+      if (priceActionOnly) {
+        // Only return the price action line
+        return {
+          ticker: symbol,
+          companyName: companyName,
+          priceAction: priceActionText
+        };
+      }
+
       // Generate technical analysis using OpenAI
       let technicalAnalysis = '';
       // Use q.close if available, otherwise q.lastTradePrice
@@ -415,7 +424,6 @@ export async function POST(request: Request) {
         priceAction: priceActionText,
         technicalAnalysis: technicalAnalysis,
         fiftyTwoWeekRangeLine: fiftyTwoWeekRangeLine
-        // marketStatusNote removed
       };
     }));
 

@@ -294,6 +294,33 @@ const ContentGenerator = forwardRef<ContentGeneratorRef, ContentGeneratorProps>(
       }
     }
 
+    async function generatePriceActionOnly() {
+      setPriceActionError('');
+      setLoadingPriceAction(true);
+      setPriceActions([]);
+      try {
+        const res = await fetch('/api/generate/price-action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tickers, priceActionOnly: true }),
+        });
+        if (!res.ok) throw new Error('Failed to fetch price action');
+        const data = await res.json();
+        if (data.error) {
+          setPriceActionError(data.error);
+        } else if (Array.isArray(data.priceActions)) {
+          setPriceActions(data.priceActions);
+        } else {
+          setPriceActionError('Invalid response format');
+        }
+      } catch (error: unknown) {
+        if (error instanceof Error) setPriceActionError(error.message);
+        else setPriceActionError(String(error));
+      } finally {
+        setLoadingPriceAction(false);
+      }
+    }
+
     return (
       <>
         {/* Lead Generator Section */}
@@ -376,25 +403,102 @@ const ContentGenerator = forwardRef<ContentGeneratorRef, ContentGeneratorProps>(
             onChange={(e) => setTickers(e.target.value.toUpperCase())}
             className="w-full p-2 border border-yellow-400 rounded mb-4"
           />
-          <button
-            onClick={generatePriceAction}
-            disabled={loadingPriceAction || !tickers.trim()}
-            className="bg-yellow-600 text-white px-4 py-2 rounded disabled:bg-yellow-300 mb-4"
-          >
-            {loadingPriceAction ? 'Generating Price Action...' : 'Generate Price Action'}
-          </button>
+          <div className="flex flex-wrap gap-2 mb-4">
+            <button
+              onClick={() => generatePriceActionOnly()}
+              disabled={loadingPriceAction || !tickers.trim()}
+              className="bg-yellow-500 text-white px-4 py-2 rounded disabled:bg-yellow-300 mb-4"
+            >
+              {loadingPriceAction ? 'Generating...' : 'Price Action Only'}
+            </button>
+            <button
+              onClick={generatePriceAction}
+              disabled={loadingPriceAction || !tickers.trim()}
+              className="bg-yellow-600 text-white px-4 py-2 rounded disabled:bg-yellow-300 mb-4"
+            >
+              {loadingPriceAction ? 'Generating Price Action...' : 'Full Analysis'}
+            </button>
+          </div>
           {priceActionError && <p className="text-red-600 mb-4">{priceActionError}</p>}
 
           {priceActions.length > 0 && (
             <ul className="space-y-2 font-mono text-sm">
               {priceActions.map((action, i) => {
                 if (typeof action === 'string') {
+                  // Price Action Only mode (string)
+                  // Render with Benzinga Pro hyperlink
+                  const priceAction = action;
+                  const phrase = 'according to Benzinga Pro.';
+                  const phraseIndex = priceAction.indexOf(phrase);
+                  let mainBefore = priceAction;
+                  let mainAfter = '';
+                  if (phraseIndex !== -1) {
+                    mainBefore = priceAction.slice(0, phraseIndex);
+                    mainAfter = priceAction.slice(phraseIndex + phrase.length);
+                  }
                   return (
                     <li key={i} className="flex justify-between items-start">
-                      <span className="flex-1 whitespace-pre-wrap">{action}</span>
+                      <span className="flex-1 whitespace-pre-wrap">
+                        {mainBefore}
+                        {phraseIndex !== -1 && (
+                          <>
+                            <a
+                              href="https://www.benzinga.com/pro/"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-yellow-700 underline hover:text-yellow-900"
+                            >
+                              {phrase}
+                            </a>
+                            {mainAfter}
+                          </>
+                        )}
+                      </span>
                       <button
                         onClick={() => {
                           navigator.clipboard.writeText(action);
+                          setCopiedPriceActionIndex(i);
+                          setTimeout(() => setCopiedPriceActionIndex(null), 2000);
+                        }}
+                        className="ml-4 bg-yellow-200 hover:bg-yellow-300 text-yellow-800 px-2 py-1 rounded text-xs"
+                      >
+                        {copiedPriceActionIndex === i ? 'Copied!' : 'Copy'}
+                      </button>
+                    </li>
+                  );
+                } else if (action && !('technicalAnalysis' in action)) {
+                  // Price Action Only mode (object)
+                  // Render with Benzinga Pro hyperlink
+                  const priceAction = action.priceAction;
+                  const phrase = 'according to Benzinga Pro.';
+                  const phraseIndex = priceAction.indexOf(phrase);
+                  let mainBefore = priceAction;
+                  let mainAfter = '';
+                  if (phraseIndex !== -1) {
+                    mainBefore = priceAction.slice(0, phraseIndex);
+                    mainAfter = priceAction.slice(phraseIndex + phrase.length);
+                  }
+                  return (
+                    <li key={i} className="flex justify-between items-start">
+                      <span className="flex-1 whitespace-pre-wrap">
+                        {mainBefore}
+                        {phraseIndex !== -1 && (
+                          <>
+                            <a
+                              href="https://www.benzinga.com/pro/"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-yellow-700 underline hover:text-yellow-900"
+                            >
+                              {phrase}
+                            </a>
+                            {mainAfter}
+                          </>
+                        )}
+                      </span>
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(action.priceAction);
                           setCopiedPriceActionIndex(i);
                           setTimeout(() => setCopiedPriceActionIndex(null), 2000);
                         }}
