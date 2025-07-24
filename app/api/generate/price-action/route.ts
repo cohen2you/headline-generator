@@ -367,7 +367,7 @@ export async function POST(request: Request) {
             temperature: 0.5,
           });
           briefAnalysisText = completion.choices[0].message?.content?.trim() || '';
-        } catch (err) {
+        } catch {
           briefAnalysisText = 'Brief analysis unavailable due to an error.';
         }
         return {
