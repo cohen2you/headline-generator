@@ -24,3 +24,9 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+.cta-html-output a {
+  color: #2563eb; /* Tailwind blue-600 */
+  text-decoration: underline;
+  font-weight: 500;
+}
