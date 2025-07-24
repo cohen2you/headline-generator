@@ -458,9 +458,8 @@ const ContentGenerator = forwardRef<ContentGeneratorRef, ContentGeneratorProps>(
           {priceActions.length > 0 && (
             <ul className="space-y-2 font-mono text-sm">
               {priceActions.map((action, i) => {
-                if (action && typeof action === 'object' && 'briefAnalysis' in action) {
-                  // Brief Analysis mode (always prioritize this if present)
-                  const priceAction = action.priceAction;
+                // Helper to render price action line with only the label bolded
+                const renderPriceActionWithBoldLabel = (priceAction: string) => {
                   const labelMatch = priceAction.match(/^(.*?:)(.*)$/);
                   let beforeText = '';
                   let mainText = priceAction;
@@ -477,25 +476,32 @@ const ContentGenerator = forwardRef<ContentGeneratorRef, ContentGeneratorProps>(
                     mainAfter = mainText.slice(phraseIndex + phrase.length);
                   }
                   return (
-                    <li key={i} className="flex flex-col items-start border-b border-yellow-200 pb-2 mb-2">
-                      <span className="mb-1 text-black">
-                        <strong>{beforeText}</strong>
-                        <span className="font-normal">{mainBefore}
-                          {phraseIndex !== -1 && (
-                            <>
-                              <a
-                                href="https://www.benzinga.com/pro/"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-yellow-700 underline hover:text-yellow-900"
-                              >
-                                {phrase}
-                              </a>
-                              {mainAfter}
-                            </>
-                          )}
-                        </span>
+                    <span className="mb-1 text-black">
+                      <strong>{beforeText}</strong>
+                      <span className="font-normal">{mainBefore}
+                        {phraseIndex !== -1 && (
+                          <>
+                            <a
+                              href="https://www.benzinga.com/pro/"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-yellow-700 underline hover:text-yellow-900"
+                            >
+                              {phrase}
+                            </a>
+                            {mainAfter}
+                          </>
+                        )}
                       </span>
+                    </span>
+                  );
+                };
+
+                if (action && typeof action === 'object' && 'briefAnalysis' in action) {
+                  // Brief Analysis mode
+                  return (
+                    <li key={i} className="flex flex-col items-start border-b border-yellow-200 pb-2 mb-2">
+                      {renderPriceActionWithBoldLabel(action.priceAction)}
                       <span className="block text-black mt-2 mb-2">{typeof action.briefAnalysis === 'string' ? action.briefAnalysis : ''}</span>
                       <button
                         onClick={() => {
@@ -512,42 +518,10 @@ const ContentGenerator = forwardRef<ContentGeneratorRef, ContentGeneratorProps>(
                   );
                 } else if (typeof action === 'string') {
                   // Price Action Only mode (string)
-                  // Render with Benzinga Pro hyperlink and correct bolding
-                  const priceAction = action;
-                  const labelMatch = priceAction.match(/^(.*?:)(.*)$/);
-                  let beforeText = '';
-                  let mainText = priceAction;
-                  if (labelMatch) {
-                    beforeText = labelMatch[1];
-                    mainText = labelMatch[2];
-                  }
-                  const phrase = 'according to Benzinga Pro.';
-                  const phraseIndex = mainText.indexOf(phrase);
-                  let mainBefore = mainText;
-                  let mainAfter = '';
-                  if (phraseIndex !== -1) {
-                    mainBefore = mainText.slice(0, phraseIndex);
-                    mainAfter = mainText.slice(phraseIndex + phrase.length);
-                  }
                   return (
                     <li key={i} className="flex justify-between items-start">
                       <span className="flex-1 text-black">
-                        <strong>{beforeText}</strong>
-                        <span className="font-normal">{mainBefore}
-                          {phraseIndex !== -1 && (
-                            <>
-                              <a
-                                href="https://www.benzinga.com/pro/"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-yellow-700 underline hover:text-yellow-900"
-                              >
-                                {phrase}
-                              </a>
-                              {mainAfter}
-                            </>
-                          )}
-                        </span>
+                        {renderPriceActionWithBoldLabel(action)}
                       </span>
                       <button
                         onClick={() => {
@@ -563,33 +537,10 @@ const ContentGenerator = forwardRef<ContentGeneratorRef, ContentGeneratorProps>(
                   );
                 } else if (action && !('technicalAnalysis' in action)) {
                   // Price Action Only mode (object)
-                  // Render with Benzinga Pro hyperlink
-                  const priceAction = action.priceAction;
-                  const phrase = 'according to Benzinga Pro.';
-                  const phraseIndex = priceAction.indexOf(phrase);
-                  let mainBefore = priceAction;
-                  let mainAfter = '';
-                  if (phraseIndex !== -1) {
-                    mainBefore = priceAction.slice(0, phraseIndex);
-                    mainAfter = priceAction.slice(phraseIndex + phrase.length);
-                  }
                   return (
                     <li key={i} className="flex justify-between items-start">
-                      <span className="flex-1 whitespace-pre-wrap">
-                        {mainBefore}
-                        {phraseIndex !== -1 && (
-                          <>
-                            <a
-                              href="https://www.benzinga.com/pro/"
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-yellow-700 underline hover:text-yellow-900"
-                            >
-                              {phrase}
-                            </a>
-                            {mainAfter}
-                          </>
-                        )}
+                      <span className="flex-1 text-black">
+                        {renderPriceActionWithBoldLabel(action.priceAction)}
                       </span>
                       <button
                         onClick={() => {
@@ -604,48 +555,10 @@ const ContentGenerator = forwardRef<ContentGeneratorRef, ContentGeneratorProps>(
                     </li>
                   );
                 } else {
+                  // Full Analysis mode
                   return (
                     <li key={i} className="flex flex-col items-start border-b border-yellow-200 pb-2 mb-2">
-                      {/* Remove ticker/company line at the top */}
-                      {/* Render price action with only the label bold and hyperlink 'according to Benzinga Pro.' */}
-                      {(() => {
-                        const priceAction = action.priceAction;
-                        const labelMatch = priceAction.match(/^(.*?:)(.*)$/);
-                        let mainText = priceAction;
-                        let beforeText = '';
-                        if (labelMatch) {
-                          beforeText = labelMatch[1];
-                          mainText = labelMatch[2];
-                        }
-                        const phrase = 'according to Benzinga Pro.';
-                        const phraseIndex = mainText.indexOf(phrase);
-                        let mainBefore = mainText;
-                        let mainAfter = '';
-                        if (phraseIndex !== -1) {
-                          mainBefore = mainText.slice(0, phraseIndex);
-                          mainAfter = mainText.slice(phraseIndex + phrase.length);
-                        }
-                        return (
-                          <span className="mb-1 font-semibold text-black">
-                            <strong>{beforeText}</strong>
-                            <span className="font-normal">{mainBefore}
-                              {phraseIndex !== -1 && (
-                                <>
-                                  <a
-                                    href="https://www.benzinga.com/pro/"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-yellow-700 underline hover:text-yellow-900"
-                                  >
-                                    {phrase}
-                                  </a>
-                                  {mainAfter}
-                                </>
-                              )}
-                            </span>
-                          </span>
-                        );
-                      })()}
+                      {renderPriceActionWithBoldLabel(action.priceAction)}
                       {/* Always display the 52-week range line if present, with a space above */}
                       {action.fiftyTwoWeekRangeLine && <span className="block text-black mb-2 mt-2">{action.fiftyTwoWeekRangeLine}</span>}
                       <span className="block h-4" />

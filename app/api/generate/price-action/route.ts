@@ -344,6 +344,9 @@ export async function POST(request: Request) {
         const absAfterHoursChange = Math.abs(afterHoursChange).toFixed(2);
         
         priceActionText = `${symbol} Price Action: ${companyName} shares were ${regularUpDown} ${absRegularChange}% during regular trading and ${afterHoursUpDown} ${absAfterHoursChange}% in after-hours trading on ${dayOfWeek}, according to Benzinga Pro`;
+      } else if (marketStatus === 'open') {
+        // Regular trading hours: include 'at the time of publication'
+        priceActionText = `${symbol} Price Action: ${companyName} shares were ${upDown} ${absChange}% at $${lastPrice} at the time of publication on ${dayOfWeek}, according to Benzinga Pro`;
       } else {
         // Use the original logic for other market statuses
         priceActionText = `${symbol} Price Action: ${companyName} shares were ${upDown} ${absChange}% at $${lastPrice}${marketStatusPhrase} on ${dayOfWeek}, according to Benzinga Pro`;
