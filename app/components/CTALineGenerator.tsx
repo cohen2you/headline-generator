@@ -31,7 +31,7 @@ const CTALineGenerator: React.FC = () => {
         console.log('CTA HTML:', data.cta); // Log the raw HTML
         setCta(data.cta);
       }
-    } catch (err) {
+    } catch {
       setError('Failed to generate CTA.');
     } finally {
       setLoading(false);

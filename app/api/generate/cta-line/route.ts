@@ -18,7 +18,7 @@ function hyperlinkSentence(sentence: string, ticker: string) {
   return `<a href="${link}" target="_blank" rel="noopener noreferrer">${sentence}</a>`;
 }
 
-function getFirstSentence(ticker: string, quote: any) {
+function getFirstSentence(ticker: string, quote: Record<string, any>) {
   const symbol = ticker.toUpperCase();
   const changePercent = typeof quote.changePercent === 'number' ? quote.changePercent : 0;
   const volume = quote.volume;
@@ -27,12 +27,8 @@ function getFirstSentence(ticker: string, quote: any) {
   const fiftyTwoWeekHigh = quote.fiftyTwoWeekHigh;
   const fiftyTwoWeekLow = quote.fiftyTwoWeekLow;
   const pe = quote.pe;
-  const marketCap = quote.marketCap;
   const sector = quote.sector;
   const industry = quote.industry;
-  const fiftyDayAvg = quote.fiftyDayAveragePrice;
-  const hundredDayAvg = quote.hundredDayAveragePrice;
-  const twoHundredDayAvg = quote.twoHundredDayAveragePrice;
 
   // Template sets for each scenario
   const templates = {
@@ -154,7 +150,7 @@ export async function POST(request: Request) {
     const secondSentenceLinked = hyperlinkSentence(secondSentence, ticker);
     const cta = `${firstSentence} ${secondSentenceLinked}`;
     return NextResponse.json({ cta });
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Failed to generate CTA.' }, { status: 500 });
   }
 } 
