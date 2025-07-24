@@ -102,6 +102,19 @@ function getFirstSentence(ticker: string, quote: Quote) {
     ],
   };
 
+  const steadyUpper = [
+    `${symbol} is trading in the upper third of its 52-week range.`,
+    `${symbol} is holding near its annual highs.`,
+    `${symbol} is consolidating close to its 52-week peak.`,
+    `${symbol} is showing strength near its 52-week high.`
+  ];
+  const steadyLower = [
+    `${symbol} is trading in the lower third of its 52-week range.`,
+    `${symbol} is hovering near its annual lows.`,
+    `${symbol} is consolidating close to its 52-week bottom.`,
+    `${symbol} is showing weakness near its 52-week low.`
+  ];
+
   // Determine scenario
   if (fiftyTwoWeekHigh && lastPrice !== undefined && lastPrice >= fiftyTwoWeekHigh * 0.995) {
     return templates.high[Math.floor(Math.random() * templates.high.length)];
@@ -124,9 +137,9 @@ function getFirstSentence(ticker: string, quote: Quote) {
       const range = fiftyTwoWeekHigh - fiftyTwoWeekLow;
       const pos = (lastPrice - fiftyTwoWeekLow) / range;
       if (pos > 0.7) {
-        return templates.steady[13];
+        return steadyUpper[Math.floor(Math.random() * steadyUpper.length)];
       } else if (pos < 0.3) {
-        return templates.steady[14];
+        return steadyLower[Math.floor(Math.random() * steadyLower.length)];
       } else {
         // Randomly pick from the rest
         const idx = Math.floor(Math.random() * 9);
