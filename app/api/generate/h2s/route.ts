@@ -73,7 +73,7 @@ export async function POST(request: Request) {
       temperature: 0.8,
     });
 
-    let h2Headings = completion.choices[0].message?.content?.trim() ?? '';
+    const h2Headings = completion.choices[0].message?.content?.trim() ?? '';
 
     // Clean and extract the H2 headings
     const lines = h2Headings.split('\n').map(line => line.trim()).filter(line => line.length > 0);

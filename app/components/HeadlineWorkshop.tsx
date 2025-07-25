@@ -22,7 +22,7 @@ const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
   ({ articleText, onCheckHeadline }, ref) => {
     const [step, setStep] = useState<'initial' | 'selection' | 'enhancement' | 'final'>('initial');
     const [initialHeadlines, setInitialHeadlines] = useState<string[]>([]);
-    const [selectedHeadline, setSelectedHeadline] = useState<string>('');
+
     const [currentHeadline, setCurrentHeadline] = useState<string>('');
     const [headlineHistory, setHeadlineHistory] = useState<HeadlineVersion[]>([]);
     const [loading, setLoading] = useState(false);
@@ -33,7 +33,6 @@ const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
     const clearData = () => {
       setStep('initial');
       setInitialHeadlines([]);
-      setSelectedHeadline('');
       setCurrentHeadline('');
       setHeadlineHistory([]);
       setLoading(false);
@@ -89,7 +88,6 @@ const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
     };
 
     const selectHeadline = (headline: string) => {
-      setSelectedHeadline(headline);
       setCurrentHeadline(headline);
       setHeadlineHistory([{ text: headline, timestamp: new Date() }]);
       setStep('enhancement');
@@ -143,7 +141,6 @@ const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
     const startOver = () => {
       setStep('initial');
       setInitialHeadlines([]);
-      setSelectedHeadline('');
       setCurrentHeadline('');
       setHeadlineHistory([]);
     };
@@ -164,7 +161,7 @@ const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
         {step === 'initial' && (
           <div className="text-center">
             <h2 className="text-2xl font-bold mb-4 text-blue-600">🎯 Headline Workshop</h2>
-            <p className="text-gray-600 mb-6">Let's create the perfect headline together, step by step.</p>
+                          <p className="text-gray-600 mb-6">Let&apos;s create the perfect headline together, step by step.</p>
             <button
               onClick={generateInitialHeadlines}
               disabled={loading || !articleText.trim()}
@@ -180,7 +177,7 @@ const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
         {step === 'selection' && (
           <div>
             <h2 className="text-xl font-semibold mb-4 text-blue-600">Step 1: Choose Your Starting Point</h2>
-            <p className="text-gray-600 mb-4">Select the headline you'd like to enhance:</p>
+                          <p className="text-gray-600 mb-4">Select the headline you&apos;d like to enhance:</p>
             
             <div className="space-y-3 mb-6">
               {initialHeadlines.map((headline, index) => (
