@@ -122,119 +122,22 @@ const ContentGenerator = forwardRef<ContentGeneratorRef, ContentGeneratorProps>(
         });
         if (!res.ok) throw new Error('Failed to generate H2 headings');
         const data = await res.json();
-        const cleanedText = (data.articleWithH2s || '')
-          .split('\n')
-          .map((line: string) => line.replace(/^##\s*/, ''))
-          .filter((line: string) => {
-            const trimmedLine = line.trim();
-            return (typeof trimmedLine === 'string' && !trimmedLine.includes('Count of H2 headings:')) && 
-                   (typeof trimmedLine === 'string' && !trimmedLine.includes('Count Of H2 Headings:')) &&
-                   (typeof trimmedLine === 'string' && !trimmedLine.includes('Count of H2s:')) &&
-                   (typeof trimmedLine === 'string' && !trimmedLine.includes('Count Of H2s:')) &&
-                   !trimmedLine.match(/^-+$/); // Remove lines that are just dashes
-          })
-          .join('\n');
-        setArticleWithH2s(cleanedText);
         
-        // Extract H2 headings for easy copying
-        const lines = cleanedText.split('\n');
-        const headings: string[] = [];
+        // Set the article with embedded H2s
+        setArticleWithH2s(data.articleWithH2s || '');
         
-        // First pass: look for any short, Title Case lines that could be H2s
-        for (let i = 0; i < lines.length; i++) {
-          const line = lines[i].trim();
-          // Very lenient H2 detection: short, Title Case, no punctuation, not empty
-          if (
-            line &&
-            line.length <= 40 && // Increased length limit
-            !line.endsWith('.') &&
-            !line.endsWith('!') &&
-            !line.endsWith('?') &&
-            (typeof line === 'string' && !line.includes('Price Action:')) && // Exclude the main title
-            (typeof line === 'string' && !line.includes('according to Benzinga Pro')) && // Exclude attribution
-            (typeof line === 'string' && !line.includes('Count of H2 headings:')) && // Exclude the count text
-            (typeof line === 'string' && !line.includes('Count Of H2 Headings:')) && // Exclude the count text
-            (typeof line === 'string' && !line.includes('Count of H2s:')) && // Exclude the count text
-            (typeof line === 'string' && !line.includes('Count Of H2s:')) && // Exclude the count text
-            !line.match(/^-+$/) && // Exclude lines that are just dashes
-            (typeof line === 'string' && !line.includes('H2:')) && // Exclude lines that start with H2:
-            i > 0 // Not the first line
-          ) {
-            // Check if it's Title Case (first letter of each word capitalized)
-            const isTitleCase = line === line.split(' ').map((word: string) => {
-              if (word.length === 0) return word;
-              return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
-            }).join(' ');
-            
-            if (isTitleCase) {
-              const cleanLine = line.trim();
-              if (cleanLine && cleanLine !== '---') {
-                headings.push(cleanLine);
-              }
-            }
-          }
+        // Set the standalone H2 headings
+        if (data.h2HeadingsOnly && Array.isArray(data.h2HeadingsOnly)) {
+          setH2HeadingsOnly(data.h2HeadingsOnly);
+        } else {
+          // Fallback if the API doesn't return h2HeadingsOnly
+          const fallbackH2s = [
+            'Why This Move Changes Everything',
+            'The Hidden Signal Smart Money Sees',
+            'Three Catalysts Driving This Action'
+          ];
+          setH2HeadingsOnly(fallbackH2s);
         }
-        
-        // Second pass: if we still don't have enough, look for any short lines that might be H2s
-        if (headings.length < 3) {
-          for (let i = 0; i < lines.length; i++) {
-            const line = lines[i].trim();
-            if (
-              line &&
-              line.length <= 35 &&
-              !line.endsWith('.') &&
-              !line.endsWith('!') &&
-              !line.endsWith('?') &&
-              (typeof line === 'string' && !line.includes('Price Action:')) &&
-              (typeof line === 'string' && !line.includes('according to Benzinga Pro')) &&
-              (typeof line === 'string' && !line.includes('Count')) &&
-              (typeof line === 'string' && !line.includes('H2:')) &&
-              !line.match(/^-+$/) &&
-              !headings.includes(line) && // Don't duplicate
-              i > 0
-            ) {
-              // More lenient check for potential H2s
-              const words = line.split(' ');
-              const isPotentialH2 = words.length <= 4 && words.every((word: string) => 
-                word.length > 0 && word.charAt(0) === word.charAt(0).toUpperCase()
-              );
-              
-              if (isPotentialH2) {
-                const cleanLine = line.trim();
-                if (cleanLine && cleanLine !== '---' && !headings.includes(cleanLine)) {
-                  headings.push(cleanLine);
-                  if (headings.length >= 3) break;
-                }
-              }
-            }
-          }
-        }
-        
-        // Take the first 3 headings found
-        const initialHeadings = headings.slice(0, 3);
-        
-        // If we don't have exactly 3 headings, generate a fallback H2
-        const fallbackH2s = [
-          'Market Analysis',
-          'Technical Insights',
-          'Investment Strategy',
-          'Risk Factors',
-          'Growth Potential',
-          'Market Trends',
-          'Trading Signals',
-          'Future Outlook'
-        ];
-        
-        // Build final headings array
-        const finalHeadings = [...initialHeadings];
-        
-        // Add fallback H2s until we have 3
-        for (let i = finalHeadings.length; i < 3; i++) {
-          const fallbackIndex = (i - initialHeadings.length) % fallbackH2s.length;
-          finalHeadings.push(fallbackH2s[fallbackIndex]);
-        }
-        
-        setH2HeadingsOnly(finalHeadings);
       } catch (error: unknown) {
         if (error instanceof Error) setH2Error(error.message);
         else setH2Error(String(error));
@@ -591,27 +494,28 @@ const ContentGenerator = forwardRef<ContentGeneratorRef, ContentGeneratorProps>(
           )}
         </section>
 
-        {/* H2 Generator Section */}
+        {/* Subhead Generator Section */}
         <section className="mt-8 p-4 border border-indigo-600 rounded-md max-w-4xl mx-auto">
-          <h2 className="text-lg font-semibold mb-4 text-indigo-700">H2 Generator</h2>
+          <h2 className="text-lg font-semibold mb-4 text-indigo-700">Subhead Generator</h2>
           <button
             onClick={generateH2s}
             disabled={loadingH2s || !articleText.trim()}
             className="bg-indigo-600 text-white px-4 py-2 rounded disabled:bg-indigo-300 mb-4"
           >
-            {loadingH2s ? 'Generating H2 Headings...' : 'Generate H2 Headings'}
+            {loadingH2s ? 'Generating Subheads...' : 'Generate Subheads'}
           </button>
           {h2Error && <p className="text-red-600 mb-4">{h2Error}</p>}
           
-          {/* H2 Headings Only Section */}
+          {/* Subheads Section */}
           {h2HeadingsOnly.length > 0 && (
             <div className="mb-6">
-              <h3 className="text-md font-semibold mb-3 text-indigo-600">Generated H2 Headings (Easy Copy)</h3>
+              <h3 className="text-md font-semibold mb-3 text-indigo-600">Generated Subheads (Easy Copy)</h3>
+              <p className="text-sm text-gray-600 mb-3">These subheads provide specific perspective on the content that follows, serving as compelling section introductions.</p>
               <div className="bg-indigo-50 border border-indigo-200 rounded p-4 mb-3">
-                <ol className="list-decimal list-inside space-y-2">
+                <ol className="list-decimal list-inside space-y-3">
                   {h2HeadingsOnly.map((heading, index) => (
                     <li key={index} className="flex justify-between items-center">
-                      <span className="font-medium text-indigo-800">{heading}</span>
+                      <span className="font-semibold text-indigo-800 text-lg">{heading}</span>
                       <button
                         onClick={() => {
                           navigator.clipboard.writeText(heading);
@@ -636,7 +540,7 @@ const ContentGenerator = forwardRef<ContentGeneratorRef, ContentGeneratorProps>(
                 }}
                 className="bg-indigo-600 text-white px-4 py-2 rounded mb-4"
               >
-                {copiedAllH2s ? 'Copied!' : 'Copy All H2s'}
+                {copiedAllH2s ? 'Copied!' : 'Copy All Subheads'}
               </button>
             </div>
           )}

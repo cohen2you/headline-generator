@@ -9,34 +9,40 @@ interface HeadlineToolsProps {
 
 export interface HeadlineToolsRef {
   clearData: () => void;
+  checkHeadlineFromWorkshop: (headline: string) => void;
 }
 
 const HeadlineTools = forwardRef<HeadlineToolsRef, HeadlineToolsProps>(
   ({ articleText }, ref) => {
-    // For the headline adjuster
-    const [baseHeadline, setBaseHeadline] = useState('');
-    const [adjustPrompt, setAdjustPrompt] = useState('');
-    const [adjustedHeadlines, setAdjustedHeadlines] = useState<string[]>([]);
-    const [loadingAdjust, setLoadingAdjust] = useState(false);
-
     // For the headline checker
     const [accuracyHeadline, setAccuracyHeadline] = useState('');
-    const [accuracyResult, setAccuracyResult] =
-      useState<{ review: string; suggestions: string[] } | null>(null);
+    const [accuracyResult, setAccuracyResult] = useState<{
+      accuracy: { score: number; breakdown: string };
+      engagement: { score: number; breakdown: string };
+      recommendation: { needsChange: boolean; reason: string; improvedHeadline: string };
+      seoHeadline: string;
+    } | null>(null);
     const [loadingAccuracy, setLoadingAccuracy] = useState(false);
 
     const clearData = () => {
-      setBaseHeadline('');
-      setAdjustPrompt('');
-      setAdjustedHeadlines([]);
-      setLoadingAdjust(false);
       setAccuracyHeadline('');
       setAccuracyResult(null);
       setLoadingAccuracy(false);
     };
 
+    // Function to receive headline from workshop
+    const checkHeadlineFromWorkshop = (headline: string) => {
+      setAccuracyHeadline(headline);
+      // Automatically trigger the check
+      setTimeout(() => {
+        checkHeadlineAccuracy();
+      }, 100);
+    };
+
+    // Expose the function to parent components
     useImperativeHandle(ref, () => ({
-      clearData
+      clearData,
+      checkHeadlineFromWorkshop
     }));
 
     async function checkHeadlineAccuracy() {
@@ -64,69 +70,6 @@ const HeadlineTools = forwardRef<HeadlineToolsRef, HeadlineToolsProps>(
 
     return (
       <>
-        {/* Adjust Existing Headline */}
-        <section className="mt-8 p-4 border border-yellow-500 rounded-md max-w-xl mx-auto">
-          <h2 className="text-lg font-semibold mb-2 text-yellow-700">
-            Adjust Existing Headline
-          </h2>
-          <input
-            type="text"
-            placeholder="Paste headline to adjust"
-            value={baseHeadline}
-            onChange={e => setBaseHeadline(e.target.value)}
-            className="w-full p-2 border border-gray-300 rounded mb-3"
-          />
-          <input
-            type="text"
-            placeholder="I like this headline… but"
-            value={adjustPrompt}
-            onChange={e => setAdjustPrompt(e.target.value)}
-            className="w-full p-2 border border-yellow-300 rounded mb-3"
-          />
-          <button
-            onClick={async () => {
-              if (!baseHeadline.trim() || !adjustPrompt.trim()) return;
-              setLoadingAdjust(true);
-              try {
-                const res = await fetch('/api/adjust-headline', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    headline: baseHeadline,
-                    tweak: adjustPrompt,
-                    articleText,
-                  }),
-                });
-                const { headlines } = await res.json();
-                setAdjustedHeadlines(headlines || []);
-              } catch (error) {
-                console.error('Error adjusting headline:', error);
-              } finally {
-                setLoadingAdjust(false);
-              }
-            }}
-            disabled={loadingAdjust || !baseHeadline.trim() || !adjustPrompt.trim()}
-            className="bg-yellow-600 text-white px-4 py-2 rounded disabled:bg-yellow-300 mb-6"
-          >
-            {loadingAdjust ? 'Adjusting…' : 'Adjust Headline'}
-          </button>
-          {adjustedHeadlines.length > 0 && (
-            <ul className="list-disc list-inside ml-5 mb-6">
-              {adjustedHeadlines.map((hl, i) => (
-                <li key={i} className="flex justify-between items-center">
-                  <span>{hl}</span>
-                  <button
-                    onClick={() => navigator.clipboard.writeText(hl)}
-                    className="ml-4 bg-gray-200 hover:bg-gray-300 text-gray-800 px-2 py-1 rounded text-sm"
-                  >
-                    Copy
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-
         {/* Headline Checker */}
         <section className="mt-8 p-4 border border-gray-400 rounded-md max-w-xl mx-auto">
           <h2 className="text-lg font-semibold mb-2 text-gray-800">
@@ -147,19 +90,61 @@ const HeadlineTools = forwardRef<HeadlineToolsRef, HeadlineToolsProps>(
             {loadingAccuracy ? 'Checking…' : 'Check Headline'}
           </button>
           {accuracyResult && (
-            <div className="mt-4 bg-gray-100 p-3 rounded whitespace-pre-line">
-              <strong>Review:</strong>
-              <p className="mt-1">{accuracyResult.review}</p>
-              {accuracyResult.suggestions.length > 0 && (
-                <>
-                  <strong className="block mt-3">Alternative Headlines:</strong>
-                  <ul className="list-disc list-inside ml-5">
-                    {accuracyResult.suggestions.map((s, i) => (
-                      <li key={i}>{s}</li>
-                    ))}
-                  </ul>
-                </>
+            <div className="mt-4 space-y-4">
+              {/* Accuracy Analysis */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="font-semibold text-blue-800">Accuracy Analysis</h3>
+                  <div className="flex items-center">
+                    <span className="text-sm text-blue-600 mr-2">Score:</span>
+                    <div className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-sm font-bold">
+                      {accuracyResult.accuracy.score}/10
+                    </div>
+                  </div>
+                </div>
+                <div className="whitespace-pre-line text-sm text-blue-700">
+                  {accuracyResult.accuracy.breakdown}
+                </div>
+              </div>
+
+              {/* Engagement Analysis */}
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="font-semibold text-green-800">Engagement Analysis</h3>
+                  <div className="flex items-center">
+                    <span className="text-sm text-green-600 mr-2">Score:</span>
+                    <div className="bg-green-100 text-green-800 px-2 py-1 rounded text-sm font-bold">
+                      {accuracyResult.engagement.score}/10
+                    </div>
+                  </div>
+                </div>
+                <div className="whitespace-pre-line text-sm text-green-700">
+                  {accuracyResult.engagement.breakdown}
+                </div>
+              </div>
+
+              {/* Recommendation */}
+              {accuracyResult.recommendation.needsChange && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                  <h3 className="font-semibold text-yellow-800 mb-2">Recommendation</h3>
+                  <p className="text-sm text-yellow-700 mb-2">{accuracyResult.recommendation.reason}</p>
+                  <div className="bg-white border border-yellow-300 rounded p-2">
+                    <span className="text-sm text-yellow-800 font-medium">Improved Headline:</span>
+                    <p className="text-yellow-900 font-semibold mt-1">{accuracyResult.recommendation.improvedHeadline}</p>
+                  </div>
+                </div>
               )}
+
+              {/* SEO Headline */}
+              <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                <h3 className="font-semibold text-purple-800 mb-2">SEO Optimized Version</h3>
+                <div className="bg-white border border-purple-300 rounded p-2">
+                  <p className="text-purple-900 font-semibold">{accuracyResult.seoHeadline}</p>
+                  <p className="text-xs text-purple-600 mt-1">
+                    {accuracyResult.seoHeadline.split(' ').length} words
+                  </p>
+                </div>
+              </div>
             </div>
           )}
         </section>

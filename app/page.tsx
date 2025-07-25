@@ -2,18 +2,18 @@
 
 import React, { useState, useRef } from 'react';
 import HeadlineGenerator, { HeadlineGeneratorRef } from './components/HeadlineGenerator';
-import HeadlineEnhancer, { HeadlineEnhancerRef } from './components/HeadlineEnhancer';
 import HeadlineTools, { HeadlineToolsRef } from './components/HeadlineTools';
 import ContentGenerator, { ContentGeneratorRef } from './components/ContentGenerator';
+import HeadlineWorkshop, { HeadlineWorkshopRef } from './components/HeadlineWorkshop';
 
 export default function Page() {
   const [articleText, setArticleText] = useState('');
   
   // Refs to access child component methods
   const headlineGeneratorRef = useRef<HeadlineGeneratorRef>(null);
-  const headlineEnhancerRef = useRef<HeadlineEnhancerRef>(null);
   const headlineToolsRef = useRef<HeadlineToolsRef>(null);
   const contentGeneratorRef = useRef<ContentGeneratorRef>(null);
+  const headlineWorkshopRef = useRef<HeadlineWorkshopRef>(null);
 
   const clearAllData = () => {
     // Clear main article text
@@ -23,14 +23,14 @@ export default function Page() {
     if (headlineGeneratorRef.current?.clearData) {
       headlineGeneratorRef.current.clearData();
     }
-    if (headlineEnhancerRef.current?.clearData) {
-      headlineEnhancerRef.current.clearData();
-    }
     if (headlineToolsRef.current?.clearData) {
       headlineToolsRef.current.clearData();
     }
     if (contentGeneratorRef.current?.clearData) {
       contentGeneratorRef.current.clearData();
+    }
+    if (headlineWorkshopRef.current?.clearData) {
+      headlineWorkshopRef.current.clearData();
     }
   };
 
@@ -52,10 +52,19 @@ export default function Page() {
         setArticleText={setArticleText} 
       />
 
-      <HeadlineEnhancer 
-        ref={headlineEnhancerRef}
-        articleText={articleText} 
-      />
+      <div className="mt-8 p-6 border-2 border-blue-600 rounded-lg bg-blue-50">
+        <HeadlineWorkshop 
+          ref={headlineWorkshopRef}
+          articleText={articleText}
+          onCheckHeadline={(headline) => {
+            if (headlineToolsRef.current?.checkHeadlineFromWorkshop) {
+              headlineToolsRef.current.checkHeadlineFromWorkshop(headline);
+            }
+          }}
+        />
+      </div>
+
+
       
       <HeadlineTools 
         ref={headlineToolsRef}
