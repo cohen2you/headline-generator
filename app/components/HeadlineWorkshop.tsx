@@ -26,6 +26,9 @@ const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
     const [hasQuotes, setHasQuotes] = useState(false);
     const [keyNames, setKeyNames] = useState<string[]>([]);
     const [usedQuotes, setUsedQuotes] = useState<Map<string, number>>(new Map());
+    const [directQuotes, setDirectQuotes] = useState<string[]>([]);
+    const [loadingDirectQuotes, setLoadingDirectQuotes] = useState(false);
+    const [showDirectQuotes, setShowDirectQuotes] = useState(false);
  
     const [currentHeadline, setCurrentHeadline] = useState<string>('');
     const [headlineHistory, setHeadlineHistory] = useState<HeadlineVersion[]>([]);
@@ -43,6 +46,9 @@ const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
       setHasQuotes(false);
       setKeyNames([]);
       setUsedQuotes(new Map());
+      setDirectQuotes([]);
+      setLoadingDirectQuotes(false);
+      setShowDirectQuotes(false);
       setCurrentHeadline('');
       setHeadlineHistory([]);
       setLoading(false);
@@ -61,6 +67,87 @@ const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
       navigator.clipboard.writeText(text);
       setCopiedIndex(index);
       setTimeout(() => setCopiedIndex(null), 2000);
+    };
+
+    const checkForDirectQuotes = async () => {
+      if (!articleText.trim()) {
+        setError('Please enter article text first.');
+        return;
+      }
+
+      setLoadingDirectQuotes(true);
+      setError('');
+      try {
+        const res = await fetch('/api/generate/direct-quotes', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ articleText }),
+        });
+
+        if (!res.ok) throw new Error('Failed to extract direct quotes');
+        const data = await res.json();
+        
+        if (data.error) {
+          throw new Error(data.error);
+        }
+
+        setDirectQuotes(data.quotes || []);
+        setShowDirectQuotes(true);
+      } catch (error: unknown) {
+        if (error instanceof Error) setError(error.message);
+        else setError(String(error));
+      } finally {
+        setLoadingDirectQuotes(false);
+      }
+    };
+
+    const selectDirectQuote = async (quote: string) => {
+      if (quote.trim()) {
+        setLoading(true);
+        setError('');
+        
+        try {
+          // Format the quote with Title Case and single quotes
+          const formattedQuote = quote
+            .split(' ')
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+            .join(' ');
+          
+          // Call API to generate a new headline incorporating the quote
+          const res = await fetch('/api/generate/headline-workshop', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              articleText,
+              action: 'incorporate_quote',
+              quote: formattedQuote
+            }),
+          });
+
+          if (!res.ok) throw new Error('Failed to generate headline with quote');
+          const data = await res.json();
+          
+          if (data.error) {
+            throw new Error(data.error);
+          }
+
+          const newHeadline = cleanHeadline(data.headlines[0]);
+          setCurrentHeadline(newHeadline);
+          
+          // Add to headline history
+          setHeadlineHistory(prev => [...prev, {
+            text: newHeadline,
+            enhancementType: 'direct_quote',
+            timestamp: new Date()
+          }]);
+          
+        } catch (error: unknown) {
+          if (error instanceof Error) setError(error.message);
+          else setError(String(error));
+        } finally {
+          setLoading(false);
+        }
+      }
     };
 
     const generateInitialHeadlines = async () => {
@@ -356,6 +443,43 @@ const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
                </div>
              )}
 
+             {/* Direct Quotes Section */}
+             <div className="mb-6 p-4 bg-purple-50 border border-purple-200 rounded-lg">
+               <div className="flex items-center justify-between mb-3">
+                 <h3 className="text-sm font-medium text-purple-800">💬 Direct Quotes</h3>
+                 <button
+                   onClick={checkForDirectQuotes}
+                   disabled={loadingDirectQuotes || !articleText.trim()}
+                   className="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700 disabled:bg-gray-400 transition-colors text-sm"
+                 >
+                   {loadingDirectQuotes ? 'Scanning...' : 'Check For Direct Quotes'}
+                 </button>
+               </div>
+               
+               {showDirectQuotes && directQuotes.length > 0 && (
+                 <div className="space-y-2">
+                   <p className="text-sm text-purple-700 mb-3">Select a quote to incorporate into your headline:</p>
+                   {directQuotes.map((quote, index) => (
+                     <div key={index} className="flex items-center justify-between text-sm text-purple-700 bg-white border border-purple-300 rounded p-3">
+                       <div className="flex-1">
+                         <span className="font-medium">Quote {index + 1}:</span> &quot;{quote}&quot;
+                       </div>
+                       <button
+                         onClick={() => selectDirectQuote(quote)}
+                         className="ml-3 px-3 py-1 bg-purple-600 text-white text-xs rounded hover:bg-purple-700 transition-colors"
+                       >
+                         Use This Quote
+                       </button>
+                     </div>
+                   ))}
+                 </div>
+               )}
+               
+               {showDirectQuotes && directQuotes.length === 0 && (
+                 <p className="text-sm text-purple-600">No headline-worthy quotes available.</p>
+               )}
+             </div>
+
              {/* Available Quotes Display */}
              {hasQuotes && quotes.length > 0 && (
                <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
@@ -364,7 +488,7 @@ const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
                    {quotes.map((quote, index) => (
                      <div key={index} className="flex items-center justify-between text-sm text-green-700 bg-white border border-green-300 rounded p-2">
                        <div>
-                         <span className="font-medium">Quote {index + 1}:</span> "{quote}"
+                         <span className="font-medium">Quote {index + 1}:</span> &quot;{quote}&quot;
                          {usedQuotes.has(quote) && (
                            <span className="text-xs text-gray-500 ml-2">(used {usedQuotes.get(quote)}x)</span>
                          )}

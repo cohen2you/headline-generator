@@ -261,7 +261,7 @@ function extractKeyNames(articleText: string): string[] {
 
 export async function POST(request: Request) {
   try {
-    const { articleText, action, selectedHeadline, enhancementType, specificQuote, customEnhancement } = await request.json();
+    const { articleText, action, selectedHeadline, enhancementType, specificQuote, customEnhancement, quote } = await request.json();
 
     if (!articleText?.trim()) {
       return NextResponse.json({ error: 'Article text is required.' });
@@ -333,6 +333,69 @@ Respond with exactly 3 headlines, numbered 1-3.`;
         .map(line => line.replace(/^\d+\.?\s*/, '').trim())
         .filter(Boolean)
         .slice(0, 3);
+
+      return NextResponse.json({ 
+        headlines,
+        quotes,
+        hasQuotes: quotes.length > 0,
+        keyNames
+      });
+    }
+
+    // Step 1.5: Incorporate selected quote into new headline
+    if (action === 'incorporate_quote' && quote) {
+      const prompt = `
+You are a top-tier financial headline writer. Create exactly 1 compelling headline that incorporates the provided quote.
+
+CRITICAL REQUIREMENTS:
+- Generate EXACTLY 1 headline - no more, no less
+- Must be under 12 words and highly clickable
+- MUST incorporate the provided quote naturally
+- Focus on the most surprising revelation or key insight from the article
+- Use plain, everyday language—no jargon
+- Use numerals for any data points
+- Create natural flow without awkward punctuation
+- Make the headline engaging and curiosity-driven
+- Use single quotes (') around the quote - NEVER double quotes (")
+- The quote should feel natural and enhance the headline, not forced
+
+${keyNames.length > 0 ? `KEY NAMES/ENTITIES TO PRIORITIZE (in order of importance):
+${keyNames.map((name, index) => `${index + 1}. ${name}`).join('\n')}
+
+CRITICAL: Start headlines with the FIRST key name listed above. This is the most important source/person in the article.` : ''}
+
+QUOTE TO INCORPORATE: '${quote}'
+
+HEADLINE EXAMPLES (showing how to naturally incorporate quotes):
+- Scaramucci Says Trump's Intelligence Is 'Underestimated'
+- Don't Underestimate Trump, Warns Scaramucci
+- Scaramucci Reveals Trump's 'Greatest Comeback' Strategy
+
+Article:
+${articleText}
+
+Respond with exactly 1 headline.`;
+
+      const completion = await openai.chat.completions.create({
+        model: 'gpt-4o',
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 500,
+        temperature: 0.7,
+        top_p: 0.9,
+        frequency_penalty: 0.1,
+        presence_penalty: 0.1,
+      });
+
+      const text = completion.choices[0].message?.content || '';
+      console.log('=== INCORPORATE QUOTE DEBUG ===');
+      console.log('Quote to incorporate:', quote);
+      console.log('Raw AI response:', text);
+      
+      const headlines = text
+        .split('\n')
+        .map(line => line.replace(/^\d+\.?\s*/, '').trim())
+        .filter(Boolean)
+        .slice(0, 1);
 
       return NextResponse.json({ 
         headlines,

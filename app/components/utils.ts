@@ -27,9 +27,6 @@ export function cleanHeadline(text: string, removeAllExclamations = false) {
   cleaned = cleaned.replace(/(\w)"(\w)/g, "$1'$2"); // Convert quotes between letters back to apostrophes
   cleaned = cleaned.replace(/(\w)"(\s|$)/g, "$1'$2"); // Convert quotes at word endings back to apostrophes
   
-  // Intelligent quote balancing based on content structure
-  cleaned = balanceQuotesIntelligently(cleaned);
-  
   // Convert double quotes around phrases to single quotes
   // This handles cases like "phrase" -> 'phrase'
   cleaned = cleaned.replace(/"([^"]+)"/g, "'$1'");
@@ -40,12 +37,8 @@ export function cleanHeadline(text: string, removeAllExclamations = false) {
   // Additional cleanup: convert any remaining double quotes to single quotes
   cleaned = cleaned.replace(/"/g, "'");
   
-  // Final safety check: ensure single quotes are balanced
-  const finalSingleQuoteCount = (cleaned.match(/'/g) || []).length;
-  if (finalSingleQuoteCount % 2 === 1 && !cleaned.trim().endsWith("'")) {
-    console.log('FINAL SAFETY CHECK: Adding missing closing quote');
-    cleaned = cleaned + "'";
-  }
+  // NEW: Comprehensive quote balancing
+  cleaned = balanceQuotesComprehensively(cleaned);
     
   console.log('After cleaning:', cleaned);
   console.log('Cleaned length:', cleaned.length);
@@ -71,53 +64,69 @@ export function cleanHeadline(text: string, removeAllExclamations = false) {
   return toTitleCase(cleaned);
 }
 
-function balanceQuotesIntelligently(text: string): string {
-  // Split the text into segments to analyze quote structure
-  const segments = text.split(/([""])/);
-  let result = '';
-  let inQuote = false;
-  let currentSegment = '';
+function balanceQuotesComprehensively(text: string): string {
+  console.log('=== COMPREHENSIVE QUOTE BALANCING ===');
+  console.log('Input text:', text);
   
-  for (let i = 0; i < segments.length; i++) {
-    const segment = segments[i];
+  // First, let's parse the text to understand its structure
+  const words = text.split(/\s+/);
+  console.log('Words:', words);
+  
+  // Count different types of single quotes
+  let openingQuotes = 0;
+  let closingQuotes = 0;
+  let apostrophes = 0;
+  
+  for (let i = 0; i < words.length; i++) {
+    const word = words[i];
     
-    if (segment === '"') {
-      if (!inQuote) {
-        // Starting a new quote
-        inQuote = true;
-        result += currentSegment + '"';
-        currentSegment = '';
-      } else {
-        // Ending a quote
-        inQuote = false;
-        result += currentSegment + '"';
-        currentSegment = '';
+    // Count apostrophes (like in "Trump's", "don't", etc.)
+    const apostropheMatches = word.match(/'/g);
+    if (apostropheMatches) {
+      // Check if it's a legitimate apostrophe pattern
+      if (/\w'\w/.test(word) || /\w'(s|t|re|ve|ll|d)\b/i.test(word)) {
+        apostrophes += apostropheMatches.length;
+        console.log(`Word "${word}" contains ${apostropheMatches.length} apostrophe(s)`);
       }
-    } else {
-      currentSegment += segment;
     }
-  }
-  
-  // Only close a quote if we're actually in one AND the remaining content looks like it should be quoted
-  if (inQuote && currentSegment.trim().length > 0) {
-    // Check if the remaining content looks like it should be part of a quote
-    const remainingContent = currentSegment.trim();
-    const shouldBeQuoted = remainingContent.length < 10 || 
-                          remainingContent.match(/^(but|yet|and|or|however|though|although|while|whereas|meanwhile|meanwhile,)/i);
     
-    if (shouldBeQuoted) {
-      // This might be part of the quote, so close it
-      result += currentSegment + '"';
-    } else {
-      // This looks like regular text, not part of a quote
-      result += currentSegment;
+    // Count opening quotes (quote at start of word)
+    if (word.startsWith("'")) {
+      openingQuotes++;
+      console.log(`Word "${word}" starts with opening quote`);
     }
-  } else {
-    // Add any remaining content
-    result += currentSegment;
+    
+    // Count closing quotes (quote at end of word)
+    if (word.endsWith("'")) {
+      closingQuotes++;
+      console.log(`Word "${word}" ends with closing quote`);
+    }
   }
   
-  return result;
+  console.log(`Analysis: ${openingQuotes} opening quotes, ${closingQuotes} closing quotes, ${apostrophes} apostrophes`);
+  
+  // If opening and closing quotes are balanced, we're good
+  if (openingQuotes === closingQuotes) {
+    console.log('Opening and closing quotes are balanced, no action needed');
+    return text;
+  }
+  
+  // If we have more opening quotes than closing quotes, we need to add a closing quote
+  if (openingQuotes > closingQuotes) {
+    console.log(`Need to add ${openingQuotes - closingQuotes} closing quote(s)`);
+    return text + "'";
+  }
+  
+  // If we have more closing quotes than opening quotes, something is wrong
+  if (closingQuotes > openingQuotes) {
+    console.log(`Warning: More closing quotes than opening quotes. This might indicate an error.`);
+    // Don't add anything, just return as is
+    return text;
+  }
+  
+  // If we get here, quotes are balanced
+  console.log('Quotes are balanced, no action needed');
+  return text;
 }
 
 export function copyToClipboard(text: string) {
