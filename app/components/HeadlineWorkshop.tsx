@@ -20,25 +20,37 @@ interface HeadlineVersion {
 
 const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
   ({ articleText, onCheckHeadline }, ref) => {
-    const [step, setStep] = useState<'initial' | 'selection' | 'enhancement' | 'final'>('initial');
+        const [step, setStep] = useState<'initial' | 'selection' | 'enhancement' | 'final'>('initial');
     const [initialHeadlines, setInitialHeadlines] = useState<string[]>([]);
-
+    const [quotes, setQuotes] = useState<string[]>([]);
+    const [hasQuotes, setHasQuotes] = useState(false);
+    const [keyNames, setKeyNames] = useState<string[]>([]);
+    const [usedQuotes, setUsedQuotes] = useState<Map<string, number>>(new Map());
+ 
     const [currentHeadline, setCurrentHeadline] = useState<string>('');
     const [headlineHistory, setHeadlineHistory] = useState<HeadlineVersion[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
     const [customEnhancement, setCustomEnhancement] = useState('');
+    const [customHeadline, setCustomHeadline] = useState('');
+    const [loadingCustom, setLoadingCustom] = useState(false);
 
     const clearData = () => {
       setStep('initial');
       setInitialHeadlines([]);
+      setQuotes([]);
+      setHasQuotes(false);
+      setKeyNames([]);
+      setUsedQuotes(new Map());
       setCurrentHeadline('');
       setHeadlineHistory([]);
       setLoading(false);
       setError('');
       setCopiedIndex(null);
       setCustomEnhancement('');
+      setCustomHeadline('');
+      setLoadingCustom(false);
     };
 
     useImperativeHandle(ref, () => ({
@@ -78,6 +90,10 @@ const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
 
         const cleanedHeadlines = data.headlines.map((hl: string) => cleanHeadline(hl));
         setInitialHeadlines(cleanedHeadlines);
+        setQuotes(data.quotes || []);
+        setHasQuotes(data.hasQuotes || false);
+        setKeyNames(data.keyNames || []);
+        setUsedQuotes(new Map());
         setStep('selection');
       } catch (error: unknown) {
         if (error instanceof Error) setError(error.message);
@@ -93,7 +109,7 @@ const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
       setStep('enhancement');
     };
 
-    const enhanceHeadline = async (enhancementType: string) => {
+    const enhanceHeadline = async (enhancementType: string, specificQuote?: string) => {
       if (!currentHeadline.trim()) return;
 
       setLoading(true);
@@ -107,6 +123,7 @@ const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
             action: 'enhance',
             selectedHeadline: currentHeadline,
             enhancementType,
+            specificQuote,
             customEnhancement: enhancementType === 'custom' ? customEnhancement : undefined
           }),
         });
@@ -119,13 +136,32 @@ const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
         }
 
         const enhancedHeadline = cleanHeadline(data.enhancedHeadline);
-        setCurrentHeadline(enhancedHeadline);
-        setHeadlineHistory(prev => [...prev, { 
-          text: enhancedHeadline, 
-          enhancementType, 
-          timestamp: new Date() 
-        }]);
-        setCustomEnhancement('');
+        
+        // Mark the quote as used if it was a quote enhancement
+        if (enhancementType === 'quote' && specificQuote) {
+          setUsedQuotes(prev => {
+            const newMap = new Map(prev);
+            const currentCount = newMap.get(specificQuote) || 0;
+            newMap.set(specificQuote, currentCount + 1);
+            return newMap;
+          });
+        }
+         setCurrentHeadline(enhancedHeadline);
+         setHeadlineHistory(prev => [...prev, { 
+           text: enhancedHeadline, 
+           enhancementType, 
+           timestamp: new Date() 
+         }]);
+         setCustomEnhancement('');
+         
+         // Update quotes and key names if provided
+         if (data.quotes) {
+           setQuotes(data.quotes);
+           setHasQuotes(data.hasQuotes);
+         }
+         if (data.keyNames) {
+           setKeyNames(data.keyNames);
+         }
       } catch (error: unknown) {
         if (error instanceof Error) setError(error.message);
         else setError(String(error));
@@ -145,14 +181,46 @@ const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
       setHeadlineHistory([]);
     };
 
+    const generateCustomHeadline = async () => {
+      if (!articleText.trim()) {
+        setError('Please enter article text first.');
+        return;
+      }
+
+      setLoadingCustom(true);
+      setError('');
+      try {
+        const res = await fetch('/api/generate/custom-headlines', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ articleText }),
+        });
+
+        if (!res.ok) throw new Error('Failed to generate custom headline');
+        const data = await res.json();
+        
+        if (data.error) {
+          throw new Error(data.error);
+        }
+
+        const cleanedHeadline = cleanHeadline(data.headlines[0]);
+        setCustomHeadline(cleanedHeadline);
+      } catch (error: unknown) {
+        if (error instanceof Error) setError(error.message);
+        else setError(String(error));
+      } finally {
+        setLoadingCustom(false);
+      }
+    };
+
     const enhancementOptions = [
-      { type: 'urgent', label: 'Make it more urgent/emotional', icon: '⚡' },
-      { type: 'specific', label: 'Add specific numbers/data', icon: '📊' },
-      { type: 'analyst', label: 'Include analyst reactions', icon: '👨‍💼' },
-      { type: 'context', label: 'Add market context', icon: '🌍' },
-      { type: 'shorter', label: 'Make it shorter for social media', icon: '📱' },
-      { type: 'curiosity', label: 'Add curiosity/teaser element', icon: '❓' },
-      { type: 'risk', label: 'Add risk/warning angle', icon: '⚠️' },
+      { type: 'urgent', label: 'Make it more urgent/emotional', icon: '⚡', description: 'Add breaking news urgency' },
+      { type: 'specific', label: 'Add specific numbers/data', icon: '📊', description: 'Include exact figures and dates' },
+      { type: 'analyst', label: 'Include analyst reactions', icon: '👨‍💼', description: 'Add expert authority' },
+      { type: 'context', label: 'Add market context', icon: '🌍', description: 'Connect to broader trends' },
+      { type: 'shorter', label: 'Make it shorter for social media', icon: '📱', description: 'Optimize for sharing' },
+      { type: 'curiosity', label: 'Add curiosity/teaser element', icon: '❓', description: 'Create click-worthy intrigue' },
+      { type: 'risk', label: 'Add risk/warning angle', icon: '⚠️', description: 'Emphasize potential dangers' },
     ];
 
     return (
@@ -161,14 +229,53 @@ const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
         {step === 'initial' && (
           <div className="text-center">
             <h2 className="text-2xl font-bold mb-4 text-blue-600">🎯 Headline Workshop</h2>
-                          <p className="text-gray-600 mb-6">Let&apos;s create the perfect headline together, step by step.</p>
-            <button
-              onClick={generateInitialHeadlines}
-              disabled={loading || !articleText.trim()}
-              className="bg-blue-600 text-white px-8 py-3 rounded-lg disabled:bg-gray-400 hover:bg-blue-700 transition-colors"
-            >
-              {loading ? 'Generating Initial Headlines...' : 'Start Headline Workshop'}
-            </button>
+            <p className="text-gray-600 mb-6">Let&apos;s create the perfect headline together, step by step.</p>
+            
+            <div className="space-y-4 mb-6">
+              <button
+                onClick={generateInitialHeadlines}
+                disabled={loading || !articleText.trim()}
+                className="bg-blue-600 text-white px-8 py-3 rounded-lg disabled:bg-gray-400 hover:bg-blue-700 transition-colors w-full max-w-md"
+              >
+                {loading ? 'Generating Initial Headlines...' : 'Start Headline Workshop'}
+              </button>
+              
+              <div className="border-t border-gray-200 pt-4">
+                <h3 className="text-lg font-semibold mb-3 text-gray-800">Or try our thoughtful custom headline:</h3>
+                <div className="space-y-3">
+                  {customHeadline ? (
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                      <h4 className="text-sm font-medium text-green-800 mb-2">Custom Headline:</h4>
+                      <p className="text-lg font-semibold text-green-900 mb-3">{customHeadline}</p>
+                      <div className="flex gap-2 justify-center">
+                        <button
+                          onClick={() => selectHeadline(customHeadline)}
+                          className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition-colors"
+                        >
+                          Use This Headline
+                        </button>
+                        <button
+                          onClick={generateCustomHeadline}
+                          disabled={loadingCustom || !articleText.trim()}
+                          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:bg-gray-400 transition-colors"
+                        >
+                          {loadingCustom ? 'Generating...' : 'Another Version'}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={generateCustomHeadline}
+                      disabled={loadingCustom || !articleText.trim()}
+                      className="bg-green-600 text-white px-8 py-3 rounded-lg disabled:bg-gray-400 hover:bg-green-700 transition-colors w-full max-w-md"
+                    >
+                      {loadingCustom ? 'Generating Custom Headline...' : 'Generate Custom Headline'}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+            
             {error && <p className="text-red-600 mt-4">{error}</p>}
           </div>
         )}
@@ -176,8 +283,18 @@ const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
         {/* Step 2: Headline Selection */}
         {step === 'selection' && (
           <div>
-            <h2 className="text-xl font-semibold mb-4 text-blue-600">Step 1: Choose Your Starting Point</h2>
-                          <p className="text-gray-600 mb-4">Select the headline you&apos;d like to enhance:</p>
+            <div className="flex justify-between items-center mb-4">
+              <div>
+                <h2 className="text-xl font-semibold text-blue-600">Step 1: Choose Your Starting Point</h2>
+                <p className="text-gray-600">Select the headline you&apos;d like to enhance:</p>
+              </div>
+              <button
+                onClick={startOver}
+                className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition-colors text-sm"
+              >
+                🔄 Restart Workshop
+              </button>
+            </div>
             
             <div className="space-y-3 mb-6">
               {initialHeadlines.map((headline, index) => (
@@ -191,7 +308,7 @@ const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
                     <span className="text-blue-600">→</span>
                   </div>
                   <div className="text-sm text-gray-500 mt-1">
-                    {index === 0 ? 'Question format' : index === 1 ? 'Statement-But format' : 'Action/Metaphor format'}
+                    Click to enhance this headline
                   </div>
                 </div>
               ))}
@@ -209,7 +326,15 @@ const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
         {/* Step 3: Enhancement Process */}
         {step === 'enhancement' && (
           <div>
-            <h2 className="text-xl font-semibold mb-4 text-blue-600">Step 2: Enhance Your Headline</h2>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold text-blue-600">Step 2: Enhance Your Headline</h2>
+              <button
+                onClick={startOver}
+                className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition-colors text-sm"
+              >
+                🔄 Restart Workshop
+              </button>
+            </div>
             
             {/* Current Headline Display */}
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
@@ -217,19 +342,63 @@ const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
               <p className="text-lg font-semibold text-blue-900">{currentHeadline}</p>
             </div>
 
-            {/* Enhancement Options */}
-            <div className="mb-6">
-              <h3 className="text-lg font-medium mb-3">How would you like to enhance this headline?</h3>
+                         {/* Key Names Display */}
+             {keyNames.length > 0 && (
+               <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                 <h3 className="text-sm font-medium text-blue-800 mb-2">Key Names/Entities:</h3>
+                 <div className="flex flex-wrap gap-2">
+                   {keyNames.map((name, index) => (
+                     <span key={index} className="text-sm text-blue-700 bg-white border border-blue-300 rounded px-2 py-1">
+                       {name}
+                     </span>
+                   ))}
+                 </div>
+               </div>
+             )}
+
+             {/* Available Quotes Display */}
+             {hasQuotes && quotes.length > 0 && (
+               <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+                 <h3 className="text-sm font-medium text-green-800 mb-2">📝 Available Direct Quotes:</h3>
+                 <div className="space-y-2">
+                   {quotes.map((quote, index) => (
+                     <div key={index} className="flex items-center justify-between text-sm text-green-700 bg-white border border-green-300 rounded p-2">
+                       <div>
+                         <span className="font-medium">Quote {index + 1}:</span> "{quote}"
+                         {usedQuotes.has(quote) && (
+                           <span className="text-xs text-gray-500 ml-2">(used {usedQuotes.get(quote)}x)</span>
+                         )}
+                       </div>
+                       <button
+                         onClick={() => enhanceHeadline('quote', quote)}
+                         disabled={loading}
+                         className="ml-3 px-3 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 disabled:bg-gray-400 transition-colors"
+                       >
+                         Incorporate
+                       </button>
+                     </div>
+                   ))}
+                 </div>
+               </div>
+             )}
+
+             {/* Enhancement Options */}
+             <div className="mb-6">
+               <h3 className="text-lg font-medium mb-3">How would you like to enhance this headline?</h3>
+               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {enhancementOptions.map((option) => (
                   <button
                     key={option.type}
                     onClick={() => enhanceHeadline(option.type)}
                     disabled={loading}
-                    className="flex items-center p-3 border border-gray-300 rounded-lg hover:border-blue-400 hover:bg-blue-50 disabled:opacity-50 transition-colors text-left"
+                    className="flex flex-col p-4 border border-gray-300 rounded-lg transition-colors text-left hover:border-blue-400 hover:bg-blue-50"
                   >
-                    <span className="text-xl mr-3">{option.icon}</span>
-                    <span className="font-medium">{option.label}</span>
+                    <div className="flex items-center mb-1">
+                      <span className="text-xl mr-3">{option.icon}</span>
+                      <span className="font-medium">{option.label}</span>
+                    </div>
+                    <span className="text-sm text-gray-600">{option.description}</span>
                   </button>
                 ))}
               </div>
