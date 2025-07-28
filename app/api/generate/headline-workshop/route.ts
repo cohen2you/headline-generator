@@ -7,38 +7,69 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 function extractQuotes(articleText: string): string[] {
   const quotes: string[] = [];
   
-  // Match text within double quotes
-  const doubleQuoteRegex = /"([^"]+)"/g;
+  console.log('=== QUOTE EXTRACTION DEBUG ===');
+  console.log('Article text length:', articleText.length);
+  console.log('Article text sample:', articleText.substring(0, 500));
+  
+  // Test if there are any quotes at all in the text
+  const allQuotes = articleText.match(/"[^"]*"/g);
+  console.log('All double quotes found in text:', allQuotes);
+  
+  const allSingleQuotes = articleText.match(/'[^']*'/g);
+  console.log('All single quotes found in text:', allSingleQuotes);
+  
+  // Match text within double quotes (including smart quotes)
+  const doubleQuoteRegex = /["""]([^"""]+)["""]/g;
   let match;
+  console.log('Searching for double quotes...');
   while ((match = doubleQuoteRegex.exec(articleText)) !== null) {
-    if (match[1].length > 10 && match[1].length < 200) { // Reasonable quote length
+    console.log('Found double quote:', match[1]);
+    if (match[1].length > 5 && match[1].length < 300) { // More flexible quote length
       quotes.push(match[1]);
+      console.log('Added double quote:', match[1]);
+    } else {
+      console.log('Skipped double quote (length):', match[1], 'length:', match[1].length);
     }
   }
   
-  // Match text within single quotes
-  const singleQuoteRegex = /'([^']+)'/g;
+  // Match text within single quotes (including smart quotes)
+  const singleQuoteRegex = /[''']([^''']+)[''']/g;
+  console.log('Searching for single quotes...');
   while ((match = singleQuoteRegex.exec(articleText)) !== null) {
-    if (match[1].length > 10 && match[1].length < 200) { // Reasonable quote length
+    console.log('Found single quote:', match[1]);
+    if (match[1].length > 5 && match[1].length < 300) { // More flexible quote length
       quotes.push(match[1]);
+      console.log('Added single quote:', match[1]);
+    } else {
+      console.log('Skipped single quote (length):', match[1], 'length:', match[1].length);
     }
   }
   
   // Sort quotes by impact (prioritize quotes with strong opinions, surprising statements, or key insights)
   const sortedQuotes = quotes.sort((a, b) => {
     const impactWords = [
+      // Strong opinions and assessments
       'biggest', 'greatest', 'stupid', 'smart', 'clever', 'mistake', 'comeback', 'historic', 
       'surprising', 'shocking', 'unexpected', 'don\'t know', 'you don\'t', 'very smart', 
-      'fifth grader', 'political history', 'reality television', 'real estate'
+      'fifth grader', 'political history', 'reality television', 'real estate',
+      // Financial and energy terms
+      'clear', 'political', 'win', 'significant', 'implementation', 'risks', 'ambitious',
+      'billion', 'million', 'trillion', 'percent', 'annually', 'energy', 'export', 'import',
+      'deal', 'agreement', 'pact', 'trade', 'market', 'sector', 'industry', 'infrastructure',
+      'supply', 'demand', 'volume', 'capacity', 'investment', 'growth', 'boom', 'surge',
+      'revival', 'transformation', 'shift', 'pivot', 'game changer', 'catalyst',
+      // Risk and uncertainty terms
+      'warning', 'danger', 'threat', 'crisis', 'concern', 'skepticism', 'doubt', 'question',
+      'challenge', 'obstacle', 'barrier', 'limitation', 'constraint', 'pressure'
     ];
     
     // Calculate impact score
     const aImpact = impactWords.filter(word => a.toLowerCase().includes(word)).length;
     const bImpact = impactWords.filter(word => b.toLowerCase().includes(word)).length;
     
-    // Bonus for quotes that are direct statements about people
+    // Bonus for quotes that are direct statements about people or key entities
     const personQuoteBonus = (quote: string) => {
-      const personWords = ['president', 'trump', 'he', 'his', 'him'];
+      const personWords = ['president', 'trump', 'he', 'his', 'him', 'eu', 'europe', 'u.s.', 'united states', 'america'];
       return personWords.filter(word => quote.toLowerCase().includes(word)).length;
     };
     
@@ -46,16 +77,33 @@ function extractQuotes(articleText: string): string[] {
     const bBonus = personQuoteBonus(b);
     
     // Bonus for shorter, punchier quotes (better for headlines)
-    const aLengthBonus = a.length < 50 ? 1 : 0;
-    const bLengthBonus = b.length < 50 ? 1 : 0;
+    const aLengthBonus = a.length < 50 ? 2 : (a.length < 100 ? 1 : 0);
+    const bLengthBonus = b.length < 50 ? 2 : (b.length < 100 ? 1 : 0);
     
-    const aTotal = aImpact + aBonus + aLengthBonus;
-    const bTotal = bImpact + bBonus + bLengthBonus;
+    // Bonus for quotes with numbers (more specific and credible)
+    const aNumberBonus = /\d/.test(a) ? 3 : 0;
+    const bNumberBonus = /\d/.test(b) ? 3 : 0;
+    
+    // Bonus for quotes that sound like assessments or predictions
+    const assessmentWords = ['clear', 'significant', 'ambitious', 'highly', 'really', 'truly', 'actually'];
+    const aAssessmentBonus = assessmentWords.filter(word => a.toLowerCase().includes(word)).length;
+    const bAssessmentBonus = assessmentWords.filter(word => b.toLowerCase().includes(word)).length;
+    
+    const aTotal = aImpact + aBonus + aLengthBonus + aNumberBonus + aAssessmentBonus;
+    const bTotal = bImpact + bBonus + bLengthBonus + bNumberBonus + bAssessmentBonus;
     
     return bTotal - aTotal; // Higher impact first
   });
   
-  return sortedQuotes.slice(0, 3); // Return top 3 most impactful quotes
+  const finalQuotes = sortedQuotes.slice(0, 3); // Return top 3 most impactful quotes
+  
+  // Debug logging
+  console.log('=== QUOTE EXTRACTION DEBUG ===');
+  console.log('All quotes found:', quotes);
+  console.log('Sorted quotes:', sortedQuotes);
+  console.log('Final quotes returned:', finalQuotes);
+  
+  return finalQuotes;
 }
 
 // Function to fix incomplete quotes in headlines using improved logic
@@ -230,6 +278,20 @@ function extractKeyNames(articleText: string): string[] {
     }
   }
   
+  // CRITICAL: Prioritize prominent political figures and key decision-makers over analysts
+  const prominentPoliticalFigures = [
+    'Donald Trump', 'Joe Biden', 'Barack Obama', 'Hillary Clinton', 'Mike Pence',
+    'Kamala Harris', 'Nancy Pelosi', 'Mitch McConnell', 'Chuck Schumer',
+    'Jerome Powell', 'Janet Yellen', 'Larry Summers', 'Jamie Dimon'
+  ];
+  
+  // Give massive priority to prominent political figures
+  prominentPoliticalFigures.forEach(figure => {
+    if (nameCounts[figure]) {
+      nameCounts[figure] += 50; // Massive bonus for prominent political figures
+    }
+  });
+  
   // Penalize generic institutional names like "White House" when there are specific people quoted
   const genericNames = ['White House', 'Congress', 'Senate', 'House', 'Government', 'Administration'];
   const hasSpecificSpeakers = Object.keys(nameCounts).some(name => 
@@ -246,8 +308,7 @@ function extractKeyNames(articleText: string): string[] {
   
   // Filter out analyst names from the final list
   const analystNames = [
-    'Oliver Rakau', 'Florence Schmit', 'Jensen Huang', 'Lisa Su', 'Jerome Powell',
-    'Larry Summers', 'Janet Yellen', 'Jamie Dimon', 'Warren Buffett', 'Ray Dalio',
+    'Oliver Rakau', 'Florence Schmit', 'Jensen Huang', 'Lisa Su',
     'Cathie Wood', 'Chamath Palihapitiya', 'Elon Musk', 'Mark Zuckerberg',
     'Tim Cook', 'Satya Nadella', 'Sundar Pichai'
   ];
@@ -307,11 +368,15 @@ CRITICAL REQUIREMENTS:
 - Use different approaches: questions, statements, revelations, contrasts
 - ALWAYS prioritize the primary narrative and key data points from the article
 - Avoid secondary or tangential findings unless they're truly the main story
+- FOCUS ON THE CORE STORY: Don't just report market reactions - capture the strategic significance, political implications, or transformative potential
+- CREATE CURIOSITY: Use questions, revelations, or contrasts that make readers want to learn more
+- AVOID GENERIC PHRASES: Replace "But Will It Last?" with specific, story-relevant questions or statements
+- QUOTES CAN STAND ALONE: When using quotes, you don't need to mention who said them - just use the quote itself for impact
 
 ${keyNames.length > 0 ? `KEY NAMES/ENTITIES TO PRIORITIZE (in order of importance):
 ${keyNames.map((name, index) => `${index + 1}. ${name}`).join('\n')}
 
-CRITICAL: Start headlines with the FIRST key name listed above. This is the most important source/person in the article.` : ''}
+CRITICAL: Start headlines with the FIRST key name listed above. This is the most important source/person in the article.` : 'NO PROMINENT NAMES AVAILABLE: Focus on the core story elements, key data points, and create curiosity-driven headlines that capture the main narrative without relying on specific people.'}
 
 ${quotes.length > 0 ? `AVAILABLE DIRECT QUOTES FROM ARTICLE (ranked by impact):
 ${quotes.map((quote, index) => `${index + 1}. "${quote}"`).join('\n')}
@@ -325,11 +390,11 @@ CRITICAL QUOTE FORMATTING RULES:
 - ONLY use quotes that directly relate to the main story` : 'NO DIRECT QUOTES AVAILABLE: Do not include any quoted text in headlines.'}
 
 HEADLINE EXAMPLES (showing the style and quality you should aim for):
-- "Trump's Sledgehammer Policies Have Ignited Wall Street's Hottest Trade"
-- "EU Energy Deal Crushes Previous Records With 'Clear Political Win'"
-- "$750B Energy Pact Faces 'Significant Implementation Risks'"
-- "Energy Stocks Lag Behind Market Despite $750B Deal Optimism"
-- "LNG Exports Set To Boom Under New EU Trade Agreement"
+- "Trump's $750B Energy Gamble: Can Europe Really Fuel A U.S. Export Revival?"
+- "Energy Sector's Comeback Story: How A $750B Deal Could Reverse Years Of Underperformance"
+- "The $750B Question: Will Europe's Energy Pivot Finally Lift U.S. Stocks?"
+- "From Laggard To Leader: Energy Stocks Eye $750B EU Deal As Game Changer"
+- "Europe's Energy Bet: Can $750B In U.S. Exports Revive A Struggling Sector?"
 
 Article:
 ${articleText}
@@ -389,7 +454,7 @@ CRITICAL REQUIREMENTS:
 ${keyNames.length > 0 ? `KEY NAMES/ENTITIES TO PRIORITIZE (in order of importance):
 ${keyNames.map((name, index) => `${index + 1}. ${name}`).join('\n')}
 
-CRITICAL: Start headlines with the FIRST key name listed above. This is the most important source/person in the article.` : ''}
+CRITICAL: Start headlines with the FIRST key name listed above. This is the most important source/person in the article.` : 'NO PROMINENT NAMES AVAILABLE: Focus on the core story elements, key data points, and create curiosity-driven headlines that capture the main narrative without relying on specific people.'}
 
 QUOTE TO INCORPORATE: '${quote}'
 
@@ -589,7 +654,7 @@ You are a top-tier financial headline writer. Create exactly 1 compelling headli
 ${keyNames.length > 0 ? `KEY NAMES/ENTITIES TO PRIORITIZE (in order of importance):
 ${keyNames.map((name, index) => `${index + 1}. ${name}`).join('\n')}
 
-CRITICAL: Start headlines with the FIRST key name listed above. This is the most important source/person in the article.` : ''}
+CRITICAL: Start headlines with the FIRST key name listed above. This is the most important source/person in the article.` : 'NO PROMINENT NAMES AVAILABLE: Focus on the core story elements, key data points, and create curiosity-driven headlines that capture the main narrative without relying on specific people.'}
 
 ${quotes.length > 0 ? `AVAILABLE DIRECT QUOTES FROM ARTICLE (ranked by impact):
 ${quotes.map((quote, index) => `${index + 1}. "${quote}"`).join('\n')}
@@ -667,12 +732,6 @@ function replaceAnalystNames(headline: string): string {
     'Florence Schmit', 
     'Jensen Huang',
     'Lisa Su',
-    'Jerome Powell',
-    'Larry Summers',
-    'Janet Yellen',
-    'Jamie Dimon',
-    'Warren Buffett',
-    'Ray Dalio',
     'Cathie Wood',
     'Chamath Palihapitiya',
     'Elon Musk',

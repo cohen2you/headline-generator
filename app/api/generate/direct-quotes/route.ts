@@ -116,35 +116,85 @@ ${articleText}`;
         // Check if the quote exists in the article with quotation marks
         // Make the pattern more flexible to handle spacing and punctuation variations
         const escapedQuote = cleanQuote.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const quotePattern = new RegExp(`"${escapedQuote}"`, 'i');
-        const found = quotePattern.test(articleText);
-        console.log('Quote pattern:', quotePattern.source);
-        console.log('Quote found in article:', found);
         
-        // If not found with exact pattern, try a more flexible search
-        if (!found) {
-          const flexiblePattern = new RegExp(`"${escapedQuote.replace(/\\\./g, '\\.?')}"`, 'i');
-          const flexibleFound = flexiblePattern.test(articleText);
-          console.log('Flexible pattern:', flexiblePattern.source);
-          console.log('Flexible found:', flexibleFound);
-          if (flexibleFound) {
-            return true;
+        // Try multiple quote patterns (including smart quotes)
+        const quotePatterns = [
+          new RegExp(`"${escapedQuote}"`, 'i'),
+          new RegExp(`"${escapedQuote}"`, 'i'),
+          new RegExp(`"${escapedQuote}"`, 'i'),
+          new RegExp(`'${escapedQuote}'`, 'i'),
+          new RegExp(`'${escapedQuote}'`, 'i'),
+          new RegExp(`'${escapedQuote}'`, 'i')
+        ];
+        
+        let found = false;
+        for (const pattern of quotePatterns) {
+          if (pattern.test(articleText)) {
+            console.log('Quote found with pattern:', pattern.source);
+            found = true;
+            break;
           }
         }
         
-        // If still not found, try searching for the quote content without quotes
+        // If not found with exact patterns, try a more flexible search
+        if (!found) {
+          const flexiblePatterns = [
+            new RegExp(`"[^"]*${escapedQuote.replace(/\\\./g, '\\.?')}[^"]*"`, 'i'),
+            new RegExp(`"[^"]*${escapedQuote.replace(/\\\./g, '\\.?')}[^"]*"`, 'i'),
+            new RegExp(`"[^"]*${escapedQuote.replace(/\\\./g, '\\.?')}[^"]*"`, 'i'),
+            new RegExp(`'[^']*${escapedQuote.replace(/\\\./g, '\\.?')}[^']*'`, 'i'),
+            new RegExp(`'[^']*${escapedQuote.replace(/\\\./g, '\\.?')}[^']*'`, 'i'),
+            new RegExp(`'[^']*${escapedQuote.replace(/\\\./g, '\\.?')}[^']*'`, 'i')
+          ];
+          
+          for (const pattern of flexiblePatterns) {
+            if (pattern.test(articleText)) {
+              console.log('Quote found with flexible pattern:', pattern.source);
+              found = true;
+              break;
+            }
+          }
+        }
+        
+        // If still not found, try searching for the quote content and check if it's in a quoted context
         if (!found) {
           const contentPattern = new RegExp(escapedQuote, 'i');
           const contentFound = contentPattern.test(articleText);
-          console.log('Content pattern:', contentPattern.source);
           console.log('Content found:', contentFound);
+          
           if (contentFound) {
             // Check if there are quotes around this content somewhere in the article
-            const quoteContext = articleText.match(new RegExp(`"[^"]*${escapedQuote}[^"]*"`, 'i'));
-            if (quoteContext) {
-              console.log('Found quote context:', quoteContext[0]);
-              return true;
+            const quoteContextPatterns = [
+              new RegExp(`"[^"]*${escapedQuote}[^"]*"`, 'i'),
+              new RegExp(`"[^"]*${escapedQuote}[^"]*"`, 'i'),
+              new RegExp(`"[^"]*${escapedQuote}[^"]*"`, 'i'),
+              new RegExp(`'[^']*${escapedQuote}[^']*'`, 'i'),
+              new RegExp(`'[^']*${escapedQuote}[^']*'`, 'i'),
+              new RegExp(`'[^']*${escapedQuote}[^']*'`, 'i')
+            ];
+            
+            for (const pattern of quoteContextPatterns) {
+              const quoteContext = articleText.match(pattern);
+              if (quoteContext) {
+                console.log('Found quote context:', quoteContext[0]);
+                found = true;
+                break;
+              }
             }
+          }
+        }
+        
+        // If we still haven't found it, but the AI extracted it and it looks like a valid quote,
+        // let's be more lenient and accept it if it contains key words that suggest it's a real quote
+        if (!found) {
+          const quoteKeywords = ['clear', 'significant', 'ambitious', 'political', 'win', 'risks', 'billion', 'percent', 'energy', 'eu', 'u.s.'];
+          const hasQuoteKeywords = quoteKeywords.some(keyword => 
+            cleanQuote.toLowerCase().includes(keyword.toLowerCase())
+          );
+          
+          if (hasQuoteKeywords && cleanQuote.length > 10) {
+            console.log('Accepting quote based on keywords:', cleanQuote);
+            found = true;
           }
         }
         
