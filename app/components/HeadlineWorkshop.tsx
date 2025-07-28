@@ -22,10 +22,7 @@ const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
   ({ articleText, onCheckHeadline }, ref) => {
         const [step, setStep] = useState<'initial' | 'selection' | 'enhancement' | 'final'>('initial');
     const [initialHeadlines, setInitialHeadlines] = useState<string[]>([]);
-    const [quotes, setQuotes] = useState<string[]>([]);
-    const [hasQuotes, setHasQuotes] = useState(false);
     const [keyNames, setKeyNames] = useState<string[]>([]);
-    const [usedQuotes, setUsedQuotes] = useState<Map<string, number>>(new Map());
     const [directQuotes, setDirectQuotes] = useState<string[]>([]);
     const [loadingDirectQuotes, setLoadingDirectQuotes] = useState(false);
     const [showDirectQuotes, setShowDirectQuotes] = useState(false);
@@ -42,10 +39,7 @@ const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
     const clearData = () => {
       setStep('initial');
       setInitialHeadlines([]);
-      setQuotes([]);
-      setHasQuotes(false);
       setKeyNames([]);
-      setUsedQuotes(new Map());
       setDirectQuotes([]);
       setLoadingDirectQuotes(false);
       setShowDirectQuotes(false);
@@ -181,10 +175,7 @@ const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
 
         const cleanedHeadlines = data.headlines.map((hl: string) => cleanHeadline(hl));
         setInitialHeadlines(cleanedHeadlines);
-        setQuotes(data.quotes || []);
-        setHasQuotes(data.hasQuotes || false);
         setKeyNames(data.keyNames || []);
-        setUsedQuotes(new Map());
         setStep('selection');
       } catch (error: unknown) {
         if (error instanceof Error) setError(error.message);
@@ -230,15 +221,7 @@ const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
 
         const newHeadline = cleanHeadline(data.headlines?.[0] || data.enhancedHeadline || '');
         
-        // Mark the quote as used if it was a quote enhancement
-        if (enhancementType === 'quote' && specificQuote) {
-          setUsedQuotes(prev => {
-            const newMap = new Map(prev);
-            const currentCount = newMap.get(specificQuote) || 0;
-            newMap.set(specificQuote, currentCount + 1);
-            return newMap;
-          });
-        }
+
         
         // Replace the current headline with the new version
         setCurrentHeadline(newHeadline);
@@ -249,11 +232,7 @@ const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
          }]);
          setCustomEnhancement('');
          
-         // Update quotes and key names if provided
-         if (data.quotes) {
-           setQuotes(data.quotes);
-           setHasQuotes(data.hasQuotes);
-         }
+         // Update key names if provided
          if (data.keyNames) {
            setKeyNames(data.keyNames);
          }
