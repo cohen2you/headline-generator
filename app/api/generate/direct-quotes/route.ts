@@ -193,18 +193,6 @@ ${articleText}`;
             cleanQuote.toLowerCase().includes(keyword.toLowerCase())
           );
           
-          // Additional check: does this sound like something someone would actually say?
-          // Look for phrases that indicate it's a quote from a person, not descriptive text
-          const quoteIndicators = [
-            'said', 'noted', 'expressed', 'called', 'described', 'warned', 'highlighted',
-            'believes', 'thinks', 'feels', 'considers', 'views', 'sees', 'expects',
-            'we', 'our', 'us', 'i', 'my', 'me'
-          ];
-          
-          const hasQuoteIndicators = quoteIndicators.some(indicator => 
-            cleanQuote.toLowerCase().includes(indicator.toLowerCase())
-          );
-          
           // Also check if it sounds like descriptive text (which we want to reject)
           const descriptivePhrases = [
             'will serve as', 'is expected to', 'is designed to', 'functions as',
