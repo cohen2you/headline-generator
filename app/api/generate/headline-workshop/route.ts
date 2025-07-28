@@ -377,8 +377,6 @@ Respond with exactly 1 headline.`;
 
       return NextResponse.json({ 
         headlines,
-        quotes,
-        hasQuotes: quotes.length > 0,
         keyNames
       });
     }
@@ -576,8 +574,6 @@ Respond with exactly 1 headline.`;
 
       return NextResponse.json({ 
         headlines,
-        quotes,
-        hasQuotes: quotes.length > 0,
         keyNames
       });
     }
