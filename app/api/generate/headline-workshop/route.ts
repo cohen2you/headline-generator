@@ -3,108 +3,7 @@ import OpenAI from 'openai';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-// Function to extract direct quotes from article text
-function extractQuotes(articleText: string): string[] {
-  const quotes: string[] = [];
-  
-  console.log('=== QUOTE EXTRACTION DEBUG ===');
-  console.log('Article text length:', articleText.length);
-  console.log('Article text sample:', articleText.substring(0, 500));
-  
-  // Test if there are any quotes at all in the text
-  const allQuotes = articleText.match(/"[^"]*"/g);
-  console.log('All double quotes found in text:', allQuotes);
-  
-  const allSingleQuotes = articleText.match(/'[^']*'/g);
-  console.log('All single quotes found in text:', allSingleQuotes);
-  
-  // Match text within double quotes (including smart quotes)
-  const doubleQuoteRegex = /["""]([^"""]+)["""]/g;
-  let match;
-  console.log('Searching for double quotes...');
-  while ((match = doubleQuoteRegex.exec(articleText)) !== null) {
-    console.log('Found double quote:', match[1]);
-    if (match[1].length > 5 && match[1].length < 300) { // More flexible quote length
-      quotes.push(match[1]);
-      console.log('Added double quote:', match[1]);
-    } else {
-      console.log('Skipped double quote (length):', match[1], 'length:', match[1].length);
-    }
-  }
-  
-  // Match text within single quotes (including smart quotes)
-  const singleQuoteRegex = /[''']([^''']+)[''']/g;
-  console.log('Searching for single quotes...');
-  while ((match = singleQuoteRegex.exec(articleText)) !== null) {
-    console.log('Found single quote:', match[1]);
-    if (match[1].length > 5 && match[1].length < 300) { // More flexible quote length
-      quotes.push(match[1]);
-      console.log('Added single quote:', match[1]);
-    } else {
-      console.log('Skipped single quote (length):', match[1], 'length:', match[1].length);
-    }
-  }
-  
-  // Sort quotes by impact (prioritize quotes with strong opinions, surprising statements, or key insights)
-  const sortedQuotes = quotes.sort((a, b) => {
-    const impactWords = [
-      // Strong opinions and assessments
-      'biggest', 'greatest', 'stupid', 'smart', 'clever', 'mistake', 'comeback', 'historic', 
-      'surprising', 'shocking', 'unexpected', 'don\'t know', 'you don\'t', 'very smart', 
-      'fifth grader', 'political history', 'reality television', 'real estate',
-      // Financial and energy terms
-      'clear', 'political', 'win', 'significant', 'implementation', 'risks', 'ambitious',
-      'billion', 'million', 'trillion', 'percent', 'annually', 'energy', 'export', 'import',
-      'deal', 'agreement', 'pact', 'trade', 'market', 'sector', 'industry', 'infrastructure',
-      'supply', 'demand', 'volume', 'capacity', 'investment', 'growth', 'boom', 'surge',
-      'revival', 'transformation', 'shift', 'pivot', 'game changer', 'catalyst',
-      // Risk and uncertainty terms
-      'warning', 'danger', 'threat', 'crisis', 'concern', 'skepticism', 'doubt', 'question',
-      'challenge', 'obstacle', 'barrier', 'limitation', 'constraint', 'pressure'
-    ];
-    
-    // Calculate impact score
-    const aImpact = impactWords.filter(word => a.toLowerCase().includes(word)).length;
-    const bImpact = impactWords.filter(word => b.toLowerCase().includes(word)).length;
-    
-    // Bonus for quotes that are direct statements about people or key entities
-    const personQuoteBonus = (quote: string) => {
-      const personWords = ['president', 'trump', 'he', 'his', 'him', 'eu', 'europe', 'u.s.', 'united states', 'america'];
-      return personWords.filter(word => quote.toLowerCase().includes(word)).length;
-    };
-    
-    const aBonus = personQuoteBonus(a);
-    const bBonus = personQuoteBonus(b);
-    
-    // Bonus for shorter, punchier quotes (better for headlines)
-    const aLengthBonus = a.length < 50 ? 2 : (a.length < 100 ? 1 : 0);
-    const bLengthBonus = b.length < 50 ? 2 : (b.length < 100 ? 1 : 0);
-    
-    // Bonus for quotes with numbers (more specific and credible)
-    const aNumberBonus = /\d/.test(a) ? 3 : 0;
-    const bNumberBonus = /\d/.test(b) ? 3 : 0;
-    
-    // Bonus for quotes that sound like assessments or predictions
-    const assessmentWords = ['clear', 'significant', 'ambitious', 'highly', 'really', 'truly', 'actually'];
-    const aAssessmentBonus = assessmentWords.filter(word => a.toLowerCase().includes(word)).length;
-    const bAssessmentBonus = assessmentWords.filter(word => b.toLowerCase().includes(word)).length;
-    
-    const aTotal = aImpact + aBonus + aLengthBonus + aNumberBonus + aAssessmentBonus;
-    const bTotal = bImpact + bBonus + bLengthBonus + bNumberBonus + bAssessmentBonus;
-    
-    return bTotal - aTotal; // Higher impact first
-  });
-  
-  const finalQuotes = sortedQuotes.slice(0, 3); // Return top 3 most impactful quotes
-  
-  // Debug logging
-  console.log('=== QUOTE EXTRACTION DEBUG ===');
-  console.log('All quotes found:', quotes);
-  console.log('Sorted quotes:', sortedQuotes);
-  console.log('Final quotes returned:', finalQuotes);
-  
-  return finalQuotes;
-}
+
 
 // Function to fix incomplete quotes in headlines using improved logic
 function fixIncompleteQuotes(headline: string): string {
@@ -614,8 +513,6 @@ Respond with the enhanced headline only.`;
         case 'quote':
           if (specificQuote) {
             enhancementPrompt = `Create a headline built around this specific quote: "${specificQuote}". CRITICAL: Use ONLY single quotes (') - NEVER double quotes ("). ALWAYS include the closing quote mark. Make the quote the central focus and build the headline around it. Only use this one quote, do not add any other quotes. MANDATORY: Every opening single quote (') must have a corresponding closing single quote ('). EXAMPLE: "Scaramucci Warns: 'If You Think The President Is Stupid, You Don't Know The President'"`;
-          } else if (quotes.length > 0) {
-            enhancementPrompt = `Create a headline that incorporates a brief, impactful quote snippet (3-5 words) from the article. CRITICAL: Use ONLY single quotes (') - NEVER double quotes ("). ALWAYS include the closing quote mark. Available quotes: ${quotes.map(q => `"${q}"`).join(', ')}`;
           } else {
             enhancementPrompt = `Create a headline with a compelling statement that sounds like a direct quote but is actually a summary of key points from the article.`;
           }
