@@ -14,25 +14,22 @@ export async function POST(request: Request) {
     const prompt = `You are an expert quote extractor. Your ONLY job is to find and extract direct quotes from the article text with 100% ACCURACY.
 
 CRITICAL REQUIREMENTS:
-- Extract UP TO 3 direct quotes that are 4 words or less
+- Extract UP TO 3 direct quotes that are 2-8 words long
 - Each quote MUST be VERBATIM from the article - no modifications, no truncation, no paraphrasing
 - Only extract quotes that are truly headline-worthy and impactful
-- If you cannot find any suitable quotes of 4 words or less, return an empty array
 - Focus on the most impactful, headline-worthy quotes
 - Each quote must be a complete thought or phrase
 - Do not add, remove, or change ANY words from the original quotes
-- If a quote is longer than 4 words, do not truncate it - skip it and find a shorter one
+- If a quote is longer than 8 words, do not truncate it - skip it and find a shorter one
 - Accuracy is more important than quantity - better to return 0 accurate quotes than 3 weak ones
-
-Examples of what NOT to do:
-- Original: "The greatest comeback in political history" → WRONG: "The greatest comeback in history"
-- Original: "This is absolutely devastating for investors" → WRONG: "This is absolutely devastating"
-- Original: "We're very concerned about the market" → WRONG: "We're very concerned"
+- Look for quotes that are dramatic, surprising, or contain strong opinions
 
 Examples of what TO do:
 - Original: "This is huge" → CORRECT: "This is huge"
 - Original: "Game changer" → CORRECT: "Game changer"
 - Original: "Absolutely devastating" → CORRECT: "Absolutely devastating"
+- Original: "The greatest comeback in political history" → CORRECT: "The greatest comeback in political history"
+- Original: "This is absolutely devastating for investors" → CORRECT: "This is absolutely devastating for investors"
 
 Return only a JSON array of quotes (0-3 quotes), no explanations:
 ["quote 1", "quote 2", "quote 3"]
@@ -51,11 +48,16 @@ ${articleText}`;
 
     const response = completion.choices[0].message?.content?.trim() || '';
     
+    console.log('=== DIRECT QUOTES DEBUG ===');
+    console.log('Raw AI response:', response);
+    console.log('Response length:', response.length);
+    
     // Parse the JSON response
     let quotes: string[] = [];
     try {
       // Remove any markdown formatting if present
       const cleanedResponse = response.replace(/```json|```/g, '').trim();
+      console.log('Cleaned response:', cleanedResponse);
       quotes = JSON.parse(cleanedResponse);
       
       // Ensure we have an array of strings
@@ -66,13 +68,11 @@ ${articleText}`;
       // Filter out empty quotes and ensure they're strings
       quotes = quotes.filter(quote => typeof quote === 'string' && quote.trim().length > 0);
       
-      // If we don't have 3 quotes, pad with empty strings
-      while (quotes.length < 3) {
-        quotes.push('');
-      }
-      
       // Limit to 3 quotes
       quotes = quotes.slice(0, 3);
+      
+      console.log('Final quotes array:', quotes);
+      console.log('Number of quotes found:', quotes.length);
       
     } catch (parseError) {
       console.error('Error parsing quotes response:', parseError);

@@ -107,20 +107,24 @@ const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
         setError('');
         
         try {
-          // Format the quote with Title Case and single quotes
-          const formattedQuote = quote
+          // Extract a short segment (4 words or less) from the quote
+          const words = quote.trim().split(' ');
+          const shortSegment = words.slice(0, Math.min(4, words.length)).join(' ');
+          
+          // Format the short segment with Title Case and single quotes
+          const formattedSegment = shortSegment
             .split(' ')
             .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
             .join(' ');
           
-          // Call API to generate a new headline incorporating the quote
+          // Call API to generate a new headline incorporating the short segment
           const res = await fetch('/api/generate/headline-workshop', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
               articleText,
               action: 'incorporate_quote',
-              quote: formattedQuote
+              quote: formattedSegment
             }),
           });
 
@@ -197,7 +201,10 @@ const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
     };
 
     const enhanceHeadline = async (enhancementType: string, specificQuote?: string) => {
-      if (!currentHeadline.trim()) return;
+      if (!articleText.trim()) {
+        setError('Please enter article text first.');
+        return;
+      }
 
       setLoading(true);
       setError('');
@@ -207,22 +214,21 @@ const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 
             articleText,
-            action: 'enhance',
-            selectedHeadline: currentHeadline,
+            action: 'generate_new',
             enhancementType,
             specificQuote,
             customEnhancement: enhancementType === 'custom' ? customEnhancement : undefined
           }),
         });
 
-        if (!res.ok) throw new Error('Failed to enhance headline');
+        if (!res.ok) throw new Error('Failed to generate new headline');
         const data = await res.json();
         
         if (data.error) {
           throw new Error(data.error);
         }
 
-        const enhancedHeadline = cleanHeadline(data.enhancedHeadline || data.headlines?.[0] || currentHeadline);
+        const newHeadline = cleanHeadline(data.headlines?.[0] || data.enhancedHeadline || '');
         
         // Mark the quote as used if it was a quote enhancement
         if (enhancementType === 'quote' && specificQuote) {
@@ -234,10 +240,10 @@ const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
           });
         }
         
-        // Replace the current headline with the enhanced version
-        setCurrentHeadline(enhancedHeadline);
+        // Replace the current headline with the new version
+        setCurrentHeadline(newHeadline);
          setHeadlineHistory(prev => [...prev, { 
-           text: enhancedHeadline, 
+           text: newHeadline, 
            enhancementType, 
            timestamp: new Date() 
          }]);
@@ -312,9 +318,9 @@ const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
       { type: 'risk', label: 'Add risk/warning angle', icon: '⚠️', description: 'Emphasize potential dangers' },
     ];
 
-    return (
-      <div className="max-w-4xl mx-auto">
-
+        return (
+      <div className="max-w-4xl mx-auto p-6 border-2 border-blue-600 rounded-lg bg-blue-50">
+ 
         
         {/* Step 1: Initial Headline Generation */}
         {step === 'initial' && (
@@ -363,14 +369,16 @@ const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
             </div>
             
             <div className="border-t border-gray-200 pt-4">
-              <h3 className="text-lg font-semibold mb-3 text-gray-800">Or try the full workshop experience:</h3>
-              <button
-                onClick={generateInitialHeadlines}
-                disabled={loading || !articleText.trim()}
-                className="bg-blue-600 text-white px-8 py-3 rounded-lg disabled:bg-gray-400 hover:bg-blue-700 transition-colors w-full max-w-md"
-              >
-                {loading ? 'Generating Initial Headlines...' : 'Start Headline Workshop'}
-              </button>
+              <div className="p-4 border-2 border-blue-600 rounded-lg bg-blue-50">
+                <h3 className="text-lg font-semibold mb-3 text-blue-800">Or try the full workshop experience:</h3>
+                <button
+                  onClick={generateInitialHeadlines}
+                  disabled={loading || !articleText.trim()}
+                  className="bg-blue-600 text-white px-8 py-3 rounded-lg disabled:bg-gray-400 hover:bg-blue-700 transition-colors w-full max-w-md"
+                >
+                  {loading ? 'Generating Initial Headlines...' : 'Start Headline Workshop'}
+                </button>
+              </div>
             </div>
             
             {error && <p className="text-red-600 mt-4">{error}</p>}
@@ -379,7 +387,7 @@ const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
 
         {/* Step 2: Headline Selection */}
         {step === 'selection' && (
-          <div>
+          <div className="text-center">
             <div className="flex justify-between items-center mb-4">
               <div>
                 <h2 className="text-xl font-semibold text-blue-600">Step 1: Choose Your Starting Point</h2>

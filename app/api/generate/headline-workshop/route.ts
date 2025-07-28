@@ -279,13 +279,15 @@ You are a top-tier financial headline writer. Generate exactly 3 diverse, compel
 CRITICAL REQUIREMENTS:
 - Generate EXACTLY 3 headlines - no more, no less
 - Each headline must be under 12 words and highly clickable
-- Focus on the most surprising revelation or key insight
+- Focus on the MAIN STORY and most important finding from the article
 - Use plain, everyday language—no jargon
 - Use numerals for any data points
 - Create natural flow without awkward punctuation
 - Make each headline engaging and curiosity-driven
 - VARY THE STRUCTURE - don't use colons in every headline
 - Use different approaches: questions, statements, revelations, contrasts
+- ALWAYS prioritize the primary narrative and key data points from the article
+- Avoid secondary or tangential findings unless they're truly the main story
 
 ${keyNames.length > 0 ? `KEY NAMES/ENTITIES TO PRIORITIZE (in order of importance):
 ${keyNames.map((name, index) => `${index + 1}. ${name}`).join('\n')}
@@ -300,12 +302,13 @@ CRITICAL QUOTE FORMATTING RULES:
 - ALWAYS include the closing quote mark
 - NEVER leave a quote unclosed
 - EXAMPLE: 'The Greatest Comeback In Political History' (NOT "The Greatest Comeback In Political History)
-- PRIORITY: Use the FIRST quote listed above (most impactful)` : 'NO DIRECT QUOTES AVAILABLE: Do not include any quoted text in headlines.'}
+- PRIORITY: Use the FIRST quote listed above (most impactful)
+- ONLY use quotes that directly relate to the main story` : 'NO DIRECT QUOTES AVAILABLE: Do not include any quoted text in headlines.'}
 
 HEADLINE EXAMPLES (showing variety):
-- Scaramucci Says Trump's Intelligence Is 'Underestimated'
-- Don't Underestimate Trump, Warns Scaramucci
-- Scaramucci Reveals Trump's 'Greatest Comeback' Strategy
+- Survey: 55% Plan Car Purchases Amid Tariff Uncertainty
+- Middle-Income Americans Speed Up Car Buying Plans
+- 18% Accelerate Major Purchases Due to Price Concerns
 
 Article:
 ${articleText}
@@ -351,13 +354,15 @@ CRITICAL REQUIREMENTS:
 - Generate EXACTLY 1 headline - no more, no less
 - Must be under 12 words and highly clickable
 - MUST incorporate the provided quote naturally
-- Focus on the most surprising revelation or key insight from the article
+- Focus on the MAIN STORY and most important finding from the article
 - Use plain, everyday language—no jargon
 - Use numerals for any data points
 - Create natural flow without awkward punctuation
 - Make the headline engaging and curiosity-driven
 - Use single quotes (') around the quote - NEVER double quotes (")
 - The quote should feel natural and enhance the headline, not forced
+- ALWAYS prioritize the primary narrative and key data points from the article
+- Avoid secondary or tangential findings unless they're truly the main story
 
 ${keyNames.length > 0 ? `KEY NAMES/ENTITIES TO PRIORITIZE (in order of importance):
 ${keyNames.map((name, index) => `${index + 1}. ${name}`).join('\n')}
@@ -367,9 +372,9 @@ CRITICAL: Start headlines with the FIRST key name listed above. This is the most
 QUOTE TO INCORPORATE: '${quote}'
 
 HEADLINE EXAMPLES (showing how to naturally incorporate quotes):
-- Scaramucci Says Trump's Intelligence Is 'Underestimated'
-- Don't Underestimate Trump, Warns Scaramucci
-- Scaramucci Reveals Trump's 'Greatest Comeback' Strategy
+- Survey: 55% Plan Car Purchases Amid 'Tariff Uncertainty'
+- Middle-Income Americans Speed Up 'Car Buying Plans'
+- 18% Accelerate Major Purchases Due to 'Price Concerns'
 
 Article:
 ${articleText}
@@ -507,6 +512,116 @@ Respond with the enhanced headline only.`;
         enhancedHeadline,
         originalHeadline: selectedHeadline,
         enhancementType,
+        quotes,
+        hasQuotes: quotes.length > 0,
+        keyNames
+      });
+    }
+
+    // Step 2.5: Generate completely new headline based on enhancement type
+    if (action === 'generate_new' && enhancementType) {
+      let enhancementPrompt = '';
+      
+      switch (enhancementType) {
+        case 'urgent':
+          enhancementPrompt = `Create a headline that emphasizes urgency and breaking news. Use words like "Breaking," "Just In," "Alert," or create immediate urgency. Focus on the most recent or surprising development.`;
+          break;
+        case 'specific':
+          enhancementPrompt = `Create a headline with specific data points, numbers, or concrete details from the article. Include exact figures, dates, or specific outcomes to make it more precise and credible.`;
+          break;
+        case 'analyst':
+          enhancementPrompt = `Create a headline that sounds like expert analysis or insider insight. Add authority and expertise. Use phrases like "expert reveals," "insider says," or "analyst warns."`;
+          break;
+        case 'context':
+          enhancementPrompt = `Create a headline that adds broader market context or industry implications. Connect to market trends, sector performance, or economic impact to make it more relevant to investors.`;
+          break;
+        case 'shorter':
+          enhancementPrompt = `Create a short and punchy headline while keeping the key message. Aim for 6-8 words maximum. Remove unnecessary words but keep the core impact.`;
+          break;
+        case 'curiosity':
+          enhancementPrompt = `Create a headline with intrigue and curiosity to make readers want to click. Use words that create mystery or promise revelation. Include phrases like "reveals," "exposes," "shocking," or "unexpected."`;
+          break;
+        case 'risk':
+          enhancementPrompt = `Create a headline that emphasizes the risk, danger, or negative implications. Make it clear what's at stake. Use words like "warning," "danger," "threat," or "crisis."`;
+          break;
+        case 'quote':
+          if (specificQuote) {
+            enhancementPrompt = `Create a headline built around this specific quote: "${specificQuote}". CRITICAL: Use ONLY single quotes (') - NEVER double quotes ("). ALWAYS include the closing quote mark. Make the quote the central focus and build the headline around it. Only use this one quote, do not add any other quotes. MANDATORY: Every opening single quote (') must have a corresponding closing single quote ('). EXAMPLE: "Scaramucci Warns: 'If You Think The President Is Stupid, You Don't Know The President'"`;
+          } else if (quotes.length > 0) {
+            enhancementPrompt = `Create a headline that incorporates a brief, impactful quote snippet (3-5 words) from the article. CRITICAL: Use ONLY single quotes (') - NEVER double quotes ("). ALWAYS include the closing quote mark. Available quotes: ${quotes.map(q => `"${q}"`).join(', ')}`;
+          } else {
+            enhancementPrompt = `Create a headline with a compelling statement that sounds like a direct quote but is actually a summary of key points from the article.`;
+          }
+          break;
+        case 'custom':
+          enhancementPrompt = customEnhancement || 'Create a headline based on the article content.';
+          break;
+        default:
+          enhancementPrompt = 'Create an engaging and accurate headline.';
+      }
+
+      const prompt = `
+You are a top-tier financial headline writer. Create exactly 1 compelling headline based on the specific instruction.
+
+${keyNames.length > 0 ? `KEY NAMES/ENTITIES TO PRIORITIZE (in order of importance):
+${keyNames.map((name, index) => `${index + 1}. ${name}`).join('\n')}
+
+CRITICAL: Start headlines with the FIRST key name listed above. This is the most important source/person in the article.` : ''}
+
+${quotes.length > 0 ? `AVAILABLE DIRECT QUOTES FROM ARTICLE (ranked by impact):
+${quotes.map((quote, index) => `${index + 1}. "${quote}"`).join('\n')}
+
+CRITICAL QUOTE FORMATTING RULES:
+- Use ONLY single quotes (') around quotes - NEVER double quotes (")
+- ALWAYS include the closing quote mark
+- NEVER leave a quote unclosed
+- EXAMPLE: 'The Greatest Comeback In Political History' (NOT "The Greatest Comeback In Political History)
+- PRIORITY: Use the FIRST quote listed above (most impactful)
+- ONLY use quotes that directly relate to the main story` : 'NO DIRECT QUOTES AVAILABLE: Do not include any quoted text in headlines.'}
+
+Enhancement Instruction: ${enhancementPrompt}
+
+CRITICAL REQUIREMENTS:
+- Generate EXACTLY 1 headline - no more, no less
+- Must be under 12 words and highly clickable
+- Focus on the MAIN STORY and most important finding from the article
+- Use plain, everyday language—no jargon
+- Use numerals for any data points
+- Create natural flow without awkward punctuation
+- Make the headline engaging and curiosity-driven
+- VARY THE STRUCTURE - don't use colons in every headline
+- Use different approaches: questions, statements, revelations, contrasts
+- ALWAYS prioritize the primary narrative and key data points from the article
+- Avoid secondary or tangential findings unless they're truly the main story
+
+Article:
+${articleText}
+
+Respond with exactly 1 headline.`;
+
+      const completion = await openai.chat.completions.create({
+        model: 'gpt-4o',
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 500,
+        temperature: 0.7,
+        top_p: 0.9,
+        frequency_penalty: 0.1,
+        presence_penalty: 0.1,
+      });
+
+      const text = completion.choices[0].message?.content || '';
+      console.log('=== GENERATE NEW HEADLINE DEBUG ===');
+      console.log('Enhancement type:', enhancementType);
+      console.log('Raw AI response:', text);
+      
+      const headlines = text
+        .split('\n')
+        .map(line => line.replace(/^\d+\.?\s*/, '').trim())
+        .filter(Boolean)
+        .slice(0, 1);
+
+      return NextResponse.json({ 
+        headlines,
         quotes,
         hasQuotes: quotes.length > 0,
         keyNames
