@@ -52,7 +52,9 @@ export default function Page() {
         setArticleText={setArticleText} 
       />
 
-      <div className="mt-8 p-6 border-2 border-blue-600 rounded-lg bg-blue-50">
+      <div className="mt-8">
+
+        
         <HeadlineWorkshop 
           ref={headlineWorkshopRef}
           articleText={articleText}

@@ -314,16 +314,20 @@ const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
 
     return (
       <div className="max-w-4xl mx-auto">
+
+        
         {/* Step 1: Initial Headline Generation */}
         {step === 'initial' && (
           <div className="text-center">
             <h2 className="text-2xl font-bold mb-4 text-blue-600">🎯 Headline Workshop</h2>
             <p className="text-gray-600 mb-6">Let&apos;s create the perfect headline together, step by step.</p>
             
+
+            
             {/* Custom Headline Section - Always Visible */}
-            <div className="mb-6 p-4 border-2 border-green-600 rounded-lg bg-green-50">
-              <h3 className="text-lg font-semibold mb-3 text-green-800">✨ Quick Custom Headline</h3>
-              <p className="text-sm text-green-700 mb-4">Get a thoughtful, AI-generated headline instantly</p>
+            <div className="mb-6 p-6 border-4 border-green-600 rounded-lg bg-green-50 shadow-lg">
+              <h3 className="text-xl font-bold mb-3 text-green-800">✨ Quick Custom Headline</h3>
+              <p className="text-base text-green-700 mb-4">Get a thoughtful, AI-generated headline instantly</p>
               
               <div className="space-y-3">
                 {customHeadline ? (
@@ -350,7 +354,7 @@ const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
                   <button
                     onClick={generateCustomHeadline}
                     disabled={loadingCustom || !articleText.trim()}
-                    className="bg-green-600 text-white px-8 py-3 rounded-lg disabled:bg-gray-400 hover:bg-green-700 transition-colors w-full max-w-md"
+                    className="bg-green-600 text-white px-8 py-4 rounded-lg disabled:bg-gray-400 hover:bg-green-700 transition-colors w-full max-w-md text-lg font-semibold shadow-md"
                   >
                     {loadingCustom ? 'Generating Custom Headline...' : 'Generate Custom Headline'}
                   </button>
