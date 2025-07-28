@@ -263,10 +263,21 @@ function getMarketStatus(): 'open' | 'premarket' | 'afterhours' | 'closed' {
 
 export async function POST(request: Request) {
   try {
-    const { tickers, priceActionOnly, briefAnalysis } = await request.json();
+    const { tickers, priceActionOnly, briefAnalysis, grouped } = await request.json();
 
     if (!tickers?.trim()) {
       return NextResponse.json({ priceActions: [], error: 'Ticker(s) required.' });
+    }
+
+    // Clean and validate tickers
+    const cleanedTickers = tickers
+      .split(',')
+      .map((ticker: string) => ticker.trim().toUpperCase())
+      .filter((ticker: string) => ticker.length > 0)
+      .join(',');
+
+    if (!cleanedTickers) {
+      return NextResponse.json({ priceActions: [], error: 'No valid ticker symbols provided.' });
     }
 
     // Detect market status and prepare a phrase for the summary line
@@ -280,7 +291,12 @@ export async function POST(request: Request) {
       marketStatusPhrase = ' while the market was closed';
     } // if open, leave as empty string
 
-    const url = `https://api.benzinga.com/api/v2/quoteDelayed?token=${process.env.BENZINGA_API_KEY}&symbols=${tickers}`;
+    const url = `https://api.benzinga.com/api/v2/quoteDelayed?token=${process.env.BENZINGA_API_KEY}&symbols=${cleanedTickers}`;
+
+    console.log('=== PRICE ACTION DEBUG ===');
+    console.log('Original tickers:', tickers);
+    console.log('Cleaned tickers:', cleanedTickers);
+    console.log('API URL:', url);
 
     const res = await fetch(url);
     if (!res.ok) {
@@ -299,7 +315,7 @@ export async function POST(request: Request) {
     const quotes = Object.values(data) as unknown[];
 
     const priceActions = await Promise.all(quotes.map(async (quote) => {
-      if (typeof quote !== 'object' || quote === null) return '';
+      if (typeof quote !== 'object' || quote === null) return null;
 
       const q = quote as BenzingaQuote;
 
@@ -310,6 +326,12 @@ export async function POST(request: Request) {
       const companyName = q.name ?? symbol;
       const changePercent = typeof q.changePercent === 'number' ? q.changePercent : 0;
       const lastPrice = formatPrice(q.lastTradePrice);
+
+      // Skip processing if we don't have valid data
+      if (symbol === 'UNKNOWN' || !q.lastTradePrice) {
+        console.log(`Skipping invalid quote for symbol: ${symbol}, lastTradePrice: ${q.lastTradePrice}`);
+        return null; // Return null instead of empty string to filter out invalid quotes
+      }
 
       // Calculate separate changes for regular session and after-hours
       let regularSessionChange = 0;
@@ -352,6 +374,9 @@ export async function POST(request: Request) {
         priceActionText = `${symbol} Price Action: ${companyName} shares were ${upDown} ${absChange}% at $${lastPrice}${marketStatusPhrase} on ${dayOfWeek}, according to Benzinga Pro`;
       }
 
+      // Remove the "according to Benzinga Pro" from individual lines since we'll group them
+      priceActionText = priceActionText.replace(/,\s*according to Benzinga Pro\.?$/, '');
+      
       // Ensure the summary line ends with a period
       if (!priceActionText.trim().endsWith('.')) {
         priceActionText += '.';
@@ -459,7 +484,57 @@ export async function POST(request: Request) {
       };
     }));
 
-    return NextResponse.json({ priceActions });
+    // Filter out null results and add error message for invalid tickers
+    const validPriceActions = priceActions.filter(action => action !== null);
+    
+    // Check if we have any valid results
+    if (validPriceActions.length === 0) {
+      return NextResponse.json({ 
+        priceActions: [], 
+        error: 'No valid ticker data found. Please check that all ticker symbols are correct and try again.' 
+      });
+    }
+
+    // If grouped is requested, create a single grouped response
+    if (grouped && validPriceActions.length > 1) {
+      // Extract just the company and price action parts (remove the ticker prefix, attribution, and time/date)
+      const priceActionParts = validPriceActions.map(action => {
+        // Remove the ticker prefix, "according to Benzinga Pro" part, and time/date info
+        const cleanAction = action.priceAction
+          .replace(/^[A-Z]{1,5}\s+Price Action:\s*/, '') // Remove ticker prefix
+          .replace(/,\s*according to Benzinga Pro\.?$/, '') // Remove attribution
+          .replace(/\s+at the time of publication on [A-Za-z]+\.?$/, '') // Remove time/date info
+          .replace(/\.$/, ''); // Remove trailing period
+        return cleanAction;
+      });
+      
+      // Create a natural flowing sentence
+      let groupedText = 'Price Action: ';
+      
+      if (priceActionParts.length === 2) {
+        groupedText += priceActionParts[0] + ' and ' + priceActionParts[1];
+      } else if (priceActionParts.length === 3) {
+        groupedText += priceActionParts[0] + ', ' + priceActionParts[1] + ' and ' + priceActionParts[2];
+      } else {
+        // For 4 or more, use proper comma and "and" formatting
+        const lastPart = priceActionParts.pop();
+        groupedText += priceActionParts.join(', ') + ' and ' + lastPart;
+      }
+      
+      groupedText += ' at the time of publication on Monday, according to Benzinga Pro data.';
+      
+      return NextResponse.json({ 
+        priceActions: [{
+          ticker: 'GROUPED',
+          companyName: 'Multiple Companies',
+          priceAction: groupedText,
+          grouped: true,
+          individualActions: validPriceActions
+        }]
+      });
+    }
+
+    return NextResponse.json({ priceActions: validPriceActions });
   } catch (error) {
     console.error('Error generating price actions:', error);
     return NextResponse.json({ priceActions: [], error: 'Failed to generate price actions.' });
