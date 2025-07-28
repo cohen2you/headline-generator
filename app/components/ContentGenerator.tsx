@@ -441,17 +441,20 @@ const ContentGenerator = forwardRef<ContentGeneratorRef, ContentGeneratorProps>(
 
                 // Helper to render grouped price action with better formatting
                 const renderGroupedPriceAction = (priceAction: string, idx: number) => {
+                  // Remove the duplicate "Price Action:" from the text since we're adding it as a label
+                  const cleanPriceAction = priceAction.replace(/^Price Action:\s*/, '');
+                  
                   // Handle the attribution at the end with hyperlink
                   const phrase = ', according to Benzinga Pro data.';
-                  const phraseIndex = priceAction.indexOf(phrase);
+                  const phraseIndex = cleanPriceAction.indexOf(phrase);
                   
                   if (phraseIndex !== -1) {
-                    const beforePhrase = priceAction.slice(0, phraseIndex);
-                    const afterPhrase = priceAction.slice(phraseIndex + phrase.length);
+                    const beforePhrase = cleanPriceAction.slice(0, phraseIndex);
+                    const afterPhrase = cleanPriceAction.slice(phraseIndex + phrase.length);
                     
                     return (
                       <span className="mb-1 text-black" ref={el => { priceActionRefs.current[idx] = el; }}>
-                        <strong>Price Action:</strong>
+                        <strong>Price Action: </strong>
                         <span className="font-normal">{beforePhrase}
                           <a
                             href="https://www.benzinga.com/pro/"
@@ -469,8 +472,8 @@ const ContentGenerator = forwardRef<ContentGeneratorRef, ContentGeneratorProps>(
                   
                   return (
                     <span className="mb-1 text-black" ref={el => { priceActionRefs.current[idx] = el; }}>
-                      <strong>Price Action:</strong>
-                      <span className="font-normal">{priceAction}</span>
+                      <strong>Price Action: </strong>
+                      <span className="font-normal">{cleanPriceAction}</span>
                     </span>
                   );
                 };
