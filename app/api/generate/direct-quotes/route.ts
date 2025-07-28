@@ -186,14 +186,38 @@ ${articleText}`;
         
         // If we still haven't found it, but the AI extracted it and it looks like a valid quote,
         // let's be more lenient and accept it if it contains key words that suggest it's a real quote
+        // AND if it sounds like something someone would actually say (not just descriptive text)
         if (!found) {
           const quoteKeywords = ['clear', 'significant', 'ambitious', 'political', 'win', 'risks', 'billion', 'percent', 'energy', 'eu', 'u.s.'];
           const hasQuoteKeywords = quoteKeywords.some(keyword => 
             cleanQuote.toLowerCase().includes(keyword.toLowerCase())
           );
           
-          if (hasQuoteKeywords && cleanQuote.length > 10) {
-            console.log('Accepting quote based on keywords:', cleanQuote);
+          // Additional check: does this sound like something someone would actually say?
+          // Look for phrases that indicate it's a quote from a person, not descriptive text
+          const quoteIndicators = [
+            'said', 'noted', 'expressed', 'called', 'described', 'warned', 'highlighted',
+            'believes', 'thinks', 'feels', 'considers', 'views', 'sees', 'expects',
+            'we', 'our', 'us', 'i', 'my', 'me'
+          ];
+          
+          const hasQuoteIndicators = quoteIndicators.some(indicator => 
+            cleanQuote.toLowerCase().includes(indicator.toLowerCase())
+          );
+          
+          // Also check if it sounds like descriptive text (which we want to reject)
+          const descriptivePhrases = [
+            'will serve as', 'is expected to', 'is designed to', 'functions as',
+            'serves as', 'acts as', 'works as', 'operates as', 'functions as',
+            'component of', 'part of', 'element of', 'aspect of', 'feature of'
+          ];
+          
+          const hasDescriptivePhrases = descriptivePhrases.some(phrase => 
+            cleanQuote.toLowerCase().includes(phrase.toLowerCase())
+          );
+          
+          if (hasQuoteKeywords && cleanQuote.length > 10 && !hasDescriptivePhrases) {
+            console.log('Accepting quote based on keywords (no descriptive phrases):', cleanQuote);
             found = true;
           }
         }
