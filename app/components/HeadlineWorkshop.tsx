@@ -222,7 +222,7 @@ const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
           throw new Error(data.error);
         }
 
-        const enhancedHeadline = cleanHeadline(data.enhancedHeadline);
+        const enhancedHeadline = cleanHeadline(data.enhancedHeadline || data.headlines?.[0] || currentHeadline);
         
         // Mark the quote as used if it was a quote enhancement
         if (enhancementType === 'quote' && specificQuote) {
@@ -233,7 +233,9 @@ const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
             return newMap;
           });
         }
-         setCurrentHeadline(enhancedHeadline);
+        
+        // Replace the current headline with the enhanced version
+        setCurrentHeadline(enhancedHeadline);
          setHeadlineHistory(prev => [...prev, { 
            text: enhancedHeadline, 
            enhancementType, 
@@ -318,7 +320,46 @@ const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
             <h2 className="text-2xl font-bold mb-4 text-blue-600">🎯 Headline Workshop</h2>
             <p className="text-gray-600 mb-6">Let&apos;s create the perfect headline together, step by step.</p>
             
-            <div className="space-y-4 mb-6">
+            {/* Custom Headline Section - Always Visible */}
+            <div className="mb-6 p-4 border-2 border-green-600 rounded-lg bg-green-50">
+              <h3 className="text-lg font-semibold mb-3 text-green-800">✨ Quick Custom Headline</h3>
+              <p className="text-sm text-green-700 mb-4">Get a thoughtful, AI-generated headline instantly</p>
+              
+              <div className="space-y-3">
+                {customHeadline ? (
+                  <div className="bg-white border border-green-200 rounded-lg p-4">
+                    <h4 className="text-sm font-medium text-green-800 mb-2">Your Custom Headline:</h4>
+                    <p className="text-lg font-semibold text-green-900 mb-3">{customHeadline}</p>
+                    <div className="flex gap-2 justify-center">
+                      <button
+                        onClick={() => selectHeadline(customHeadline)}
+                        className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition-colors"
+                      >
+                        Use This Headline
+                      </button>
+                      <button
+                        onClick={generateCustomHeadline}
+                        disabled={loadingCustom || !articleText.trim()}
+                        className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:bg-gray-400 transition-colors"
+                      >
+                        {loadingCustom ? 'Generating...' : 'Generate Another'}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={generateCustomHeadline}
+                    disabled={loadingCustom || !articleText.trim()}
+                    className="bg-green-600 text-white px-8 py-3 rounded-lg disabled:bg-gray-400 hover:bg-green-700 transition-colors w-full max-w-md"
+                  >
+                    {loadingCustom ? 'Generating Custom Headline...' : 'Generate Custom Headline'}
+                  </button>
+                )}
+              </div>
+            </div>
+            
+            <div className="border-t border-gray-200 pt-4">
+              <h3 className="text-lg font-semibold mb-3 text-gray-800">Or try the full workshop experience:</h3>
               <button
                 onClick={generateInitialHeadlines}
                 disabled={loading || !articleText.trim()}
@@ -326,41 +367,6 @@ const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
               >
                 {loading ? 'Generating Initial Headlines...' : 'Start Headline Workshop'}
               </button>
-              
-              <div className="border-t border-gray-200 pt-4">
-                <h3 className="text-lg font-semibold mb-3 text-gray-800">Or try our thoughtful custom headline:</h3>
-                <div className="space-y-3">
-                  {customHeadline ? (
-                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                      <h4 className="text-sm font-medium text-green-800 mb-2">Custom Headline:</h4>
-                      <p className="text-lg font-semibold text-green-900 mb-3">{customHeadline}</p>
-                      <div className="flex gap-2 justify-center">
-                        <button
-                          onClick={() => selectHeadline(customHeadline)}
-                          className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition-colors"
-                        >
-                          Use This Headline
-                        </button>
-                        <button
-                          onClick={generateCustomHeadline}
-                          disabled={loadingCustom || !articleText.trim()}
-                          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:bg-gray-400 transition-colors"
-                        >
-                          {loadingCustom ? 'Generating...' : 'Another Version'}
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={generateCustomHeadline}
-                      disabled={loadingCustom || !articleText.trim()}
-                      className="bg-green-600 text-white px-8 py-3 rounded-lg disabled:bg-gray-400 hover:bg-green-700 transition-colors w-full max-w-md"
-                    >
-                      {loadingCustom ? 'Generating Custom Headline...' : 'Generate Custom Headline'}
-                    </button>
-                  )}
-                </div>
-              </div>
             </div>
             
             {error && <p className="text-red-600 mt-4">{error}</p>}
