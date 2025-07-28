@@ -460,7 +460,6 @@ const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
                
                {showDirectQuotes && directQuotes.length > 0 && (
                  <div className="space-y-2">
-                   <p className="text-sm text-purple-700 mb-3">Select a quote to incorporate into your headline:</p>
                    {directQuotes.map((quote, index) => (
                      <div key={index} className="flex items-center justify-between text-sm text-purple-700 bg-white border border-purple-300 rounded p-3">
                        <div className="flex-1">

@@ -40,6 +40,10 @@ WHAT IS NOT A DIRECT QUOTE:
 - Product names, ship names, or proper nouns like "Return On Investment" (ship name)
 - Stock tickers, version numbers, or technical identifiers
 - Names of companies, products, or entities that are just being referenced
+- Descriptive phrases that are not actually spoken by anyone
+- Technical terms, statistics, or factual statements that aren't quotes
+
+CRITICAL: Only extract text that is ACTUALLY between quotation marks in the article. Do not extract descriptive phrases, technical terms, or any text that isn't explicitly quoted.
 
 Examples of what TO do:
 - Original: "This is huge" → CORRECT: "This is huge"
@@ -52,8 +56,10 @@ Examples of what NOT to do:
 - Original: HSBC evaluated that MI350 can now compete → INCORRECT: "MI350 can now compete"
 - Original: demand for AI chips could exceed $500 billion → INCORRECT: "demand for AI chips could exceed $500 billion"
 - Original: calling it a competitive advantage → INCORRECT: "competitive advantage"
+- Original: a steep premium compared to the NewSpace sector average → INCORRECT: "a steep premium compared to the NewSpace sector average"
+- Original: "Return On Investment" (ship name) → INCORRECT: "Return On Investment"
 
-IMPORTANT: If you are unsure whether something is a direct quote, DO NOT include it. When in doubt, exclude it.
+IMPORTANT: If you are unsure whether something is a direct quote, DO NOT include it. When in doubt, exclude it. Only extract text that is explicitly between quotation marks in the article.
 
 Return only a JSON array of quotes (0-3 quotes), no explanations:
 ["quote 1", "quote 2", "quote 3"]
@@ -117,9 +123,24 @@ ${articleText}`;
           /^[A-Z][a-z]+ [A-Z][a-z]+ [A-Z][a-z]+ [A-Z][a-z]+ [A-Z][a-z]+$/, // "Some Product Name Here As Well"
         ];
         
+        // Skip quotes that are descriptive phrases (not actual speech)
+        const descriptivePhrasePatterns = [
+          /^a\s+[a-z]+\s+[a-z]+/, // "a steep premium"
+          /^the\s+[a-z]+\s+[a-z]+/, // "the NewSpace sector"
+          /^[a-z]+\s+compared\s+to/, // "premium compared to"
+          /^[a-z]+\s+times\s+[a-z]+/, // "28 times estimated"
+          /^[a-z]+\s+percent\s+[a-z]+/, // "64 percent increase"
+        ];
+        
         const isProperNoun = properNounPatterns.some(pattern => pattern.test(cleanQuote));
         if (isProperNoun) {
           console.log('Quote appears to be a proper noun/name:', cleanQuote);
+          return false;
+        }
+        
+        const isDescriptivePhrase = descriptivePhrasePatterns.some(pattern => pattern.test(cleanQuote));
+        if (isDescriptivePhrase) {
+          console.log('Quote appears to be a descriptive phrase (not speech):', cleanQuote);
           return false;
         }
         
