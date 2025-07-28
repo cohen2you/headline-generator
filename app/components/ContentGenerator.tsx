@@ -409,30 +409,32 @@ const ContentGenerator = forwardRef<ContentGeneratorRef, ContentGeneratorProps>(
                     beforeText = labelMatch[1];
                     mainText = labelMatch[2];
                   }
-                  const phrase = 'according to Benzinga Pro.';
-                  const phraseIndex = mainText.indexOf(phrase);
-                  let mainBefore = mainText;
-                  let mainAfter = '';
-                  if (phraseIndex !== -1) {
-                    mainBefore = mainText.slice(0, phraseIndex);
-                    mainAfter = mainText.slice(phraseIndex + phrase.length);
-                  }
+                  
+                  // Debug logging
+                  console.log('Price Action Debug:', {
+                    original: priceAction,
+                    beforeText,
+                    mainText
+                  });
+                  
+                  // Always ensure the hyperlink is present
+                  const hasBenzingaPro = mainText.includes('Benzinga Pro');
+                  const cleanText = mainText.replace(/,\s*according to Benzinga Pro data\.?$/, '');
+                  
                   return (
                     <span className="mb-1 text-black" ref={el => { priceActionRefs.current[idx] = el; }}>
                       <strong>{beforeText}</strong>
-                      <span className="font-normal">{mainBefore}
-                        {phraseIndex !== -1 && (
-                          <>
-                            <a
-                              href="https://www.benzinga.com/pro/"
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-yellow-700 underline hover:text-yellow-900"
-                            >
-                              {phrase}
-                            </a>
-                            {mainAfter}
-                          </>
+                      <span className="font-normal">
+                        {cleanText}
+                        {hasBenzingaPro && (
+                          <a
+                            href="https://www.benzinga.com/pro/"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-yellow-700 underline hover:text-yellow-900"
+                          >
+                            , according to Benzinga Pro data.
+                          </a>
                         )}
                       </span>
                     </span>
@@ -444,36 +446,26 @@ const ContentGenerator = forwardRef<ContentGeneratorRef, ContentGeneratorProps>(
                   // Remove the duplicate "Price Action:" from the text since we're adding it as a label
                   const cleanPriceAction = priceAction.replace(/^Price Action:\s*/, '');
                   
-                  // Handle the attribution at the end with hyperlink
-                  const phrase = ', according to Benzinga Pro data.';
-                  const phraseIndex = cleanPriceAction.indexOf(phrase);
+                  // Always ensure the hyperlink is present
+                  const hasBenzingaPro = cleanPriceAction.includes('Benzinga Pro');
+                  const cleanText = cleanPriceAction.replace(/,\s*according to Benzinga Pro data\.?$/, '');
                   
-                  if (phraseIndex !== -1) {
-                    const beforePhrase = cleanPriceAction.slice(0, phraseIndex);
-                    const afterPhrase = cleanPriceAction.slice(phraseIndex + phrase.length);
-                    
-                    return (
-                      <span className="mb-1 text-black" ref={el => { priceActionRefs.current[idx] = el; }}>
-                        <strong>Price Action: </strong>
-                        <span className="font-normal">{beforePhrase}
+                  return (
+                    <span className="mb-1 text-black" ref={el => { priceActionRefs.current[idx] = el; }}>
+                      <strong>Price Action: </strong>
+                      <span className="font-normal">
+                        {cleanText}
+                        {hasBenzingaPro && (
                           <a
                             href="https://www.benzinga.com/pro/"
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-yellow-700 underline hover:text-yellow-900"
                           >
-                            {phrase}
+                            , according to Benzinga Pro data.
                           </a>
-                          {afterPhrase}
-                        </span>
+                        )}
                       </span>
-                    );
-                  }
-                  
-                  return (
-                    <span className="mb-1 text-black" ref={el => { priceActionRefs.current[idx] = el; }}>
-                      <strong>Price Action: </strong>
-                      <span className="font-normal">{cleanPriceAction}</span>
                     </span>
                   );
                 };

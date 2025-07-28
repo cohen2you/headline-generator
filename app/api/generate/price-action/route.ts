@@ -374,13 +374,11 @@ export async function POST(request: Request) {
         priceActionText = `${symbol} Price Action: ${companyName} shares were ${upDown} ${absChange}% at $${lastPrice}${marketStatusPhrase} on ${dayOfWeek}, according to Benzinga Pro`;
       }
 
-      // Remove the "according to Benzinga Pro" from individual lines since we'll group them
+      // Update the attribution to use "according to Benzinga Pro data." for consistency
       priceActionText = priceActionText.replace(/,\s*according to Benzinga Pro\.?$/, '');
       
-      // Ensure the summary line ends with a period
-      if (!priceActionText.trim().endsWith('.')) {
-        priceActionText += '.';
-      }
+      // Add the updated attribution
+      priceActionText += ', according to Benzinga Pro data.';
 
       // Move briefAnalysis check before priceActionOnly
       if (briefAnalysis) {
@@ -495,43 +493,56 @@ export async function POST(request: Request) {
       });
     }
 
-    // If grouped is requested, create a single grouped response
-    if (grouped && validPriceActions.length > 1) {
-      // Extract just the company and price action parts (remove the ticker prefix, attribution, and time/date)
-      const priceActionParts = validPriceActions.map(action => {
-        // Remove the ticker prefix, "according to Benzinga Pro" part, and time/date info
-        const cleanAction = action.priceAction
-          .replace(/^[A-Z]{1,5}\s+Price Action:\s*/, '') // Remove ticker prefix
-          .replace(/,\s*according to Benzinga Pro\.?$/, '') // Remove attribution
-          .replace(/\s+at the time of publication on [A-Za-z]+\.?$/, '') // Remove time/date info
-          .replace(/\.$/, ''); // Remove trailing period
-        return cleanAction;
-      });
-      
-      // Create a natural flowing sentence
-      let groupedText = 'Price Action: ';
-      
-      if (priceActionParts.length === 2) {
-        groupedText += priceActionParts[0] + ' and ' + priceActionParts[1];
-      } else if (priceActionParts.length === 3) {
-        groupedText += priceActionParts[0] + ', ' + priceActionParts[1] + ' and ' + priceActionParts[2];
-      } else {
-        // For 4 or more, use proper comma and "and" formatting
-        const lastPart = priceActionParts.pop();
-        groupedText += priceActionParts.join(', ') + ' and ' + lastPart;
+    // If grouped is requested, handle single vs multiple tickers
+    if (grouped) {
+      if (validPriceActions.length === 1) {
+        // For single ticker, return the price action only format (no technical analysis)
+        const singleAction = validPriceActions[0];
+        return NextResponse.json({ 
+          priceActions: [{
+            ticker: singleAction.ticker,
+            companyName: singleAction.companyName,
+            priceAction: singleAction.priceAction
+          }]
+        });
+      } else if (validPriceActions.length > 1) {
+        // For multiple tickers, create a grouped response
+        // Extract just the company and price action parts (remove the ticker prefix, attribution, and time/date)
+        const priceActionParts = validPriceActions.map(action => {
+          // Remove the ticker prefix, "according to Benzinga Pro" part, and time/date info
+          const cleanAction = action.priceAction
+            .replace(/^[A-Z]{1,5}\s+Price Action:\s*/, '') // Remove ticker prefix
+            .replace(/,\s*according to Benzinga Pro\.?$/, '') // Remove attribution
+            .replace(/\s+at the time of publication on [A-Za-z]+\.?$/, '') // Remove time/date info
+            .replace(/\.$/, ''); // Remove trailing period
+          return cleanAction;
+        });
+        
+        // Create a natural flowing sentence
+        let groupedText = 'Price Action: ';
+        
+        if (priceActionParts.length === 2) {
+          groupedText += priceActionParts[0] + ' and ' + priceActionParts[1];
+        } else if (priceActionParts.length === 3) {
+          groupedText += priceActionParts[0] + ', ' + priceActionParts[1] + ' and ' + priceActionParts[2];
+        } else {
+          // For 4 or more, use proper comma and "and" formatting
+          const lastPart = priceActionParts.pop();
+          groupedText += priceActionParts.join(', ') + ' and ' + lastPart;
+        }
+        
+        groupedText += ' at the time of publication on Monday, according to Benzinga Pro data.';
+        
+        return NextResponse.json({ 
+          priceActions: [{
+            ticker: 'GROUPED',
+            companyName: 'Multiple Companies',
+            priceAction: groupedText,
+            grouped: true,
+            individualActions: validPriceActions
+          }]
+        });
       }
-      
-      groupedText += ' at the time of publication on Monday, according to Benzinga Pro data.';
-      
-      return NextResponse.json({ 
-        priceActions: [{
-          ticker: 'GROUPED',
-          companyName: 'Multiple Companies',
-          priceAction: groupedText,
-          grouped: true,
-          individualActions: validPriceActions
-        }]
-      });
     }
 
     return NextResponse.json({ priceActions: validPriceActions });
