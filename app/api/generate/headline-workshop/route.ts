@@ -343,8 +343,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Article text is required.' });
     }
 
-    // Extract quotes and key names from article
-    const quotes = extractQuotes(articleText);
+    // Extract key names from article
     const keyNames = extractKeyNames(articleText);
 
     // Step 1: Generate initial headlines
@@ -377,17 +376,6 @@ ${keyNames.length > 0 ? `KEY NAMES/ENTITIES TO PRIORITIZE (in order of importanc
 ${keyNames.map((name, index) => `${index + 1}. ${name}`).join('\n')}
 
 CRITICAL: Start headlines with the FIRST key name listed above. This is the most important source/person in the article.` : 'NO PROMINENT NAMES AVAILABLE: Focus on the core story elements, key data points, and create curiosity-driven headlines that capture the main narrative without relying on specific people.'}
-
-${quotes.length > 0 ? `AVAILABLE DIRECT QUOTES FROM ARTICLE (ranked by impact):
-${quotes.map((quote, index) => `${index + 1}. "${quote}"`).join('\n')}
-
-CRITICAL QUOTE FORMATTING RULES:
-- Use ONLY single quotes (') around quotes - NEVER double quotes (")
-- ALWAYS include the closing quote mark
-- NEVER leave a quote unclosed
-- EXAMPLE: 'The Greatest Comeback In Political History' (NOT "The Greatest Comeback In Political History)
-- PRIORITY: Use the FIRST quote listed above (most impactful)
-- ONLY use quotes that directly relate to the main story` : 'NO DIRECT QUOTES AVAILABLE: Do not include any quoted text in headlines.'}
 
 HEADLINE EXAMPLES (showing the style and quality you should aim for):
 - "Trump's $750B Energy Gamble: Can Europe Really Fuel A U.S. Export Revival?"
@@ -426,8 +414,6 @@ Respond with exactly 3 headlines, numbered 1-3.`;
 
       return NextResponse.json({ 
         headlines,
-        quotes,
-        hasQuotes: quotes.length > 0,
         keyNames
       });
     }
@@ -527,8 +513,6 @@ Respond with exactly 1 headline.`;
         case 'quote':
           if (specificQuote) {
             enhancementPrompt = `Create a completely new headline variation built around this specific quote: "${specificQuote}". CRITICAL: Use ONLY single quotes (') - NEVER double quotes ("). ALWAYS include the closing quote mark. IMPORTANT: Create a DIFFERENT headline style than before - try a new approach, different structure, or alternative framing. Make the quote the central focus and build the headline around it. Only use this one quote, do not add any other quotes. MANDATORY: Every opening single quote (') must have a corresponding closing single quote ('). EXAMPLE: "Scaramucci Warns: 'If You Think The President Is Stupid, You Don't Know The President'"`;
-          } else if (quotes.length > 0) {
-            enhancementPrompt = `Incorporate a brief, impactful quote snippet (3-5 words) from the article to add authenticity and impact. CRITICAL: Use ONLY single quotes (') - NEVER double quotes ("). ALWAYS include the closing quote mark. Available quotes: ${quotes.map(q => `"${q}"`).join(', ')}`;
           } else {
             enhancementPrompt = `Add a compelling statement that sounds like a direct quote but is actually a summary of key points from the article.`;
           }
@@ -546,9 +530,6 @@ You are a financial headline editor. Enhance this headline based on the specific
 Original Headline: "${selectedHeadline}"
 
 Enhancement Instruction: ${enhancementPrompt}
-
-${quotes.length > 0 ? `AVAILABLE DIRECT QUOTES FROM ARTICLE:
-${quotes.map((quote, index) => `${index + 1}. "${quote}"`).join('\n')}` : 'NO DIRECT QUOTES AVAILABLE'}
 
 Article Context:
 ${articleText}
@@ -600,8 +581,6 @@ Respond with the enhanced headline only.`;
         enhancedHeadline,
         originalHeadline: selectedHeadline,
         enhancementType,
-        quotes,
-        hasQuotes: quotes.length > 0,
         keyNames
       });
     }
@@ -655,17 +634,6 @@ ${keyNames.length > 0 ? `KEY NAMES/ENTITIES TO PRIORITIZE (in order of importanc
 ${keyNames.map((name, index) => `${index + 1}. ${name}`).join('\n')}
 
 CRITICAL: Start headlines with the FIRST key name listed above. This is the most important source/person in the article.` : 'NO PROMINENT NAMES AVAILABLE: Focus on the core story elements, key data points, and create curiosity-driven headlines that capture the main narrative without relying on specific people.'}
-
-${quotes.length > 0 ? `AVAILABLE DIRECT QUOTES FROM ARTICLE (ranked by impact):
-${quotes.map((quote, index) => `${index + 1}. "${quote}"`).join('\n')}
-
-CRITICAL QUOTE FORMATTING RULES:
-- Use ONLY single quotes (') around quotes - NEVER double quotes (")
-- ALWAYS include the closing quote mark
-- NEVER leave a quote unclosed
-- EXAMPLE: 'The Greatest Comeback In Political History' (NOT "The Greatest Comeback In Political History)
-- PRIORITY: Use the FIRST quote listed above (most impactful)
-- ONLY use quotes that directly relate to the main story` : 'NO DIRECT QUOTES AVAILABLE: Do not include any quoted text in headlines.'}
 
 Enhancement Instruction: ${enhancementPrompt}
 

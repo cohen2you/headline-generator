@@ -37,6 +37,9 @@ WHAT IS NOT A DIRECT QUOTE:
 - Paraphrased statements like "HSBC evaluated that MI350 can now compete"
 - Summaries like "demand for AI chips could exceed $500 billion" (unless it's in quotes)
 - Indirect speech like "Trump said the policy would help"
+- Product names, ship names, or proper nouns like "Return On Investment" (ship name)
+- Stock tickers, version numbers, or technical identifiers
+- Names of companies, products, or entities that are just being referenced
 
 Examples of what TO do:
 - Original: "This is huge" → CORRECT: "This is huge"
@@ -103,6 +106,34 @@ ${articleText}`;
         // Skip quotes that are too short or don't make sense
         if (cleanQuote.length < 3 || cleanQuote.split(' ').length < 2) {
           console.log('Quote too short or too few words:', cleanQuote);
+          return false;
+        }
+        
+        // Skip quotes that are just proper nouns, names, or titles (not actual speech)
+        const properNounPatterns = [
+          /^[A-Z][a-z]+ [A-Z][a-z]+$/, // "Return On Investment" - looks like a name/title
+          /^[A-Z][a-z]+ [A-Z][a-z]+ [A-Z][a-z]+$/, // "Some Product Name Here"
+          /^[A-Z][a-z]+ [A-Z][a-z]+ [A-Z][a-z]+ [A-Z][a-z]+$/, // "Some Product Name Here Too"
+          /^[A-Z][a-z]+ [A-Z][a-z]+ [A-Z][a-z]+ [A-Z][a-z]+ [A-Z][a-z]+$/, // "Some Product Name Here As Well"
+        ];
+        
+        const isProperNoun = properNounPatterns.some(pattern => pattern.test(cleanQuote));
+        if (isProperNoun) {
+          console.log('Quote appears to be a proper noun/name:', cleanQuote);
+          return false;
+        }
+        
+        // Skip quotes that are just numbers or technical terms
+        const technicalPatterns = [
+          /^\d+$/, // Just numbers
+          /^[A-Z]{2,5}$/, // Stock tickers like "AAPL", "TSLA"
+          /^[A-Z][a-z]+ \d+$/, // "Version 2.0", "Model 3"
+          /^\d+[A-Z][a-z]+$/, // "3M", "2B"
+        ];
+        
+        const isTechnical = technicalPatterns.some(pattern => pattern.test(cleanQuote));
+        if (isTechnical) {
+          console.log('Quote appears to be technical/numbers:', cleanQuote);
           return false;
         }
         

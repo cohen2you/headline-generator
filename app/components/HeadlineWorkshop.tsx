@@ -26,7 +26,7 @@ const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
     const [directQuotes, setDirectQuotes] = useState<string[]>([]);
     const [loadingDirectQuotes, setLoadingDirectQuotes] = useState(false);
     const [showDirectQuotes, setShowDirectQuotes] = useState(false);
- 
+    
     const [currentHeadline, setCurrentHeadline] = useState<string>('');
     const [headlineHistory, setHeadlineHistory] = useState<HeadlineVersion[]>([]);
     const [loading, setLoading] = useState(false);
@@ -139,6 +139,7 @@ const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
             timestamp: new Date()
           }]);
           
+          setStep('enhancement');
         } catch (error: unknown) {
           if (error instanceof Error) setError(error.message);
           else setError(String(error));
@@ -440,6 +441,10 @@ const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
                </div>
              )}
 
+
+
+
+
              {/* Direct Quotes Section */}
              <div className="mb-6 p-4 bg-purple-50 border border-purple-200 rounded-lg">
                <div className="flex items-center justify-between mb-3">
@@ -476,8 +481,6 @@ const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
                  <p className="text-sm text-purple-600">No headline-worthy quotes available.</p>
                )}
              </div>
-
-
 
              {/* Enhancement Options */}
              <div className="mb-6">
