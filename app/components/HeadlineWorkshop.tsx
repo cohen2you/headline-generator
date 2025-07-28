@@ -498,31 +498,7 @@ const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
                )}
              </div>
 
-             {/* Available Quotes Display */}
-             {hasQuotes && quotes.length > 0 && (
-               <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
-                 <h3 className="text-sm font-medium text-green-800 mb-2">📝 Available Direct Quotes:</h3>
-                 <div className="space-y-2">
-                   {quotes.map((quote, index) => (
-                     <div key={index} className="flex items-center justify-between text-sm text-green-700 bg-white border border-green-300 rounded p-2">
-                       <div>
-                         <span className="font-medium">Quote {index + 1}:</span> &quot;{quote}&quot;
-                         {usedQuotes.has(quote) && (
-                           <span className="text-xs text-gray-500 ml-2">(used {usedQuotes.get(quote)}x)</span>
-                         )}
-                       </div>
-                       <button
-                         onClick={() => enhanceHeadline('quote', quote)}
-                         disabled={loading}
-                         className="ml-3 px-3 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 disabled:bg-gray-400 transition-colors"
-                       >
-                         Incorporate
-                       </button>
-                     </div>
-                   ))}
-                 </div>
-               </div>
-             )}
+
 
              {/* Enhancement Options */}
              <div className="mb-6">

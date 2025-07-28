@@ -14,9 +14,12 @@ export async function POST(request: Request) {
     const prompt = `You are an expert quote extractor. Your ONLY job is to find and extract DIRECT QUOTES from the article text with 100% ACCURACY.
 
 CRITICAL REQUIREMENTS:
-- Extract UP TO 3 DIRECT QUOTES that are 2-8 words long
+- Extract UP TO 3 DIRECT QUOTES that are 3-8 words long
 - Each quote MUST be enclosed in quotation marks (" ") in the original article
 - Each quote MUST be VERBATIM from the article - no modifications, no truncation, no paraphrasing
+- Each quote MUST be a complete, meaningful sentence or phrase
+- Each quote MUST start with a capital letter
+- Each quote MUST end with proper punctuation (not mid-sentence)
 - Only extract quotes that are truly headline-worthy and impactful
 - Focus on the most impactful, headline-worthy quotes
 - Each quote must be a complete thought or phrase
@@ -70,6 +73,10 @@ ${articleText}`;
     console.log('Raw AI response:', response);
     console.log('Response length:', response.length);
     
+    // Debug: Find all quoted text in the article
+    const allQuotes = articleText.match(/"[^"]*"/g);
+    console.log('All quotes found in article:', allQuotes);
+    
     // Parse the JSON response
     let quotes: string[] = [];
     try {
@@ -90,9 +97,58 @@ ${articleText}`;
       quotes = quotes.filter(quote => {
         // Remove the outer quotes from the AI response for comparison
         const cleanQuote = quote.replace(/^"|"$/g, '');
+        
+        console.log('Validating quote:', cleanQuote);
+        
+        // Skip quotes that are too short or don't make sense
+        if (cleanQuote.length < 3 || cleanQuote.split(' ').length < 2) {
+          console.log('Quote too short or too few words:', cleanQuote);
+          return false;
+        }
+        
+        // Skip quotes that end with incomplete words (but allow proper punctuation)
+        // Only filter out if it ends with a single letter that's not part of a complete word
+        if (/[a-z]\s*$/.test(cleanQuote) && !/\w+\s*$/.test(cleanQuote)) {
+          console.log('Quote ends with incomplete word:', cleanQuote);
+          return false;
+        }
+        
         // Check if the quote exists in the article with quotation marks
-        const quotePattern = new RegExp(`"${cleanQuote.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`, 'i');
-        return quotePattern.test(articleText);
+        // Make the pattern more flexible to handle spacing and punctuation variations
+        const escapedQuote = cleanQuote.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const quotePattern = new RegExp(`"${escapedQuote}"`, 'i');
+        const found = quotePattern.test(articleText);
+        console.log('Quote pattern:', quotePattern.source);
+        console.log('Quote found in article:', found);
+        
+        // If not found with exact pattern, try a more flexible search
+        if (!found) {
+          const flexiblePattern = new RegExp(`"${escapedQuote.replace(/\\\./g, '\\.?')}"`, 'i');
+          const flexibleFound = flexiblePattern.test(articleText);
+          console.log('Flexible pattern:', flexiblePattern.source);
+          console.log('Flexible found:', flexibleFound);
+          if (flexibleFound) {
+            return true;
+          }
+        }
+        
+        // If still not found, try searching for the quote content without quotes
+        if (!found) {
+          const contentPattern = new RegExp(escapedQuote, 'i');
+          const contentFound = contentPattern.test(articleText);
+          console.log('Content pattern:', contentPattern.source);
+          console.log('Content found:', contentFound);
+          if (contentFound) {
+            // Check if there are quotes around this content somewhere in the article
+            const quoteContext = articleText.match(new RegExp(`"[^"]*${escapedQuote}[^"]*"`, 'i'));
+            if (quoteContext) {
+              console.log('Found quote context:', quoteContext[0]);
+              return true;
+            }
+          }
+        }
+        
+        return found;
       });
       
       // Limit to 3 quotes

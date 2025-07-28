@@ -141,6 +141,8 @@ function balanceQuotesIntelligently(text: string): string {
   return result;
 }
 
+
+
 // Function to extract key names from article text
 function extractKeyNames(articleText: string): string[] {
   const names: string[] = [];
@@ -242,6 +244,19 @@ function extractKeyNames(articleText: string): string[] {
     });
   }
   
+  // Filter out analyst names from the final list
+  const analystNames = [
+    'Oliver Rakau', 'Florence Schmit', 'Jensen Huang', 'Lisa Su', 'Jerome Powell',
+    'Larry Summers', 'Janet Yellen', 'Jamie Dimon', 'Warren Buffett', 'Ray Dalio',
+    'Cathie Wood', 'Chamath Palihapitiya', 'Elon Musk', 'Mark Zuckerberg',
+    'Tim Cook', 'Satya Nadella', 'Sundar Pichai'
+  ];
+  
+  // Remove analyst names from nameCounts
+  analystNames.forEach(analystName => {
+    delete nameCounts[analystName];
+  });
+  
   const sortedNames = Object.keys(nameCounts).sort((a, b) => nameCounts[b] - nameCounts[a]);
   
   // Special handling: If the article starts with a specific person's assessment, prioritize them
@@ -278,9 +293,13 @@ You are a top-tier financial headline writer. Generate exactly 3 diverse, compel
 
 CRITICAL REQUIREMENTS:
 - Generate EXACTLY 3 headlines - no more, no less
-- Each headline must be under 12 words and highly clickable
+- Each headline must be under 15 words and highly clickable
 - Focus on the MAIN STORY and most important finding from the article
-- Use plain, everyday language—no jargon
+- Use vivid, specific language - avoid generic terms like "analyst says"
+- NEVER start headlines with "Analyst" - use specific company names, people, or entities
+- Use strong action verbs like "ignited," "crushing," "unhinged," "dominating"
+- Create intrigue while providing enough context to understand the topic
+- Use metaphors and personification when appropriate
 - Use numerals for any data points
 - Create natural flow without awkward punctuation
 - Make each headline engaging and curiosity-driven
@@ -305,10 +324,12 @@ CRITICAL QUOTE FORMATTING RULES:
 - PRIORITY: Use the FIRST quote listed above (most impactful)
 - ONLY use quotes that directly relate to the main story` : 'NO DIRECT QUOTES AVAILABLE: Do not include any quoted text in headlines.'}
 
-HEADLINE EXAMPLES (showing variety):
-- Survey: 55% Plan Car Purchases Amid Tariff Uncertainty
-- Middle-Income Americans Speed Up Car Buying Plans
-- 18% Accelerate Major Purchases Due to Price Concerns
+HEADLINE EXAMPLES (showing the style and quality you should aim for):
+- "Trump's Sledgehammer Policies Have Ignited Wall Street's Hottest Trade"
+- "EU Energy Deal Crushes Previous Records With 'Clear Political Win'"
+- "$750B Energy Pact Faces 'Significant Implementation Risks'"
+- "Energy Stocks Lag Behind Market Despite $750B Deal Optimism"
+- "LNG Exports Set To Boom Under New EU Trade Agreement"
 
 Article:
 ${articleText}
@@ -335,7 +356,8 @@ Respond with exactly 3 headlines, numbered 1-3.`;
         .split('\n')
         .map(line => line.replace(/^\d+\.?\s*/, '').trim())
         .filter(Boolean)
-        .slice(0, 3);
+        .slice(0, 3)
+        .map(headline => replaceAnalystNames(headline));
 
       return NextResponse.json({ 
         headlines,
@@ -400,7 +422,8 @@ Respond with exactly 1 headline.`;
         .split('\n')
         .map(line => line.replace(/^\d+\.?\s*/, '').trim())
         .filter(Boolean)
-        .slice(0, 1);
+        .slice(0, 1)
+        .map(headline => replaceAnalystNames(headline));
 
       return NextResponse.json({ 
         headlines,
@@ -618,7 +641,8 @@ Respond with exactly 1 headline.`;
         .split('\n')
         .map(line => line.replace(/^\d+\.?\s*/, '').trim())
         .filter(Boolean)
-        .slice(0, 1);
+        .slice(0, 1)
+        .map(headline => replaceAnalystNames(headline));
 
       return NextResponse.json({ 
         headlines,
@@ -633,4 +657,44 @@ Respond with exactly 1 headline.`;
     console.error('Error in headline workshop:', error);
     return NextResponse.json({ error: 'Failed to process headline workshop request.' }, { status: 500 });
   }
+}
+
+// Function to replace analyst names with "Analyst" in headlines
+function replaceAnalystNames(headline: string): string {
+  // List of analyst names that should be replaced
+  const analystNames = [
+    'Oliver Rakau',
+    'Florence Schmit', 
+    'Jensen Huang',
+    'Lisa Su',
+    'Jerome Powell',
+    'Larry Summers',
+    'Janet Yellen',
+    'Jamie Dimon',
+    'Warren Buffett',
+    'Ray Dalio',
+    'Cathie Wood',
+    'Chamath Palihapitiya',
+    'Elon Musk',
+    'Mark Zuckerberg',
+    'Tim Cook',
+    'Satya Nadella',
+    'Sundar Pichai'
+  ];
+  
+  let cleanedHeadline = headline;
+  
+  // Replace analyst names at the start of headlines
+  analystNames.forEach(name => {
+    const patterns = [
+      new RegExp(`^${name}:\\s*`, 'gi'), // "Name: "
+      new RegExp(`^${name}\\s+`, 'gi'), // "Name " at start
+    ];
+    
+    patterns.forEach(pattern => {
+      cleanedHeadline = cleanedHeadline.replace(pattern, 'Analyst ');
+    });
+  });
+  
+  return cleanedHeadline;
 } 
