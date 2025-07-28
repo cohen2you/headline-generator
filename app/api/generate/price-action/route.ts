@@ -510,11 +510,17 @@ export async function POST(request: Request) {
         // Extract just the company and price action parts (remove the ticker prefix, attribution, and time/date)
         const priceActionParts = validPriceActions.map(action => {
           // Remove the ticker prefix, "according to Benzinga Pro" part, and time/date info
-          const cleanAction = action.priceAction
+          let cleanAction = action.priceAction
             .replace(/^[A-Z]{1,5}\s+Price Action:\s*/, '') // Remove ticker prefix
-            .replace(/,\s*according to Benzinga Pro\.?$/, '') // Remove attribution
+            .replace(/,\s*according to Benzinga Pro data\.?$/, '') // Remove attribution
+            .replace(/,\s*according to Benzinga Pro\.?$/, '') // Remove attribution (alternative format)
             .replace(/\s+at the time of publication on [A-Za-z]+\.?$/, '') // Remove time/date info
             .replace(/\.$/, ''); // Remove trailing period
+          
+          // Additional cleanup to remove any remaining time/date patterns
+          cleanAction = cleanAction.replace(/\s+at the time of publication on [A-Za-z]+,\s*according to Benzinga Pro data\.?$/, '');
+          cleanAction = cleanAction.replace(/\s+at the time of publication on [A-Za-z]+,\s*according to Benzinga Pro\.?$/, '');
+          
           return cleanAction;
         });
         
