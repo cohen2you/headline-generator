@@ -33,8 +33,6 @@ type Quote = {
 function getFirstSentence(ticker: string, quote: Quote) {
   const symbol = ticker.toUpperCase();
   const changePercent = typeof quote.changePercent === 'number' ? quote.changePercent : 0;
-  const volume = quote.volume;
-  const avgVolume = quote.averageVolume;
   const lastPrice = quote.lastTradePrice;
   const fiftyTwoWeekHigh = quote.fiftyTwoWeekHigh;
   const fiftyTwoWeekLow = quote.fiftyTwoWeekLow;
