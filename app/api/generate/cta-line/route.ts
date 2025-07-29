@@ -95,11 +95,7 @@ function getFirstSentence(ticker: string, quote: Quote) {
       `${symbol} shares are trading near their annual bottom.`,
       `${symbol} is approaching its lowest level of the year.`,
     ],
-    volume: [
-      `${symbol} stock spikes on heavy volume.`,
-      `${symbol} shares are seeing a surge in trading activity.`,
-      `${symbol} is experiencing unusually high volume.`,
-    ],
+
   };
 
   const steadyUpper = [
@@ -120,8 +116,6 @@ function getFirstSentence(ticker: string, quote: Quote) {
     return templates.high[Math.floor(Math.random() * templates.high.length)];
   } else if (fiftyTwoWeekLow && lastPrice !== undefined && lastPrice <= fiftyTwoWeekLow * 1.005) {
     return templates.low[Math.floor(Math.random() * templates.low.length)];
-  } else if (volume && avgVolume && volume > avgVolume * 2) {
-    return templates.volume[Math.floor(Math.random() * templates.volume.length)];
   } else if (changePercent > 3) {
     return templates.surging[Math.floor(Math.random() * templates.surging.length)];
   } else if (changePercent < -3) {
