@@ -49,7 +49,7 @@ const HeadlineGenerator = forwardRef<HeadlineGeneratorRef, HeadlineGeneratorProp
         
         // Remove extra whitespace and clean up formatting
         .replace(/\n\s*\n\s*\n/g, '\n\n') // Remove excessive line breaks
-        .replace(/\s+/g, ' ') // Normalize whitespace
+        .replace(/[ \t]+/g, ' ') // Normalize spaces and tabs (but preserve line breaks)
         .trim();
     };
 
