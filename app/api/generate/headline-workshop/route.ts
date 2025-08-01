@@ -3,56 +3,57 @@ import OpenAI from 'openai';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-// Function to extract direct quotes from article text
+// Function to extract direct quotes from article text - CONSERVATIVE APPROACH
 function extractQuotes(articleText: string): string[] {
   const quotes: string[] = [];
   
-  // Match text within double quotes
-  const doubleQuoteRegex = /"([^"]+)"/g;
-  let match;
-  while ((match = doubleQuoteRegex.exec(articleText)) !== null) {
-    if (match[1].length > 10 && match[1].length < 200) { // Reasonable quote length
-      quotes.push(match[1]);
-    }
-  }
+  // Only extract quotes that are clearly attributed to a specific person
+  const attributedQuotePatterns = [
+    /"([^"]+)"\s+([A-Z][a-z]+ [A-Z][a-z]+)\s+(said|noted|expressed|called|offered|assessed)/g,
+    /([A-Z][a-z]+ [A-Z][a-z]+)\s+(said|noted|expressed|called|offered|assessed)\s+"([^"]+)"/g,
+    /'([^']+)'\s+([A-Z][a-z]+ [A-Z][a-z]+)\s+(said|noted|expressed|called|offered|assessed)/g,
+    /([A-Z][a-z]+ [A-Z][a-z]+)\s+(said|noted|expressed|called|offered|assessed)\s+'([^']+)'/g,
+  ];
   
-  // Match text within single quotes
-  const singleQuoteRegex = /'([^']+)'/g;
-  while ((match = singleQuoteRegex.exec(articleText)) !== null) {
-    if (match[1].length > 10 && match[1].length < 200) { // Reasonable quote length
-      quotes.push(match[1]);
+  attributedQuotePatterns.forEach(pattern => {
+    let match;
+    while ((match = pattern.exec(articleText)) !== null) {
+      const quote = match[1] || match[3]; // Extract the quote part
+      const speaker = match[2]; // Extract the speaker part
+      
+      // Only include quotes that are reasonable length and clearly attributed
+      if (quote && quote.length > 5 && quote.length < 100 && speaker) {
+        // Filter out quotes that are likely from article titles or related links
+        const lowerQuote = quote.toLowerCase();
+        const isFromTitle = lowerQuote.includes('super bowl boost') || 
+                           lowerQuote.includes('also read') ||
+                           lowerQuote.includes('related') ||
+                           lowerQuote.includes('check the price');
+        
+        if (!isFromTitle) {
+          quotes.push(quote);
+        }
+      }
     }
-  }
+  });
   
-  // Sort quotes by impact (prioritize quotes with strong opinions, surprising statements, or key insights)
+  // Sort quotes by impact and length (shorter quotes are better for headlines)
   const sortedQuotes = quotes.sort((a, b) => {
+    // Prioritize shorter quotes (better for headlines)
+    if (a.length !== b.length) {
+      return a.length - b.length;
+    }
+    
+    // Then by impact words
     const impactWords = [
       'biggest', 'greatest', 'stupid', 'smart', 'clever', 'mistake', 'comeback', 'historic', 
-      'surprising', 'shocking', 'unexpected', 'don\'t know', 'you don\'t', 'very smart', 
-      'fifth grader', 'political history', 'reality television', 'real estate'
+      'surprising', 'shocking', 'unexpected', 'don\'t know', 'you don\'t', 'very smart'
     ];
     
-    // Calculate impact score
     const aImpact = impactWords.filter(word => a.toLowerCase().includes(word)).length;
     const bImpact = impactWords.filter(word => b.toLowerCase().includes(word)).length;
     
-    // Bonus for quotes that are direct statements about people
-    const personQuoteBonus = (quote: string) => {
-      const personWords = ['president', 'trump', 'he', 'his', 'him'];
-      return personWords.filter(word => quote.toLowerCase().includes(word)).length;
-    };
-    
-    const aBonus = personQuoteBonus(a);
-    const bBonus = personQuoteBonus(b);
-    
-    // Bonus for shorter, punchier quotes (better for headlines)
-    const aLengthBonus = a.length < 50 ? 1 : 0;
-    const bLengthBonus = b.length < 50 ? 1 : 0;
-    
-    const aTotal = aImpact + aBonus + aLengthBonus;
-    const bTotal = bImpact + bBonus + bLengthBonus;
-    
-    return bTotal - aTotal; // Higher impact first
+    return bImpact - aImpact;
   });
   
   return sortedQuotes.slice(0, 3); // Return top 3 most impactful quotes
@@ -300,7 +301,9 @@ CRITICAL QUOTE FORMATTING RULES:
 - ALWAYS include the closing quote mark
 - NEVER leave a quote unclosed
 - EXAMPLE: 'The Greatest Comeback In Political History' (NOT "The Greatest Comeback In Political History)
-- PRIORITY: Use the FIRST quote listed above (most impactful)` : 'NO DIRECT QUOTES AVAILABLE: Do not include any quoted text in headlines.'}
+- PRIORITY: Use the FIRST quote listed above (most impactful)
+- ONLY use quotes that are clearly attributed to a specific person
+- If a quote doesn't feel natural in the headline, don't force it` : 'NO DIRECT QUOTES AVAILABLE: Do not include any quoted text in headlines.'}
 
 HEADLINE EXAMPLES (showing variety):
 - Scaramucci Says Trump's Intelligence Is 'Underestimated'
@@ -435,7 +438,7 @@ Respond with exactly 1 headline.`;
           if (specificQuote) {
             enhancementPrompt = `Create a completely new headline variation built around this specific quote: "${specificQuote}". CRITICAL: Use ONLY single quotes (') - NEVER double quotes ("). ALWAYS include the closing quote mark. IMPORTANT: Create a DIFFERENT headline style than before - try a new approach, different structure, or alternative framing. Make the quote the central focus and build the headline around it. Only use this one quote, do not add any other quotes. MANDATORY: Every opening single quote (') must have a corresponding closing single quote ('). EXAMPLE: "Scaramucci Warns: 'If You Think The President Is Stupid, You Don't Know The President'"`;
           } else if (quotes.length > 0) {
-            enhancementPrompt = `Incorporate a brief, impactful quote snippet (3-5 words) from the article to add authenticity and impact. CRITICAL: Use ONLY single quotes (') - NEVER double quotes ("). ALWAYS include the closing quote mark. Available quotes: ${quotes.map(q => `"${q}"`).join(', ')}`;
+            enhancementPrompt = `Incorporate a brief, impactful quote snippet (3-5 words) from the article to add authenticity and impact. CRITICAL: Use ONLY single quotes (') - NEVER double quotes ("). ALWAYS include the closing quote mark. Available quotes: ${quotes.map(q => `"${q}"`).join(', ')}. ONLY use quotes that are clearly attributed to a specific person.`;
           } else {
             enhancementPrompt = `Add a compelling statement that sounds like a direct quote but is actually a summary of key points from the article.`;
           }

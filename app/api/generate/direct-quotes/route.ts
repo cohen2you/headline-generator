@@ -23,16 +23,22 @@ CRITICAL REQUIREMENTS:
 - Do not add, remove, or change ANY words from the original quotes
 - If a quote is longer than 4 words, do not truncate it - skip it and find a shorter one
 - Accuracy is more important than quantity - better to return 0 accurate quotes than 3 weak ones
+- ONLY extract quotes that are clearly attributed to a specific person (e.g., "said", "noted", "expressed")
+- DO NOT extract phrases from article titles, related article links, or unattributed text
+- DO NOT extract generic phrases that aren't actual quotes
+- If in doubt, DO NOT include the quote - it's better to miss a quote than present a fake one
 
 Examples of what NOT to do:
 - Original: "The greatest comeback in political history" → WRONG: "The greatest comeback in history"
 - Original: "This is absolutely devastating for investors" → WRONG: "This is absolutely devastating"
 - Original: "We're very concerned about the market" → WRONG: "We're very concerned"
+- Article title: "Paramount's Super Bowl Boost" → WRONG: "Super Bowl Boost" (not a quote)
+- Unattributed text: "Game changer" → WRONG: "Game changer" (no attribution)
 
 Examples of what TO do:
-- Original: "This is huge" → CORRECT: "This is huge"
-- Original: "Game changer" → CORRECT: "Game changer"
-- Original: "Absolutely devastating" → CORRECT: "Absolutely devastating"
+- Original: "This is huge" → CORRECT: "This is huge" (only if attributed to someone)
+- Original: "Game changer" → CORRECT: "Game changer" (only if attributed to someone)
+- Original: "Absolutely devastating" → CORRECT: "Absolutely devastating" (only if attributed to someone)
 
 Return only a JSON array of quotes (0-3 quotes), no explanations:
 ["quote 1", "quote 2", "quote 3"]
