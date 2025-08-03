@@ -1,6 +1,7 @@
 // Force update: Market status summary logic is present (premarket/after-hours/closed in summary line)
 // Force new deployment - Render was using old cached version
 // Trigger webhook deployment - Render stuck on old build
+// Force fresh build to clear TypeScript cache
 import { NextResponse } from 'next/server';
 import OpenAI from 'openai';
 
