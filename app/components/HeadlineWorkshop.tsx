@@ -33,7 +33,7 @@ const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
     const [error, setError] = useState('');
     const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
     const [customEnhancement, setCustomEnhancement] = useState('');
-    const [customHeadline, setCustomHeadline] = useState('');
+    // Removed unused customHeadline state since we're using customHeadlines array
     const [loadingCustom, setLoadingCustom] = useState(false);
     const [customHeadlines, setCustomHeadlines] = useState<string[]>([]);
     const [copiedCustomIndex, setCopiedCustomIndex] = useState<number | null>(null);
@@ -54,9 +54,8 @@ const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
       setError('');
       setCopiedIndex(null);
       setCustomEnhancement('');
-      setCustomHeadline('');
-      setLoadingCustom(false);
-      setCustomHeadlines([]);
+             setLoadingCustom(false);
+       setCustomHeadlines([]);
       setCopiedCustomIndex(null);
     };
 
@@ -285,7 +284,7 @@ const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
         console.log('Previous custom headlines count (state):', customHeadlines.length);
         console.log('Previous custom headlines count (ref):', customHeadlinesRef.current.length);
         
-        setCustomHeadline(cleanedHeadline);
+        // setCustomHeadline removed - using customHeadlines array instead
         
         // Update both state and ref
         const newArray = [...customHeadlinesRef.current, cleanedHeadline];
@@ -308,11 +307,10 @@ const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
       setTimeout(() => setCopiedCustomIndex(null), 2000);
     };
 
-    const clearCustomHeadlines = () => {
-      setCustomHeadlines([]);
-      setCustomHeadline('');
-      setCopiedCustomIndex(null);
-    };
+         const clearCustomHeadlines = () => {
+       setCustomHeadlines([]);
+       setCopiedCustomIndex(null);
+     };
 
     const enhancementOptions = [
       { type: 'shorter', label: 'Make it shorter', icon: '📏', description: 'Cut unnecessary words for clarity' },
