@@ -263,10 +263,7 @@ const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
         const res = await fetch('/api/generate/custom-headlines', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            articleText,
-            version: customHeadlines.length // Pass the current version number for variety
-          }),
+          body: JSON.stringify({ articleText }),
         });
 
         if (!res.ok) throw new Error('Failed to generate custom headline');
@@ -277,8 +274,15 @@ const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
         }
 
         const cleanedHeadline = cleanHeadline(data.headlines[0]);
+        console.log('Generated new custom headline:', cleanedHeadline);
+        console.log('Previous custom headlines count:', customHeadlines.length);
+        
         setCustomHeadline(cleanedHeadline);
-        setCustomHeadlines(prev => [...prev, cleanedHeadline]);
+        setCustomHeadlines(prev => {
+          const newArray = [...prev, cleanedHeadline];
+          console.log('Updated custom headlines array:', newArray);
+          return newArray;
+        });
       } catch (error: unknown) {
         if (error instanceof Error) setError(error.message);
         else setError(String(error));
@@ -329,7 +333,11 @@ const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
                 </button>
 
                 {/* Generated Headlines List */}
-                {customHeadlines.length > 0 && (
+                {(() => {
+                  console.log('Rendering custom headlines section. Count:', customHeadlines.length);
+                  console.log('Custom headlines array:', customHeadlines);
+                  return customHeadlines.length > 0;
+                })() && (
                   <div className="mt-4">
                     <h4 className="text-sm font-medium text-green-800 mb-3">Generated Headlines:</h4>
                     <div className="space-y-2 max-h-96 overflow-y-auto">
