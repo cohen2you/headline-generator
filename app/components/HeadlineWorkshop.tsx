@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, forwardRef, useImperativeHandle } from 'react';
+import React, { useState, forwardRef, useImperativeHandle, useRef } from 'react';
 import { cleanHeadline } from './utils';
 
 interface HeadlineWorkshopProps {
@@ -37,6 +37,9 @@ const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
     const [loadingCustom, setLoadingCustom] = useState(false);
     const [customHeadlines, setCustomHeadlines] = useState<string[]>([]);
     const [copiedCustomIndex, setCopiedCustomIndex] = useState<number | null>(null);
+    
+    // Use ref to persist custom headlines across re-renders
+    const customHeadlinesRef = useRef<string[]>([]);
 
     const clearData = () => {
       setStep('initial');
@@ -252,6 +255,10 @@ const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
     };
 
     const generateCustomHeadline = async () => {
+      console.log('=== GENERATE CUSTOM HEADLINE CALLED ===');
+      console.log('Current customHeadlines state:', customHeadlines);
+      console.log('Current customHeadlinesRef:', customHeadlinesRef.current);
+      
       if (!articleText.trim()) {
         setError('Please enter article text first.');
         return;
@@ -275,14 +282,18 @@ const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
 
         const cleanedHeadline = cleanHeadline(data.headlines[0]);
         console.log('Generated new custom headline:', cleanedHeadline);
-        console.log('Previous custom headlines count:', customHeadlines.length);
+        console.log('Previous custom headlines count (state):', customHeadlines.length);
+        console.log('Previous custom headlines count (ref):', customHeadlinesRef.current.length);
         
         setCustomHeadline(cleanedHeadline);
-        setCustomHeadlines(prev => {
-          const newArray = [...prev, cleanedHeadline];
-          console.log('Updated custom headlines array:', newArray);
-          return newArray;
-        });
+        
+        // Update both state and ref
+        const newArray = [...customHeadlinesRef.current, cleanedHeadline];
+        customHeadlinesRef.current = newArray;
+        setCustomHeadlines(newArray);
+        
+        console.log('Updated custom headlines array (state):', newArray);
+        console.log('Updated custom headlines ref:', customHeadlinesRef.current);
       } catch (error: unknown) {
         if (error instanceof Error) setError(error.message);
         else setError(String(error));
@@ -334,14 +345,22 @@ const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
 
                 {/* Generated Headlines List */}
                 {(() => {
-                  console.log('Rendering custom headlines section. Count:', customHeadlines.length);
-                  console.log('Custom headlines array:', customHeadlines);
-                  return customHeadlines.length > 0;
+                  console.log('=== RENDERING CUSTOM HEADLINES SECTION ===');
+                  console.log('State customHeadlines count:', customHeadlines.length);
+                  console.log('Ref customHeadlines count:', customHeadlinesRef.current.length);
+                  console.log('State customHeadlines array:', customHeadlines);
+                  console.log('Ref customHeadlines array:', customHeadlinesRef.current);
+                  
+                  // Use ref data if state is empty but ref has data
+                  const headlinesToShow = customHeadlines.length > 0 ? customHeadlines : customHeadlinesRef.current;
+                  console.log('Headlines to show:', headlinesToShow);
+                  
+                  return headlinesToShow.length > 0;
                 })() && (
                   <div className="mt-4">
                     <h4 className="text-sm font-medium text-green-800 mb-3">Generated Headlines:</h4>
-                    <div className="space-y-2 max-h-96 overflow-y-auto">
-                      {customHeadlines.map((headline, index) => (
+                                         <div className="space-y-2 max-h-96 overflow-y-auto">
+                       {(customHeadlines.length > 0 ? customHeadlines : customHeadlinesRef.current).map((headline, index) => (
                         <div key={index} className="bg-white border border-green-200 rounded-lg p-3 flex items-center justify-between">
                           <div className="flex-1">
                             <p className="text-sm font-medium text-green-900">{headline}</p>
