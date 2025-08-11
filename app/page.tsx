@@ -3,7 +3,6 @@
 import React, { useState, useRef } from 'react';
 import HeadlineGenerator, { HeadlineGeneratorRef } from './components/HeadlineGenerator';
 import HeadlineTools, { HeadlineToolsRef } from './components/HeadlineTools';
-import ContentGenerator, { ContentGeneratorRef } from './components/ContentGenerator';
 import HeadlineWorkshop, { HeadlineWorkshopRef } from './components/HeadlineWorkshop';
 import CTALineGenerator, { CTALineGeneratorRef } from './components/CTALineGenerator';
 import PriceActionGenerator, { PriceActionGeneratorRef } from './components/PriceActionGenerator';
@@ -17,7 +16,6 @@ export default function Page() {
   // Refs to access child component methods
   const headlineGeneratorRef = useRef<HeadlineGeneratorRef>(null);
   const headlineToolsRef = useRef<HeadlineToolsRef>(null);
-  const contentGeneratorRef = useRef<ContentGeneratorRef>(null);
   const headlineWorkshopRef = useRef<HeadlineWorkshopRef>(null);
   const ctaLineGeneratorRef = useRef<CTALineGeneratorRef>(null);
   const priceActionGeneratorRef = useRef<PriceActionGeneratorRef>(null);
@@ -35,9 +33,6 @@ export default function Page() {
     }
     if (headlineToolsRef.current?.clearData) {
       headlineToolsRef.current.clearData();
-    }
-    if (contentGeneratorRef.current?.clearData) {
-      contentGeneratorRef.current.clearData();
     }
     if (headlineWorkshopRef.current?.clearData) {
       headlineWorkshopRef.current.clearData();
