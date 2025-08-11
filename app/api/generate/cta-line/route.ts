@@ -1,12 +1,45 @@
 import { NextResponse } from 'next/server';
 
 const CTA_SECOND_SENTENCES = [
-  'Check the latest price here.',
-  'See real-time price here.',
-  'See the chart here.',
-  'Track it now here.',
-  'Check the price action here.',
-  'Track live prices here.'
+  // Action-oriented CTAs
+  'See the live chart here.',
+  'Track the momentum here.',
+  'Watch the price action here.',
+  'Monitor the movement here.',
+  'Follow the trend here.',
+  'Check the real-time data here.',
+  
+  // Urgency-based CTAs
+  'Don\'t miss the action here.',
+  'Stay ahead of the curve here.',
+  'Get the latest updates here.',
+  'See what\'s happening now here.',
+  'Catch the latest moves here.',
+  'Track the latest developments here.',
+  
+  // Value-focused CTAs
+  'See if it\'s worth your attention here.',
+  'Check if it\'s time to act here.',
+  'See the full picture here.',
+  'Get the complete story here.',
+  'Discover the real story here.',
+  'See what the numbers say here.',
+  
+  // Curiosity-driven CTAs
+  'See what happens next here.',
+  'Find out why here.',
+  'See the full analysis here.',
+  'Get the inside scoop here.',
+  'See what the experts say here.',
+  'Discover the truth here.',
+  
+  // Generic but varied CTAs
+  'Click here for more.',
+  'Learn more here.',
+  'Get the details here.',
+  'See the full data here.',
+  'Check it out here.',
+  'Explore further here.'
 ];
 
 function getBenzingaLink(ticker: string) {
@@ -39,74 +72,113 @@ function getFirstSentence(ticker: string, quote: Quote) {
   const pe = quote.pe;
   const sector = quote.sector;
   const industry = quote.industry;
+  const volume = quote.volume;
+  const averageVolume = quote.averageVolume;
 
   // Template sets for each scenario
   const templates = {
     surging: [
-      `${symbol} stock is surging on strong momentum.`,
-      `${symbol} shares are rallying sharply today.`,
-      `${symbol} is posting impressive gains in the latest session.`,
-      `${symbol} stock is on the move, climbing higher.`,
+      `${symbol} is absolutely crushing it today with explosive momentum.`,
+      `${symbol} shares are on fire, posting monster gains.`,
+      `${symbol} is making a massive move higher.`,
+      `${symbol} stock is absolutely soaring right now.`,
+      `${symbol} is the hottest stock in the market today.`,
+      `${symbol} shares are exploding to the upside.`,
+      `${symbol} is delivering jaw-dropping gains.`,
+      `${symbol} stock is unstoppable today.`,
     ],
     slumping: [
-      `${symbol} stock is slumping fast.`,
-      `${symbol} shares are under heavy selling pressure.`,
-      `${symbol} is seeing a sharp decline in price.`,
-      `${symbol} stock is tumbling in today's session.`,
+      `${symbol} is getting absolutely hammered today.`,
+      `${symbol} shares are in freefall mode.`,
+      `${symbol} is getting destroyed by sellers.`,
+      `${symbol} stock is bleeding red today.`,
+      `${symbol} is the biggest loser in the market.`,
+      `${symbol} shares are tanking hard.`,
+      `${symbol} is getting crushed by bearish pressure.`,
+      `${symbol} stock is in a tailspin.`,
     ],
     higher: [
-      `${symbol} stock is moving higher.`,
-      `${symbol} shares are trending up modestly.`,
-      `${symbol} is gaining ground.`,
-      `${symbol} stock is ticking upward.`,
+      `${symbol} is quietly building momentum.`,
+      `${symbol} shares are steadily climbing higher.`,
+      `${symbol} is making a nice move to the upside.`,
+      `${symbol} stock is gaining traction.`,
+      `${symbol} is showing some bullish strength.`,
+      `${symbol} shares are trending in the right direction.`,
+      `${symbol} is picking up steam.`,
+      `${symbol} stock is on the rise.`,
     ],
     underperforming: [
-      `${symbol} stock is underperforming.`,
-      `${symbol} shares are lagging the market.`,
-      `${symbol} is slipping lower.`,
-      `${symbol} stock is drifting down.`,
+      `${symbol} is struggling to find buyers.`,
+      `${symbol} shares are losing ground.`,
+      `${symbol} is under selling pressure.`,
+      `${symbol} stock is drifting lower.`,
+      `${symbol} is having a rough session.`,
+      `${symbol} shares are feeling the heat.`,
+      `${symbol} is getting left behind.`,
+      `${symbol} stock is in a slump.`,
     ],
     steady: [
-      `${symbol} is consolidating in a tight range.`,
-      `${symbol} shares are holding firm.`,
-      `${symbol} is trading sideways.`,
-      `${symbol} is showing resilience.`,
-      `${symbol} is maintaining stability.`,
-      `${symbol} is range-bound.`,
-      `${symbol} is showing little movement.`,
-      `${symbol} is holding its ground.`,
-      `${symbol} is consolidating in the middle of its 52-week range.`,
-      `${symbol} is maintaining a large market cap in the ${sector || 'market'} sector.`,
-      `${symbol} is trading with a P/E ratio of ${pe ? pe.toFixed(1) : 'N/A'}.`,
-      `${symbol} is steady in the ${industry || 'market'} industry.`,
-      `${symbol} is holding near its 50-day moving average.`,
-      `${symbol} is trading in the upper third of its 52-week range.`,
-      `${symbol} is trading in the lower third of its 52-week range.`,
+      // Technical analysis focused
+      `${symbol} is stuck in a rut.`,
+      `${symbol} shares are going nowhere fast.`,
+      `${symbol} is spinning its wheels.`,
+      `${symbol} stock is in a coma.`,
+      `${symbol} is playing dead.`,
+      `${symbol} shares are frozen in time.`,
+      `${symbol} is stuck in quicksand.`,
+      `${symbol} stock is in a deep sleep.`,
+      
+      // Fundamental focused
+      `${symbol} is a ${pe && pe < 15 ? 'dirt-cheap' : pe && pe > 25 ? 'overpriced' : 'fairly valued'} stock at ${pe ? pe.toFixed(1) : 'N/A'}x earnings.`,
+      `${symbol} is a ${sector ? sector.toLowerCase() : 'market'} sector underdog.`,
+      `${symbol} shares are ${volume && averageVolume && volume > averageVolume * 1.5 ? 'on fire' : 'dead'} with trading activity.`,
+      `${symbol} is a ${industry ? industry.toLowerCase() : 'market'} space warrior.`,
+      
+      // Market position focused
+      `${symbol} is ${fiftyTwoWeekHigh && fiftyTwoWeekLow && lastPrice ? ((lastPrice - fiftyTwoWeekLow) / (fiftyTwoWeekHigh - fiftyTwoWeekLow) > 0.7 ? 'flying high' : (lastPrice - fiftyTwoWeekLow) / (fiftyTwoWeekHigh - fiftyTwoWeekLow) < 0.3 ? 'crawling in the gutter' : 'muddling through') : 'muddling through'}.`,
+      `${symbol} shares are ${fiftyTwoWeekHigh && lastPrice && lastPrice > fiftyTwoWeekHigh * 0.95 ? 'about to explode' : fiftyTwoWeekLow && lastPrice && lastPrice < fiftyTwoWeekLow * 1.05 ? 'about to implode' : 'just existing'}.`,
     ],
     high: [
-      `${symbol} stock is testing its 52-week high.`,
-      `${symbol} shares are trading near their annual peak.`,
-      `${symbol} is challenging its highest level of the year.`,
+      `${symbol} is about to blast off.`,
+      `${symbol} shares are ready to rocket.`,
+      `${symbol} is on the launchpad.`,
+      `${symbol} stock is about to explode.`,
+      `${symbol} is ready to soar.`,
+      `${symbol} shares are about to take flight.`,
+      `${symbol} is on the verge of liftoff.`,
+      `${symbol} stock is about to go ballistic.`,
     ],
     low: [
-      `${symbol} stock is testing its 52-week low.`,
-      `${symbol} shares are trading near their annual bottom.`,
-      `${symbol} is approaching its lowest level of the year.`,
+      `${symbol} is on the brink of disaster.`,
+      `${symbol} shares are in the danger zone.`,
+      `${symbol} is flirting with catastrophe.`,
+      `${symbol} stock is hanging by a thread.`,
+      `${symbol} is teetering on the edge.`,
+      `${symbol} shares are at rock bottom.`,
+      `${symbol} is in the red zone.`,
+      `${symbol} stock is circling the drain.`,
     ],
-
   };
 
   const steadyUpper = [
-    `${symbol} is trading in the upper third of its 52-week range.`,
-    `${symbol} is holding near its annual highs.`,
-    `${symbol} is consolidating close to its 52-week peak.`,
-    `${symbol} is showing strength near its 52-week high.`
+    `${symbol} is riding high.`,
+    `${symbol} is on top of the world.`,
+    `${symbol} is living large.`,
+    `${symbol} is in the sweet spot.`,
+    `${symbol} is sitting pretty.`,
+    `${symbol} is on cloud nine.`,
+    `${symbol} is in the zone.`,
+    `${symbol} is on a roll.`
   ];
   const steadyLower = [
-    `${symbol} is trading in the lower third of its 52-week range.`,
-    `${symbol} is hovering near its annual lows.`,
-    `${symbol} is consolidating close to its 52-week bottom.`,
-    `${symbol} is showing weakness near its 52-week low.`
+    `${symbol} is stuck in the basement.`,
+    `${symbol} is trapped in the cellar.`,
+    `${symbol} is languishing at the bottom.`,
+    `${symbol} is stuck in the doldrums.`,
+    `${symbol} is wallowing in the depths.`,
+    `${symbol} is stuck in the gutter.`,
+    `${symbol} is in the doghouse.`,
+    `${symbol} is at the bottom of the barrel.`
   ];
 
   // Determine scenario

@@ -262,8 +262,18 @@ CRITICAL REQUIREMENTS:
 - Use numerals for any data points
 - Create natural flow without awkward punctuation
 - Make each headline engaging and curiosity-driven
-- VARY THE STRUCTURE - don't use colons in every headline
-- Use different approaches: questions, statements, revelations, contrasts
+- MANDATORY STRUCTURAL VARIETY: Each headline must use a COMPLETELY DIFFERENT structure
+- STRUCTURAL OPTIONS TO CHOOSE FROM:
+  * Question format: "Will [Company] [Action] [Outcome]?"
+  * Action-focused: "[Company] [Strong Verb] [Target/Outcome]"
+  * Contrast format: "[Company] [Action] But [Unexpected Result]"
+  * Revelation format: "[Company] [Reveals/Exposes/Unleashes] [Discovery]"
+  * Impact format: "[Company] [Action] [Impact on Market/Sector]"
+  * Warning format: "[Company] [Warns/Alert] [Risk/Threat]"
+  * Transformation format: "From [Old State] To [New State]: [Company] [Action]"
+  * Direct statement: "[Company] [Action] [Specific Outcome]"
+  * Colon format: "[Company]: [Description]" (use sparingly, only once)
+- AVOID: Using the same structure for multiple headlines
 - ALWAYS prioritize the primary narrative and key data points from the article
 - Avoid secondary or tangential findings unless they're truly the main story
 - FOCUS ON THE CORE STORY: Don't just report market reactions - capture the strategic significance, political implications, or transformative potential
@@ -276,17 +286,20 @@ ${keyNames.map((name, index) => `${index + 1}. ${name}`).join('\n')}
 
 CRITICAL: Start headlines with the FIRST key name listed above. This is the most important source/person in the article.` : 'NO PROMINENT NAMES AVAILABLE: Focus on the core story elements, key data points, and create curiosity-driven headlines that capture the main narrative without relying on specific people.'}
 
-HEADLINE EXAMPLES (showing the style and quality you should aim for):
-- "Trump's $750B Energy Gamble: Can Europe Really Fuel A U.S. Export Revival?"
-- "Energy Sector's Comeback Story: How A $750B Deal Could Reverse Years Of Underperformance"
-- "The $750B Question: Will Europe's Energy Pivot Finally Lift U.S. Stocks?"
-- "From Laggard To Leader: Energy Stocks Eye $750B EU Deal As Game Changer"
-- "Europe's Energy Bet: Can $750B In U.S. Exports Revive A Struggling Sector?"
+STRUCTURAL EXAMPLES (showing the variety you should aim for):
+- Question: "Will Alibaba's AI Exodus Reshape China's Tech Landscape?"
+- Action-focused: "Alibaba Loses AI Talent To Rival Tech Giants"
+- Contrast: "Alibaba Invests In AI But Faces Brain Drain Crisis"
+- Revelation: "Alibaba Exposes China's AI Talent War Reality"
+- Impact: "Alibaba's AI Exodus Threatens Chinese Tech Dominance"
+- Warning: "Alibaba Warns Of AI Talent Shortage Crisis"
+- Transformation: "From Leader To Laggard: Alibaba Struggles With AI Exodus"
+- Direct: "Alibaba Faces Unprecedented AI Talent Drain"
 
 Article:
 ${articleText}
 
-Respond with exactly 3 headlines, numbered 1-3.`;
+Respond with exactly 3 headlines, numbered 1-3, each using a different structural approach.`;
 
       const completion = await openai.chat.completions.create({
         model: 'gpt-4o',
@@ -438,6 +451,17 @@ CRITICAL REQUIREMENTS:
 - Make it more engaging and clickable
 - Use numerals for any data points
 - Start with the company name
+- MANDATORY STRUCTURAL CHANGE: Use a COMPLETELY DIFFERENT structure than the original headline
+- STRUCTURAL OPTIONS TO CHOOSE FROM:
+  * Question format: "Will [Company] [Action] [Outcome]?"
+  * Action-focused: "[Company] [Strong Verb] [Target/Outcome]"
+  * Contrast format: "[Company] [Action] But [Unexpected Result]"
+  * Revelation format: "[Company] [Reveals/Exposes/Unleashes] [Discovery]"
+  * Impact format: "[Company] [Action] [Impact on Market/Sector]"
+  * Warning format: "[Company] [Warns/Alert] [Risk/Threat]"
+  * Transformation format: "From [Old State] To [New State]: [Company] [Action]"
+  * Direct statement: "[Company] [Action] [Specific Outcome]"
+- AVOID: Using the same structure as the original headline
 - QUOTE FORMATTING: If using quotes, ALWAYS use ONLY single quotes (') - NEVER double quotes ("). ALWAYS include the closing quote mark. EXAMPLE: 'If You Think The President Is Stupid, You Don't Know The President'
 - IMPORTANT: When incorporating quotes, restructure the entire headline around the quote - don't just insert it into the existing structure
 
@@ -540,15 +564,34 @@ CRITICAL REQUIREMENTS:
 - Use numerals for any data points
 - Create natural flow without awkward punctuation
 - Make the headline engaging and curiosity-driven
-- VARY THE STRUCTURE - don't use colons in every headline
-- Use different approaches: questions, statements, revelations, contrasts
+- MANDATORY STRUCTURAL VARIETY: Use a COMPLETELY DIFFERENT structure than typical colon-based headlines
+- STRUCTURAL OPTIONS TO CHOOSE FROM:
+  * Question format: "Will [Company] [Action] [Outcome]?"
+  * Action-focused: "[Company] [Strong Verb] [Target/Outcome]"
+  * Contrast format: "[Company] [Action] But [Unexpected Result]"
+  * Revelation format: "[Company] [Reveals/Exposes/Unleashes] [Discovery]"
+  * Impact format: "[Company] [Action] [Impact on Market/Sector]"
+  * Warning format: "[Company] [Warns/Alert] [Risk/Threat]"
+  * Transformation format: "From [Old State] To [New State]: [Company] [Action]"
+  * Direct statement: "[Company] [Action] [Specific Outcome]"
+- AVOID: Colon-based structures like "[Company]: [Description]" - use one of the structural options above instead
 - ALWAYS prioritize the primary narrative and key data points from the article
 - Avoid secondary or tangential findings unless they're truly the main story
+
+STRUCTURAL EXAMPLES (showing the variety you should aim for):
+- Question: "Will Alibaba's AI Exodus Reshape China's Tech Landscape?"
+- Action-focused: "Alibaba Loses AI Talent To Rival Tech Giants"
+- Contrast: "Alibaba Invests In AI But Faces Brain Drain Crisis"
+- Revelation: "Alibaba Exposes China's AI Talent War Reality"
+- Impact: "Alibaba's AI Exodus Threatens Chinese Tech Dominance"
+- Warning: "Alibaba Warns Of AI Talent Shortage Crisis"
+- Transformation: "From Leader To Laggard: Alibaba Struggles With AI Exodus"
+- Direct: "Alibaba Faces Unprecedented AI Talent Drain"
 
 Article:
 ${articleText}
 
-Respond with exactly 1 headline.`;
+Respond with exactly 1 headline using a structure different from the examples above.`;
 
       const completion = await openai.chat.completions.create({
         model: 'gpt-4o',

@@ -148,7 +148,6 @@ const HeadlineTools = forwardRef<HeadlineToolsRef, HeadlineToolsProps>(
             </div>
           )}
         </section>
-        <CTALineGenerator />
       </>
     );
   }

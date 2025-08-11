@@ -21,7 +21,12 @@ You’re a markets insider texting a tip—not scripting a press release. Write 
 Article: 
 ${articleText}
 
-Respond with a numbered list of 5 headlines only.`;
+Respond with a numbered list of 5 headlines only.
+
+CRITICAL ADDITIONAL RULES:
+- Do NOT mention analyst names, firm names, or specific ratings in headlines
+- Focus on the business impact, market reaction, or investor implications
+- Create original headlines that don't directly copy article content`;
 }
 
 // alias for backward compatibility
@@ -68,6 +73,11 @@ Article:
 ${articleText}
 
 Respond with a numbered list of 3 headlines only.
+
+CRITICAL ADDITIONAL RULES:
+- Do NOT mention analyst names, firm names, or specific ratings in headlines
+- Focus on the business impact, market reaction, or investor implications
+- Create original headlines that don't directly copy article content
 `.trim();
 }
 

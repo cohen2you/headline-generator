@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, forwardRef, useImperativeHandle } from 'react';
 
 // Add this CSS to your global stylesheet (e.g., globals.css):
 // .cta-html-output a {
@@ -7,12 +7,28 @@ import React, { useState } from 'react';
 //   font-weight: 500;
 // }
 
-const CTALineGenerator: React.FC = () => {
+export interface CTALineGeneratorRef {
+  clearData: () => void;
+}
+
+const CTALineGenerator = forwardRef<CTALineGeneratorRef>((props, ref) => {
   const [ticker, setTicker] = useState('');
   const [cta, setCta] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
+
+  const clearData = () => {
+    setTicker('');
+    setCta('');
+    setLoading(false);
+    setError('');
+    setCopied(false);
+  };
+
+  useImperativeHandle(ref, () => ({
+    clearData
+  }));
 
   const generateCTA = async () => {
     setError('');
@@ -56,7 +72,7 @@ const CTALineGenerator: React.FC = () => {
   };
 
   return (
-    <section className="mt-8 p-4 border border-blue-500 rounded-md max-w-2xl mx-auto">
+    <section className="p-4 border border-blue-500 rounded-md max-w-2xl mx-auto">
       <h2 className="text-lg font-semibold mb-4 text-blue-700">CTA Line Generator</h2>
       <input
         type="text"
@@ -86,6 +102,8 @@ const CTALineGenerator: React.FC = () => {
       )}
     </section>
   );
-};
+});
+
+CTALineGenerator.displayName = 'CTALineGenerator';
 
 export default CTALineGenerator; 

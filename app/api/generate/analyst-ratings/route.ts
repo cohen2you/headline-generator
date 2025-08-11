@@ -78,7 +78,7 @@ export async function POST(request: Request) {
 
     const block = formatRatingsBlock(ratings);
     const prompt = `Here are the five most recent analyst actions for ${symbol}:\n${block}\n\n` +
-      `Write a concise two-paragraph summary: first highlighting the overall trend, then listing each action in a reader-friendly flow.`;
+      `Write a concise summary in exactly 2 short paragraphs (max 120 words total). First paragraph: overall trend and key recent actions. Second paragraph: additional important actions. Keep it brief and to the point. Do not include the ticker symbol (${symbol}) in parentheses throughout the text - only mention the company name.`;
 
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     const completion = await openai.chat.completions.create({
@@ -88,7 +88,7 @@ export async function POST(request: Request) {
         { role: 'user', content: prompt }
       ],
       temperature: 0.7,
-      max_tokens: 300
+      max_tokens: 200
     });
 
     const paragraph = completion.choices?.[0]?.message?.content?.trim() ?? '';

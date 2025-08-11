@@ -33,7 +33,8 @@ const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
     const [error, setError] = useState('');
     const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
     const [customEnhancement, setCustomEnhancement] = useState('');
-    const [customHeadline, setCustomHeadline] = useState('');
+    const [customHeadlines, setCustomHeadlines] = useState<string[]>([]);
+    const [selectedHeadline, setSelectedHeadline] = useState('');
     const [loadingCustom, setLoadingCustom] = useState(false);
 
     const clearData = () => {
@@ -49,7 +50,8 @@ const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
       setError('');
       setCopiedIndex(null);
       setCustomEnhancement('');
-      setCustomHeadline('');
+      setCustomHeadlines([]);
+      setSelectedHeadline('');
       setLoadingCustom(false);
     };
 
@@ -99,46 +101,26 @@ const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
       if (quote.trim()) {
         setLoading(true);
         setError('');
-        
         try {
-          // Extract a short segment (4 words or less) from the quote
-          const words = quote.trim().split(' ');
-          const shortSegment = words.slice(0, Math.min(4, words.length)).join(' ');
-          
-          // Format the short segment with Title Case and single quotes
-          const formattedSegment = shortSegment
-            .split(' ')
-            .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-            .join(' ');
-          
-          // Call API to generate a new headline incorporating the short segment
           const res = await fetch('/api/generate/headline-workshop', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
-              articleText,
+              articleText, 
               action: 'incorporate_quote',
-              quote: formattedSegment
+              quote 
             }),
           });
 
-          if (!res.ok) throw new Error('Failed to generate headline with quote');
+          if (!res.ok) throw new Error('Failed to incorporate quote');
           const data = await res.json();
           
           if (data.error) {
             throw new Error(data.error);
           }
 
-          const newHeadline = cleanHeadline(data.headlines[0]);
-          setCurrentHeadline(newHeadline);
-          
-          // Add to headline history
-          setHeadlineHistory(prev => [...prev, {
-            text: newHeadline,
-            enhancementType: 'direct_quote',
-            timestamp: new Date()
-          }]);
-          
+          const cleanedHeadline = cleanHeadline(data.headlines[0]);
+          setCurrentHeadline(cleanedHeadline);
           setStep('enhancement');
         } catch (error: unknown) {
           if (error instanceof Error) setError(error.message);
@@ -162,19 +144,19 @@ const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 
-            articleText,
-            action: 'generate_initial'
+            articleText, 
+            action: 'generate_initial' 
           }),
         });
 
-        if (!res.ok) throw new Error('Failed to generate initial headlines');
+        if (!res.ok) throw new Error('Failed to generate headlines');
         const data = await res.json();
         
         if (data.error) {
           throw new Error(data.error);
         }
 
-        const cleanedHeadlines = data.headlines.map((hl: string) => cleanHeadline(hl));
+        const cleanedHeadlines = data.headlines.map((headline: string) => cleanHeadline(headline));
         setInitialHeadlines(cleanedHeadlines);
         setKeyNames(data.keyNames || []);
         setStep('selection');
@@ -188,13 +170,12 @@ const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
 
     const selectHeadline = (headline: string) => {
       setCurrentHeadline(headline);
-      setHeadlineHistory([{ text: headline, timestamp: new Date() }]);
       setStep('enhancement');
     };
 
     const enhanceHeadline = async (enhancementType: string, specificQuote?: string) => {
-      if (!articleText.trim()) {
-        setError('Please enter article text first.');
+      if (!currentHeadline.trim()) {
+        setError('Please select a headline first.');
         return;
       }
 
@@ -205,38 +186,31 @@ const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 
-            articleText,
-            action: 'generate_new',
+            articleText, 
+            action: 'enhance',
+            selectedHeadline: currentHeadline,
             enhancementType,
             specificQuote,
-            customEnhancement: enhancementType === 'custom' ? customEnhancement : undefined
+            customEnhancement
           }),
         });
 
-        if (!res.ok) throw new Error('Failed to generate new headline');
+        if (!res.ok) throw new Error('Failed to enhance headline');
         const data = await res.json();
         
         if (data.error) {
           throw new Error(data.error);
         }
 
-        const newHeadline = cleanHeadline(data.headlines?.[0] || data.enhancedHeadline || '');
+        const enhancedHeadline = cleanHeadline(data.enhancedHeadline);
+        setCurrentHeadline(enhancedHeadline);
         
-
-        
-        // Replace the current headline with the new version
-        setCurrentHeadline(newHeadline);
-         setHeadlineHistory(prev => [...prev, { 
-           text: newHeadline, 
-           enhancementType, 
-           timestamp: new Date() 
-         }]);
-         setCustomEnhancement('');
-         
-         // Update key names if provided
-         if (data.keyNames) {
-           setKeyNames(data.keyNames);
-         }
+        // Add to history
+        setHeadlineHistory(prev => [...prev, {
+          text: enhancedHeadline,
+          enhancementType,
+          timestamp: new Date()
+        }]);
       } catch (error: unknown) {
         if (error instanceof Error) setError(error.message);
         else setError(String(error));
@@ -250,13 +224,10 @@ const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
     };
 
     const startOver = () => {
-      setStep('initial');
-      setInitialHeadlines([]);
-      setCurrentHeadline('');
-      setHeadlineHistory([]);
+      clearData();
     };
 
-    const generateCustomHeadline = async () => {
+    const generateCustomHeadlines = async (generateSimilar = false) => {
       if (!articleText.trim()) {
         setError('Please enter article text first.');
         return;
@@ -268,18 +239,22 @@ const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
         const res = await fetch('/api/generate/custom-headlines', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ articleText }),
+          body: JSON.stringify({ 
+            articleText,
+            selectedHeadline: generateSimilar ? selectedHeadline : '',
+            generateSimilar
+          }),
         });
 
-        if (!res.ok) throw new Error('Failed to generate custom headline');
+        if (!res.ok) throw new Error('Failed to generate custom headlines');
         const data = await res.json();
         
         if (data.error) {
           throw new Error(data.error);
         }
 
-        const cleanedHeadline = cleanHeadline(data.headlines[0]);
-        setCustomHeadline(cleanedHeadline);
+        const cleanedHeadlines = data.headlines.map((headline: string) => cleanHeadline(headline));
+        setCustomHeadlines(cleanedHeadlines);
       } catch (error: unknown) {
         if (error instanceof Error) setError(error.message);
         else setError(String(error));
@@ -310,39 +285,62 @@ const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
             
 
             
-            {/* Custom Headline Section - Always Visible */}
+            {/* Custom Headlines Section - Always Visible */}
             <div className="mb-6 p-6 border-4 border-green-600 rounded-lg bg-green-50 shadow-lg">
-              <h3 className="text-xl font-bold mb-3 text-green-800">✨ Quick Custom Headline</h3>
-              <p className="text-base text-green-700 mb-4">Get a thoughtful, AI-generated headline instantly</p>
+              <h3 className="text-xl font-bold mb-3 text-green-800">✨ Quick Custom Headlines</h3>
+              <p className="text-base text-green-700 mb-4">Get 3 diverse, AI-generated headlines to choose from</p>
               
               <div className="space-y-3">
-                {customHeadline ? (
+                {customHeadlines.length > 0 ? (
                   <div className="bg-white border border-green-200 rounded-lg p-4">
-                    <h4 className="text-sm font-medium text-green-800 mb-2">Your Custom Headline:</h4>
-                    <p className="text-lg font-semibold text-green-900 mb-3">{customHeadline}</p>
-                    <div className="flex gap-2 justify-center">
+                    <h4 className="text-sm font-medium text-green-800 mb-3">Your Custom Headlines:</h4>
+                    <div className="space-y-3">
+                      {customHeadlines.map((headline, index) => (
+                        <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded border">
+                          <span className="text-sm text-gray-700 flex-1">{headline}</span>
+                          <div className="flex gap-1 ml-2">
+                            <button
+                              onClick={() => selectHeadline(headline)}
+                              className="bg-green-500 text-white px-2 py-1 rounded text-xs hover:bg-green-600"
+                            >
+                              Use
+                            </button>
+                            <button
+                              onClick={() => {
+                                setSelectedHeadline(headline);
+                                generateCustomHeadlines(true);
+                              }}
+                              className="bg-blue-500 text-white px-2 py-1 rounded text-xs hover:bg-blue-600"
+                            >
+                              Three More Like This
+                            </button>
+                            <button
+                              onClick={() => copyToClipboard(headline, index)}
+                              className="bg-purple-500 text-white px-2 py-1 rounded text-xs hover:bg-purple-600"
+                            >
+                              {copiedIndex === index ? 'Copied!' : 'Copy'}
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex gap-2 justify-center mt-4">
                       <button
-                        onClick={() => selectHeadline(customHeadline)}
-                        className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition-colors"
-                      >
-                        Use This Headline
-                      </button>
-                      <button
-                        onClick={generateCustomHeadline}
+                        onClick={() => generateCustomHeadlines(false)}
                         disabled={loadingCustom || !articleText.trim()}
-                        className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:bg-gray-400 transition-colors"
+                        className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 disabled:bg-gray-400 transition-colors"
                       >
-                        {loadingCustom ? 'Generating...' : 'Generate Another'}
+                        {loadingCustom ? 'Generating...' : 'Generate 3 New Headlines'}
                       </button>
                     </div>
                   </div>
                 ) : (
                   <button
-                    onClick={generateCustomHeadline}
+                    onClick={() => generateCustomHeadlines(false)}
                     disabled={loadingCustom || !articleText.trim()}
                     className="bg-green-600 text-white px-8 py-4 rounded-lg disabled:bg-gray-400 hover:bg-green-700 transition-colors w-full max-w-md text-lg font-semibold shadow-md"
                   >
-                    {loadingCustom ? 'Generating Custom Headline...' : 'Generate Custom Headline'}
+                    {loadingCustom ? 'Generating Custom Headlines...' : 'Generate 3 Custom Headlines'}
                   </button>
                 )}
               </div>
