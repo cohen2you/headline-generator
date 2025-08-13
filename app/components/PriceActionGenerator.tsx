@@ -192,8 +192,17 @@ const PriceActionGenerator = forwardRef<PriceActionGeneratorRef>((props, ref) =>
     if (!targetLi) return;
     
     try {
-      // Copy the entire li content as HTML
-      const htmlContent = targetLi.innerHTML;
+      // Create a clone of the li element to modify
+      const clone = targetLi.cloneNode(true) as HTMLElement;
+      
+      // Remove the copy button from the clone
+      const copyButton = clone.querySelector('button');
+      if (copyButton) {
+        copyButton.remove();
+      }
+      
+      // Copy the modified content as HTML
+      const htmlContent = clone.innerHTML;
       await navigator.clipboard.write([
         new window.ClipboardItem({ 'text/html': new Blob([htmlContent], { type: 'text/html' }) })
       ]);
@@ -203,7 +212,10 @@ const PriceActionGenerator = forwardRef<PriceActionGeneratorRef>((props, ref) =>
       console.error('Failed to copy HTML:', error);
       // Fallback to plain text
       try {
-        await navigator.clipboard.writeText(targetLi.textContent || '');
+        // Remove the button text from plain text copy as well
+        const textContent = targetLi.textContent || '';
+        const cleanText = textContent.replace(/Copy|Copied!/g, '').trim();
+        await navigator.clipboard.writeText(cleanText);
         setCopiedPriceActionIndex(index);
         setTimeout(() => setCopiedPriceActionIndex(null), 2000);
       } catch (textError) {
