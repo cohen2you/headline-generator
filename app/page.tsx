@@ -6,6 +6,7 @@ import HeadlineTools, { HeadlineToolsRef } from './components/HeadlineTools';
 import HeadlineWorkshop, { HeadlineWorkshopRef } from './components/HeadlineWorkshop';
 import CTALineGenerator, { CTALineGeneratorRef } from './components/CTALineGenerator';
 import PriceActionGenerator, { PriceActionGeneratorRef } from './components/PriceActionGenerator';
+import EdgeRankingsGenerator, { EdgeRankingsGeneratorRef } from './components/EdgeRankingsGenerator';
 import AnalystRatingsGenerator, { AnalystRatingsGeneratorRef } from './components/AnalystRatingsGenerator';
 import LeadGenerator, { LeadGeneratorRef } from './components/LeadGenerator';
 import SubheadGenerator, { SubheadGeneratorRef } from './components/SubheadGenerator';
@@ -19,6 +20,7 @@ export default function Page() {
   const headlineWorkshopRef = useRef<HeadlineWorkshopRef>(null);
   const ctaLineGeneratorRef = useRef<CTALineGeneratorRef>(null);
   const priceActionGeneratorRef = useRef<PriceActionGeneratorRef>(null);
+  const edgeRankingsGeneratorRef = useRef<EdgeRankingsGeneratorRef>(null);
   const analystRatingsGeneratorRef = useRef<AnalystRatingsGeneratorRef>(null);
   const leadGeneratorRef = useRef<LeadGeneratorRef>(null);
   const subheadGeneratorRef = useRef<SubheadGeneratorRef>(null);
@@ -42,6 +44,9 @@ export default function Page() {
     }
     if (priceActionGeneratorRef.current?.clearData) {
       priceActionGeneratorRef.current.clearData();
+    }
+    if (edgeRankingsGeneratorRef.current?.clearData) {
+      edgeRankingsGeneratorRef.current.clearData();
     }
     if (analystRatingsGeneratorRef.current?.clearData) {
       analystRatingsGeneratorRef.current.clearData();
@@ -79,7 +84,12 @@ export default function Page() {
           <CTALineGenerator ref={ctaLineGeneratorRef} />
         </div>
 
-        {/* Analyst Ratings - Third */}
+        {/* Edge Rankings Generator - Third */}
+        <div className="mb-6">
+          <EdgeRankingsGenerator ref={edgeRankingsGeneratorRef} />
+        </div>
+
+        {/* Analyst Ratings - Fourth */}
         <div className="mb-6">
           <AnalystRatingsGenerator ref={analystRatingsGeneratorRef} />
         </div>
