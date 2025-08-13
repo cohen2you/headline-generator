@@ -185,11 +185,15 @@ const PriceActionGenerator = forwardRef<PriceActionGeneratorRef>((props, ref) =>
   };
 
   const copyPriceActionHTML = async (index: number) => {
-    const element = priceActionRefs.current[index];
-    if (!element) return;
+    // Find the parent li element that contains all the content for this index
+    const listItems = document.querySelectorAll('ul li');
+    const targetLi = listItems[index];
+    
+    if (!targetLi) return;
     
     try {
-      const htmlContent = element.outerHTML;
+      // Copy the entire li content as HTML
+      const htmlContent = targetLi.innerHTML;
       await navigator.clipboard.write([
         new window.ClipboardItem({ 'text/html': new Blob([htmlContent], { type: 'text/html' }) })
       ]);
@@ -199,7 +203,7 @@ const PriceActionGenerator = forwardRef<PriceActionGeneratorRef>((props, ref) =>
       console.error('Failed to copy HTML:', error);
       // Fallback to plain text
       try {
-        await navigator.clipboard.writeText(element.textContent || '');
+        await navigator.clipboard.writeText(targetLi.textContent || '');
         setCopiedPriceActionIndex(index);
         setTimeout(() => setCopiedPriceActionIndex(null), 2000);
       } catch (textError) {
