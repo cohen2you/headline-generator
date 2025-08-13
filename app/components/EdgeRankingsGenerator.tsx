@@ -94,15 +94,8 @@ const EdgeRankingsGenerator = forwardRef<EdgeRankingsGeneratorRef>((props, ref) 
     );
     
     const score = topMetric.value as number;
-    let description = '';
     
-    if (score >= 80) description = 'excellent';
-    else if (score >= 60) description = 'strong';
-    else if (score >= 40) description = 'moderate';
-    else if (score >= 20) description = 'weak';
-    else description = 'poor';
-    
-    return `${ticker} shows ${description} ${topMetric.name} with a score of ${score}/100. To find out how ${ticker} ranks in the other categories, click here.`;
+    return `Benzinga's proprietary Edge Rankings show ${topMetric.name} as the strongest category for ${ticker} at ${score.toFixed(2)}/100. To see how ${ticker} stock ranks for Value, Growth, Momentum, click here.`;
   };
 
   const copyRankings = async () => {
@@ -229,14 +222,14 @@ const EdgeRankingsGenerator = forwardRef<EdgeRankingsGeneratorRef>((props, ref) 
              <div className="p-3 bg-purple-100 border border-purple-300 rounded">
                <div className="text-sm font-semibold text-purple-700 mb-2">Edge Tease:</div>
                <p className="text-black mb-2">
-                 {edgeTease.replace('click here.', '')}
+                 {edgeTease.replace(` To see how ${ticker} stock ranks for Value, Growth, Momentum, click here.`, '')}
                  <a
                    href={`https://www.benzinga.com/quote/${ticker}`}
                    target="_blank"
                    rel="noopener noreferrer"
                    className="text-purple-700 underline hover:text-purple-900"
                  >
-                   click here.
+                   To see how {ticker} stock ranks for Value, Growth, Momentum, click here.
                  </a>
                </p>
                <button

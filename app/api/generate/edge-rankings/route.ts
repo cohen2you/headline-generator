@@ -64,6 +64,26 @@ export async function POST(request: Request) {
     const generateRankingsParagraph = (rankings: EdgeRankingsData) => {
       const { ticker, momentum, growth, quality, value } = rankings;
       
+      // Check if we have all four metrics
+      if (momentum !== null && momentum !== undefined &&
+          growth !== null && growth !== undefined &&
+          quality !== null && quality !== undefined &&
+          value !== null && value !== undefined) {
+        
+        // Determine overall assessment
+        const avgScore = (momentum + growth + quality + value) / 4;
+        let overallAssessment = '';
+        
+        if (avgScore >= 80) overallAssessment = 'strong';
+        else if (avgScore >= 60) overallAssessment = 'moderate to strong';
+        else if (avgScore >= 40) overallAssessment = 'moderate';
+        else if (avgScore >= 20) overallAssessment = 'weak to moderate';
+        else overallAssessment = 'weak';
+        
+        return `Benzinga Edge rankings show ${overallAssessment} fundamentals, with Value ranking ${value.toFixed(2)}/100, Growth ranking ${growth.toFixed(2)}/100, Quality ranking ${quality.toFixed(2)}/100, and Momentum ranking ${momentum.toFixed(2)}/100.`;
+      }
+      
+      // Fallback for incomplete data
       const validMetrics = [
         { name: 'Momentum', value: momentum },
         { name: 'Growth', value: growth },
