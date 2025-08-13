@@ -67,7 +67,7 @@ const EdgeRankingsGenerator = forwardRef<EdgeRankingsGeneratorRef>((props, ref) 
          const tease = generateEdgeTease(data.rankings);
          setEdgeTease(tease);
        }
-    } catch (error) {
+    } catch {
       setError('Failed to generate edge rankings.');
     } finally {
       setLoading(false);
