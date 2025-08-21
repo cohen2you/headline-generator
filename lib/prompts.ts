@@ -2,21 +2,128 @@
 
 export function initialHeadlinePrompt(articleText: string) {
   return `
-You’re a markets insider texting a tip—not scripting a press release. Write 5 **unique** headlines (under 15 words each), **each in a different format**:
+You are a financial journalist writing attention-grabbing, hooky headlines that make readers want to click.
 
-1. **Question**: Pose an urgent question about the key event or risk.  
-2. **Statement–But**: State the main fact, then contrast with a “but” clause.  
-3. **How/Why**: Begin with “How” or “Why” to explain the impact.  
-4. **Metaphor/Action**: Use a vivid metaphor or action verb to dramatize the shift.  
-5. **Number/List**: Open with a number or list style (e.g. “3 Reasons …”).
+CRITICAL REQUIREMENTS:
+- Generate EXACTLY 5 headlines - no more, no less
+- Each headline must be under 12 words
+- Create attention-grabbing openings that hint at the story without revealing everything
+- Pose questions or present surprising angles that make readers want to discover more
+- Use vivid, specific language that grabs attention
+- Include specific numbers in only ONE headline per set
+- Focus on what's really at stake or what's surprising about this story
+- Make each headline feel urgent and compelling
+- MANDATORY: Start at least 2 headlines with the key company name or person
+- MANDATORY: Start at least 1 headline with a broader market/industry angle
 
-**Rules for all headlines**  
-- Start with the full company name (no “Inc.” or tickers)  
-- Focus on the single biggest investor takeaway (acquisition, upgrade/downgrade, pivot, cost/revenue impact, valuation risk)  
-- Use plain, everyday language—no jargon  
-- Use numerals for any data points  
-- Sparingly use an em-dash or colon for suspense  
-- End with a clear kicker phrase if it adds punch (e.g. “…but Analysts Remain Wary”)
+HEADLINE STYLES TO CHOOSE FROM:
+1. **Competitive Threat**: How this makes the company dangerous to rivals
+2. **Market Disruption**: How this changes the entire industry landscape
+3. **Stakes**: What's really at risk or up for grabs here?
+4. **Insider Knowledge**: What do industry insiders know that others don't?
+5. **Hidden Impact**: The real story behind the headlines
+6. **Breaking News**: What just broke or what's about to break?
+7. **Bold Claim**: Make a dramatic statement about competitive advantage
+8. **Strategic Move**: What broader strategy does this reveal?
+9. **Industry Shift**: How this reflects broader industry changes?
+10. **Risk/Reward**: What are the stakes or opportunities involved?
+
+EXAMPLES OF HOOKY HEADLINES:
+- "Palantir Just Broke Below 50-Day Average—Is It Time To Buy The Dip?"
+- "Wall Street Braces For Tech Carnage: 'Disaster' QQQ Options Tell The Story"
+- "Fed's Goolsbee Shows Anxiety As Inflation Hits Non-Tariff Items"
+- "Producer Inflation Shocks Markets–These 10 Stocks Took The Biggest Hit"
+- "Enphase Gets Early Jump On EU Cybersecurity Deadline—Rivals Face 2025 Race"
+- "The Cybersecurity Rule That Could Reshape An Entire Industry"
+- "Enphase Beats EU Cybersecurity Deadline By 18 Months—Competitive Advantage Ahead"
+- "The $50 Million Deal That Could Reshape Renewable Energy"
+- "Solar Companies Face Cybersecurity Deadline—Enphase Already Compliant"
+- "Europe's Energy Grid Faces New Threat From Unsecured Solar Systems"
+- "The Hidden Stakes Behind Enphase's European Push"
+- "Why This Cybersecurity Move Could Force Competitors Out Of Europe"
+- "Kite Pharma Just Snapped Up Interius—Why Rivals Should Be Terrified"
+- "Gilead's $350 Million Bet: Could It Disrupt Cancer Treatment Forever?"
+- "Interius BioTherapeutics Faces Pivotal FDA Changes—What's Really At Stake?"
+- "The Acquisition That Could Reshape Cancer Treatment"
+- "Why This $350 Million Deal Changes Everything"
+- "The FDA Decision That Could Make Or Break This Company"
+- "This Acquisition Just Changed The Cancer Treatment Game"
+- "The Hidden Stakes Behind This $350 Million Deal"
+- "Why This Company Just Became A Major Threat"
+- "The FDA Move That Could Reshape An Industry"
+
+HEADLINE STRUCTURE REQUIREMENTS:
+- At least 2 headlines must start with the key company name or person
+- At least 1 headline should start with a broader market/industry angle
+- Use strong action verbs after the company name: "Just," "Secures," "Faces," "Braces," "Shows," etc.
+
+HEADLINE FOCUS:
+- Focus on what the story MEANS, not just what it SAYS
+- Emphasize implications, trends, and broader significance
+- Include specific numbers in only ONE headline per set
+- Use the other headlines to explore different angles and perspectives
+- Ask "so what?" - what does this mean for investors, markets, or the industry?
+- Look for the most compelling angle: competitive advantage, market disruption, strategic positioning, or industry transformation
+- Find the "hook" that makes this story significant beyond just the facts
+
+CRITICAL: Make headlines that make readers WANT to click. Ask yourself:
+- What's really at stake here?
+- Why should anyone care about this story?
+- What's the most dramatic or surprising angle?
+- What's the competitive or market impact?
+- What's the broader significance beyond just the company?
+
+AVOID: Generic news headlines that just report facts
+AIM FOR: Headlines that reveal stakes, drama, or competitive dynamics
+
+AVOID:
+- Question headlines that start with "What," "How," "Why," "Is," etc.
+- Generic news headlines that just report facts
+- Boring, straightforward statements
+- Headlines that don't create curiosity or urgency
+- Language that sounds like a press release
+- Formal, academic language
+- Headlines that sound like they're from a business textbook
+- Overly polite or diplomatic language
+
+AIM FOR:
+- Direct, punchy statements that grab attention immediately
+- Action-oriented language that shows what just happened or is happening
+- Market-focused angles that show impact on stocks, competitors, or industries
+- Use strong action verbs and immediate impact language
+- Make it feel like breaking news or insider information
+- Focus on what's changing, threatening, or emerging
+- Use dashes and colons for dramatic effect when appropriate
+- Sound like market commentary or financial news
+- Add real perspective and insight—not just reporting facts
+- Use dramatic, emotional language that shows stakes and urgency
+- Make bold claims about competitive dynamics and market impact
+- Sound like someone with insider knowledge sharing a hot tip
+
+VARY YOUR LANGUAGE - USE DIFFERENT PHRASES:
+- Instead of "terrified" use: "worried," "concerned," "nervous," "anxious," "fearful"
+- Instead of "disrupt" use: "reshape," "transform," "revolutionize," "change," "alter"
+- Instead of "forever" use: "completely," "entirely," "fundamentally," "dramatically"
+- Instead of "at stake" use: "on the line," "in jeopardy," "up for grabs," "in question"
+- Instead of "major threat" use: "serious challenge," "significant risk," "real danger"
+- Instead of "changes everything" use: "shifts the landscape," "alters the game," "redefines the market"
+
+CRITICAL ACCURACY REQUIREMENTS:
+- Headlines must be factually accurate to the article content
+- Don't overstate competitive advantages or market impact
+- If a company is "first" or "ahead," specify the context (deadline, timeline, etc.)
+- If something is "threatening," explain what's actually at stake
+- Avoid claiming someone is "the leader" unless the article explicitly states this
+- Be specific about timing, deadlines, and competitive positioning
+- Don't dramatize beyond what the facts support
+
+DIVERSITY REQUIREMENTS:
+- Each headline must use completely different language and structure
+- Avoid repeating the same phrases across multiple headlines
+- Use different action verbs for each headline
+- Vary the emotional intensity and tone
+- Mix different headline structures (statement, question, contrast, etc.)
+- Don't use the same ending phrases like "Should Be Terrified" or "Changes Everything"
 
 Article: 
 ${articleText}
@@ -34,40 +141,68 @@ export const headlinePrompt = initialHeadlinePrompt;
 
 export function punchyHeadlinePrompt(articleText: string) {
   return `
-You’re a markets insider texting a tip—write 3 punchy headlines (each under 12 words) in three **distinct** formats. **Do not use colons** or dashes in any headline.
+You are a financial journalist writing clean, analytical headlines. Generate 3 compelling headlines (each under 10 words) that capture the core story.
+
+CRITICAL REQUIREMENTS:
+- Generate EXACTLY 3 headlines - no more, no less
+- Each headline must be under 10 words
+- Use natural sentence structure - no colons, dashes, or excessive punctuation
+- Focus on one clear point per headline
+- Use plain, everyday language - no jargon or dramatic verbs
+- Include specific numbers in only ONE headline per set
+- Start with the company name or key entity
+- Focus on implications and meaning, not just facts
+
+HEADLINE APPROACHES:
+1. **Stakes**: What's really at risk or up for grabs?
+2. **Drama**: What's the most surprising or dramatic angle?
+3. **Competitive Threat**: How does this threaten or advantage rivals?
+
+EXAMPLES OF GOOD HEADLINES:
+- "New York's Office Boom Stands Alone As Most US Cities Stay Remote"
+- "Tesla Faces Growing Competition In Electric Vehicle Market"
+- "Federal Reserve Signals Potential Rate Cuts Ahead"
+
+AVOID:
+- Colons, dashes, or excessive punctuation
+- Dramatic verbs like "sparks," "ignites," "plummets," "soars"
+- Multiple data points crammed together
+- Sensational or clickbait language
 
 Article:
 ${articleText}
-
-1. **Question**  
-   Pose a tight, urgent question about the core event or risk (e.g. “Will CoreWeave’s deal survive cost pressure?”)
-
-2. **Statement But**  
-   Make a bold statement then add but for tension (e.g. “CoreWeave wins big but investors stay cautious”)
-
-3. **Action Metaphor**  
-   Use a vivid verb or metaphor to dramatize the shift (e.g. “CoreWeave rides a cost wave with warning undercurrents”)
-
-**Rules for all headlines**  
-- Start with the full company name (no “Inc.” or tickers)  
-- Use clear, everyday language—no jargon  
-- Include one core takeaway (acquisition, downgrade, pivot, cost impact)  
-- Use numerals for any figures  
-- End with a quick hook or twist if it adds punch (e.g. “…but questions linger”)
 
 Respond with a numbered list of 3 headlines only.`;
 }
 
 export function noColonHeadlinePrompt(articleText: string) {
   return `
-You write imaginative, insight-driven headlines under 12 words without colons, starting with the company name.
+You are a financial journalist writing clean, analytical headlines. Generate 3 compelling headlines (under 12 words each) that capture the core story.
 
-Each headline must:
-- Start with the company name.
-- Reveal a deeper takeaway or tension (e.g. “Penguin Solutions’ Q3 Win Masks Cost Squeeze”)
+CRITICAL REQUIREMENTS:
+- Generate EXACTLY 3 headlines - no more, no less
+- Each headline must be under 12 words
+- Use natural sentence structure - no colons, dashes, or excessive punctuation
+- Focus on one clear point per headline
+- Use plain, everyday language - no jargon or dramatic verbs
 - Use numerals for any data points
-- Employ a vivid, unexpected verb or metaphor (e.g. “masks,” “hides,” “tugs,” “clashes”)
-- Connect that tension back to why investors should care
+- Start with the company name or key entity
+
+HEADLINE APPROACHES:
+1. **Direct Statement**: Clear, factual statement about the main development
+2. **Question**: Thoughtful question about implications or outcomes
+3. **Contrast**: "X but Y" structure showing tension or surprise
+
+EXAMPLES OF GOOD HEADLINES:
+- "New York's Office Boom Stands Alone As Most US Cities Stay Remote"
+- "Tesla Faces Growing Competition In Electric Vehicle Market"
+- "Federal Reserve Signals Potential Rate Cuts Ahead"
+
+AVOID:
+- Colons, dashes, or excessive punctuation
+- Dramatic verbs like "sparks," "ignites," "plummets," "soars"
+- Multiple data points crammed together
+- Sensational or clickbait language
 
 Article:
 ${articleText}
@@ -83,18 +218,33 @@ CRITICAL ADDITIONAL RULES:
 
 export function creativeHeadlinePrompt(articleText: string) {
   return `
-You are an expert headline writer for a top-tier financial publication.
+You are a financial journalist writing clean, analytical headlines. Generate 3 compelling headlines (under 12 words each) that capture the core story.
 
-Given the following article, generate 3 suspenseful, narrative-style headlines that follow these principles:
+CRITICAL REQUIREMENTS:
+- Generate EXACTLY 3 headlines - no more, no less
+- Each headline must be under 12 words
+- Use natural sentence structure - no colons, dashes, or excessive punctuation
+- Focus on one clear point per headline
+- Use plain, everyday language - no jargon or dramatic verbs
+- Use numerals for any data points
+- Start with the company name or key entity
 
-1. **Reversal of Fortune**: Highlight an underdog (company, market, or country) once ignored or struggling—but now outperforming.  
-2. **Surprise Comparison**: Show that underdog beating a respected benchmark (Nasdaq 100, S&P 500, Big Tech, etc.).  
-3. **Vagueness for Curiosity**: Leave the subject unnamed if it adds intrigue (e.g., “The Market Everyone Gave Up On…”).  
-4. **Emotive Power Verbs**: Use dynamic verbs like “crushing,” “upending,” “defying,” “toppling,” “surging past.”  
-5. **Time Relevance**: Include the current year or relevant timeframe (e.g., “in 2025”) to ground the headline.  
-6. **Tension & Contrast**: Emphasize the gap between expectations vs. outcome (e.g., “Everyone wrote it off… now it’s dominating”).  
-7. **Optional Framing**: If it fits naturally, pit against known names (e.g., “Outpacing Tesla and Apple combined”).
- 
+HEADLINE APPROACHES:
+1. **Direct Statement**: Clear, factual statement about the main development
+2. **Question**: Thoughtful question about implications or outcomes
+3. **Contrast**: "X but Y" structure showing tension or surprise
+
+EXAMPLES OF GOOD HEADLINES:
+- "New York's Office Boom Stands Alone As Most US Cities Stay Remote"
+- "Tesla Faces Growing Competition In Electric Vehicle Market"
+- "Federal Reserve Signals Potential Rate Cuts Ahead"
+
+AVOID:
+- Colons, dashes, or excessive punctuation
+- Dramatic verbs like "sparks," "ignites," "plummets," "soars"
+- Multiple data points crammed together
+- Sensational or clickbait language
+
 Article:
 ${articleText}
 
@@ -103,12 +253,27 @@ Respond with a numbered list of 3 headlines only.`;
 
 export function similarHeadlinePrompt(headline: string, articleText: string) {
   return `
-You write sharp, aligned headlines.
+You are a financial journalist writing clean, analytical headlines. Generate 3 alternative headlines that match the style and tone of the original.
 
-Given the original, produce 3 alternatives that:
-- Mirror its style and tone.
-- Use numerals and one article detail.
-- Maintain urgency and clarity.
+CRITICAL REQUIREMENTS:
+- Generate EXACTLY 3 headlines - no more, no less
+- Each headline must be under 12 words
+- Use natural sentence structure - no colons, dashes, or excessive punctuation
+- Focus on one clear point per headline
+- Use plain, everyday language - no jargon or dramatic verbs
+- Use numerals for any data points
+- Match the style and tone of the original headline
+
+EXAMPLES OF GOOD HEADLINES:
+- "New York's Office Boom Stands Alone As Most US Cities Stay Remote"
+- "Tesla Faces Growing Competition In Electric Vehicle Market"
+- "Federal Reserve Signals Potential Rate Cuts Ahead"
+
+AVOID:
+- Colons, dashes, or excessive punctuation
+- Dramatic verbs like "sparks," "ignites," "plummets," "soars"
+- Multiple data points crammed together
+- Sensational or clickbait language
 
 Original Headline:
 "${headline}"
@@ -121,11 +286,18 @@ Respond with a numbered list of 3 headlines only.`;
 
 export function seoHeadlinePrompt(headline: string) {
   return `
-You are an SEO pro.
+You are an SEO expert optimizing financial headlines.
 
 Turn the headline into a clear, SEO-ready title under 8 words:
-- Use the main ticker or figure.
-- Include a compelling verb or hook.
+- Use the main company name or key entity
+- Include a compelling but natural verb
+- Use natural sentence structure - no colons or excessive punctuation
+- Focus on one clear point
+
+EXAMPLES OF GOOD SEO HEADLINES:
+- "New York's Office Boom Stands Alone As Most US Cities Stay Remote"
+- "Tesla Faces Growing Competition In Electric Vehicle Market"
+- "Federal Reserve Signals Potential Rate Cuts Ahead"
 
 Original Headline:
 "${headline}"

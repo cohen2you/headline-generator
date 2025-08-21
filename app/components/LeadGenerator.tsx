@@ -16,12 +16,16 @@ const LeadGenerator = forwardRef<LeadGeneratorRef, LeadGeneratorProps>(({ articl
   const [leadLoading, setLeadLoading] = useState(false);
   const [leadError, setLeadError] = useState('');
   const [copiedLead, setCopiedLead] = useState(false);
+  const [headline, setHeadline] = useState('');
+  const [showHeadlineInput, setShowHeadlineInput] = useState(false);
 
   const clearData = () => {
     setLead('');
     setLeadLoading(false);
     setLeadError('');
     setCopiedLead(false);
+    setHeadline('');
+    setShowHeadlineInput(false);
   };
 
   useImperativeHandle(ref, () => ({
@@ -47,6 +51,36 @@ const LeadGenerator = forwardRef<LeadGeneratorRef, LeadGeneratorProps>(({ articl
       setLead(data.lead);
     } catch (error: unknown) {
       console.error('Error generating lead:', error);
+      if (error instanceof Error) setLeadError(error.message);
+      else setLeadError(String(error));
+    } finally {
+      setLeadLoading(false);
+    }
+  }
+
+  async function generateHeadlineLead() {
+    if (!articleText.trim()) {
+      setLeadError('Please enter article text first.');
+      return;
+    }
+    if (!headline.trim()) {
+      setLeadError('Please enter a headline first.');
+      return;
+    }
+    setLead('');
+    setLeadError('');
+    setLeadLoading(true);
+    try {
+      const res = await fetch('/api/generate/headline-lead', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ articleText, headline }),
+      });
+      if (!res.ok) throw new Error('Failed to generate headline lead');
+      const data = await res.json();
+      setLead(data.lead);
+    } catch (error: unknown) {
+      console.error('Error generating headline lead:', error);
       if (error instanceof Error) setLeadError(error.message);
       else setLeadError(String(error));
     } finally {
@@ -87,6 +121,23 @@ const LeadGenerator = forwardRef<LeadGeneratorRef, LeadGeneratorProps>(({ articl
   return (
     <section className="p-4 border border-green-500 rounded-md max-w-4xl mx-auto">
       <h2 className="text-lg font-semibold mb-4 text-green-700">Lead Generator</h2>
+      
+      {/* Headline Input Section */}
+      {showHeadlineInput && (
+        <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded">
+          <label className="block text-sm font-medium text-green-700 mb-2">
+            Enter Article Headline:
+          </label>
+          <textarea
+            value={headline}
+            onChange={(e) => setHeadline(e.target.value)}
+            placeholder="Paste the article headline here..."
+            rows={2}
+            className="w-full p-2 border border-green-300 rounded resize-none text-sm"
+          />
+        </div>
+      )}
+
       <div className="flex flex-wrap gap-2 mb-4">
         <button
           onClick={() => generateLead('standard')}
@@ -105,6 +156,28 @@ const LeadGenerator = forwardRef<LeadGeneratorRef, LeadGeneratorProps>(({ articl
             {leadLoading ? 'Generating...' : style.charAt(0).toUpperCase() + style.slice(1) + ' Lead'}
           </button>
         ))}
+        <button
+          onClick={() => {
+            setShowHeadlineInput(!showHeadlineInput);
+            if (showHeadlineInput) {
+              setHeadline('');
+              setLead('');
+            }
+          }}
+          disabled={leadLoading}
+          className="bg-green-700 text-white px-4 py-2 rounded disabled:bg-green-300"
+        >
+          {showHeadlineInput ? 'Cancel Headline Lead' : 'Headline Lead'}
+        </button>
+        {showHeadlineInput && (
+          <button
+            onClick={generateHeadlineLead}
+            disabled={leadLoading || !headline.trim()}
+            className="bg-green-800 text-white px-4 py-2 rounded disabled:bg-green-300 font-semibold"
+          >
+            {leadLoading ? 'Generating...' : 'Generate Headline Lead'}
+          </button>
+        )}
         <button
           onClick={generateOneSentenceLead}
           disabled={leadLoading}
