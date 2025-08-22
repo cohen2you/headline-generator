@@ -98,11 +98,15 @@ const AltTextGenerator = forwardRef<AltTextGeneratorRef>((props, ref) => {
     }
   };
 
+  const [copyButtonText, setCopyButtonText] = useState('📋 Copy Alt Text');
+
   const copyAltText = () => {
     if (altText) {
       navigator.clipboard.writeText(altText).then(() => {
-        // You could add a toast notification here
-        alert('Alt text copied to clipboard!');
+        setCopyButtonText('✅ Copied!');
+        setTimeout(() => {
+          setCopyButtonText('📋 Copy Alt Text');
+        }, 2000);
       }).catch(() => {
         // Fallback for older browsers
         const textarea = document.createElement('textarea');
@@ -111,7 +115,10 @@ const AltTextGenerator = forwardRef<AltTextGeneratorRef>((props, ref) => {
         textarea.select();
         document.execCommand('copy');
         document.body.removeChild(textarea);
-        alert('Alt text copied to clipboard!');
+        setCopyButtonText('✅ Copied!');
+        setTimeout(() => {
+          setCopyButtonText('📋 Copy Alt Text');
+        }, 2000);
       });
     }
   };
@@ -218,7 +225,7 @@ const AltTextGenerator = forwardRef<AltTextGeneratorRef>((props, ref) => {
               onClick={copyAltText}
               className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md transition-colors"
             >
-              📋 Copy Alt Text
+              {copyButtonText}
             </button>
             <button
               onClick={editAltText}
