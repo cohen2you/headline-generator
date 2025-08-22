@@ -30,14 +30,14 @@ export async function POST(request: NextRequest) {
           messages: [
             {
               role: "system",
-              content: "You are an expert at generating sophisticated, accessible alt text for images, matching the quality of AltText.ai. Focus on natural language, context, relationships, and meaningful details. Include gender, clothing, actions, setting, and background elements when relevant. Generate descriptions that are conversational and informative. Keep descriptions under 200 characters."
+              content: "You are an expert at generating accessible alt text for images. Generate concise, descriptive alt text that is 10-50 words (approximately 50-150 characters). Focus on the main subject, key visual elements, and context. Be specific but brief. Avoid unnecessary details. Use natural, conversational language. Never exceed 150 characters."
             },
             {
               role: "user",
               content: [
                 {
                   type: "text",
-                  text: "Generate sophisticated alt text for this image that matches AltText.ai quality. Focus on describing the scene, context, relationships, and meaning. Include relevant details like gender, clothing, actions, setting, and background elements when appropriate."
+                  text: "Generate concise alt text (10-50 words) for this image. Focus on the main subject and key visual elements. Be specific but brief."
                 },
                 {
                   type: "image_url",
@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
               ]
             }
           ],
-          max_tokens: 200,
+          max_tokens: 100,
           temperature: 0.7
         });
 
@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
       .replace(/[,\s]+$/, '') // Remove trailing commas and spaces
       .replace(/[,\s]+/g, ' ') // Replace multiple spaces with single space
       .replace(/\s+/g, ' ') // Normalize all whitespace
-      .substring(0, 200); // Limit to 200 characters
+      .substring(0, 150); // Limit to 150 characters
 
     if (!altText || altText.length < 3) {
       altText = 'Image content';
