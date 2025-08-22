@@ -10,6 +10,7 @@ import EdgeRankingsGenerator, { EdgeRankingsGeneratorRef } from './components/Ed
 import AnalystRatingsGenerator, { AnalystRatingsGeneratorRef } from './components/AnalystRatingsGenerator';
 import LeadGenerator, { LeadGeneratorRef } from './components/LeadGenerator';
 import SubheadGenerator, { SubheadGeneratorRef } from './components/SubheadGenerator';
+import AltTextGenerator, { AltTextGeneratorRef } from './components/AltTextGenerator';
 
 export default function Page() {
   const [articleText, setArticleText] = useState('');
@@ -24,6 +25,7 @@ export default function Page() {
   const analystRatingsGeneratorRef = useRef<AnalystRatingsGeneratorRef>(null);
   const leadGeneratorRef = useRef<LeadGeneratorRef>(null);
   const subheadGeneratorRef = useRef<SubheadGeneratorRef>(null);
+  const altTextGeneratorRef = useRef<AltTextGeneratorRef>(null);
 
   const clearAllData = () => {
     // Clear main article text
@@ -56,6 +58,9 @@ export default function Page() {
     }
     if (subheadGeneratorRef.current?.clearData) {
       subheadGeneratorRef.current.clearData();
+    }
+    if (altTextGeneratorRef.current?.clearData) {
+      altTextGeneratorRef.current.clearData();
     }
   };
 
@@ -144,6 +149,11 @@ export default function Page() {
             articleText={articleText}
           />
         </div>
+      </div>
+
+      {/* Alt-Text Generator */}
+      <div className="mb-8">
+        <AltTextGenerator ref={altTextGeneratorRef} />
       </div>
     </main>
   );
