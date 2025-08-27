@@ -570,6 +570,42 @@ export async function POST(request: Request) {
         }
       }
 
+      // Add 52-week range context if available
+      if (q.fiftyTwoWeekLow && q.fiftyTwoWeekHigh && q.lastTradePrice) {
+        const currentPrice = q.lastTradePrice;
+        const yearLow = q.fiftyTwoWeekLow;
+        const yearHigh = q.fiftyTwoWeekHigh;
+        
+        // Calculate position within 52-week range (0 = at low, 1 = at high)
+        const rangePosition = (currentPrice - yearLow) / (yearHigh - yearLow);
+        
+        let rangeText = '';
+        
+        if (rangePosition >= 0.95) {
+          // Within 5% of high
+          rangeText = `. The stock is trading near its 52-week high of $${formatPrice(yearHigh)}`;
+        } else if (rangePosition <= 0.05) {
+          // Within 5% of low
+          rangeText = `. The stock is trading near its 52-week low of $${formatPrice(yearLow)}`;
+        } else if (rangePosition >= 0.85) {
+          // Approaching high
+          rangeText = `. The stock is approaching its 52-week high of $${formatPrice(yearHigh)}`;
+        } else if (rangePosition <= 0.15) {
+          // Near low
+          rangeText = `. The stock is trading near its 52-week low of $${formatPrice(yearLow)}`;
+        } else {
+          // Middle of range - only mention if it's a significant range
+          const rangePercent = ((yearHigh - yearLow) / yearLow) * 100;
+          if (rangePercent > 20) {
+            rangeText = `. The stock is trading within its 52-week range of $${formatPrice(yearLow)} to $${formatPrice(yearHigh)}`;
+          }
+        }
+        
+        if (rangeText) {
+          priceActionText += rangeText;
+        }
+      }
+
       // Clean up any existing attribution and add the final one
       priceActionText = priceActionText.replace(/,\s*according to Benzinga Pro\.?$/, '');
       priceActionText = priceActionText.replace(/,\s*according to Benzinga Pro data\.?$/, '');
