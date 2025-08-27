@@ -539,19 +539,37 @@ export async function POST(request: Request) {
           const monthlyReturn = historicalData.monthlyReturn;
           const ytdReturn = historicalData.ytdReturn;
           
-          // Determine the flow based on performance
+          // Determine the flow based on performance and daily movement
+          const dailyChange = changePercent;
+          
           if (monthlyReturn > 0 && ytdReturn < 0) {
-            // Good month, bad year - "extending gains despite YTD decline"
-            historicalText = `, extending their monthly gain to ${monthlyReturn.toFixed(2)}% despite being down ${Math.abs(ytdReturn).toFixed(2)}% so far this year`;
+            // Good month, bad year
+            if (dailyChange > 0) {
+              historicalText = `, extending their monthly gain to ${monthlyReturn.toFixed(2)}% despite being down ${Math.abs(ytdReturn).toFixed(2)}% so far this year`;
+            } else {
+              historicalText = `, maintaining their monthly gain of ${monthlyReturn.toFixed(2)}% despite being down ${Math.abs(ytdReturn).toFixed(2)}% so far this year`;
+            }
           } else if (monthlyReturn > 0 && ytdReturn > 0) {
-            // Good month, good year - "continuing strong performance"
-            historicalText = `, continuing their monthly gain of ${monthlyReturn.toFixed(2)}% and ${ytdReturn.toFixed(2)}% rise since the start of the year`;
+            // Good month, good year
+            if (dailyChange > 0) {
+              historicalText = `, extending their monthly gain of ${monthlyReturn.toFixed(2)}% and ${ytdReturn.toFixed(2)}% rise since the start of the year`;
+            } else {
+              historicalText = `, maintaining their monthly gain of ${monthlyReturn.toFixed(2)}% and ${ytdReturn.toFixed(2)}% rise since the start of the year`;
+            }
           } else if (monthlyReturn < 0 && ytdReturn < 0) {
-            // Bad month, bad year - "continuing decline"
-            historicalText = `, continuing their monthly decline of ${Math.abs(monthlyReturn).toFixed(2)}% and ${Math.abs(ytdReturn).toFixed(2)}% drop since the start of the year`;
+            // Bad month, bad year
+            if (dailyChange < 0) {
+              historicalText = `, extending their monthly decline of ${Math.abs(monthlyReturn).toFixed(2)}% and ${Math.abs(ytdReturn).toFixed(2)}% drop since the start of the year`;
+            } else {
+              historicalText = `, despite today's gain, still down ${Math.abs(monthlyReturn).toFixed(2)}% this month and ${Math.abs(ytdReturn).toFixed(2)}% since the start of the year`;
+            }
           } else if (monthlyReturn < 0 && ytdReturn > 0) {
-            // Bad month, good year - "pulling back from YTD gains"
-            historicalText = `, pulling back ${Math.abs(monthlyReturn).toFixed(2)}% this month but still up ${ytdReturn.toFixed(2)}% since the start of the year`;
+            // Bad month, good year
+            if (dailyChange < 0) {
+              historicalText = `, pulling back ${Math.abs(monthlyReturn).toFixed(2)}% this month but still up ${ytdReturn.toFixed(2)}% since the start of the year`;
+            } else {
+              historicalText = `, despite today's gain, still down ${Math.abs(monthlyReturn).toFixed(2)}% this month but up ${ytdReturn.toFixed(2)}% since the start of the year`;
+            }
           }
         } else if (historicalData.monthlyReturn !== undefined) {
           // Only monthly data available
