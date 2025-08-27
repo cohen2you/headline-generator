@@ -30,14 +30,14 @@ export async function POST(request: NextRequest) {
           messages: [
             {
               role: "system",
-              content: "You are an expert at generating accessible alt text for images. Generate concise, descriptive alt text that is 10-50 words (approximately 50-150 characters). Focus on the main subject, key visual elements, and context. Be specific but brief. Avoid unnecessary details. Use natural, conversational language. CRITICAL: Always end with a complete sentence and proper punctuation (period). Never exceed 150 characters. If you need to cut off, ensure the sentence is grammatically complete."
+              content: "You are an expert at generating direct, concise alt text for images. Generate brief, factual descriptions that capture the main subject and key visual elements in 5-15 words. Be direct and specific. Avoid verbose explanations, articles like 'the', or phrases like 'shows' or 'displays'. Focus on what is visible: subject + location/context. Examples: 'Palantir sign atop red brick building', 'Person walking on beach at sunset', 'Chart showing stock price increase'. Never exceed 100 characters. No period at the end unless grammatically necessary."
             },
             {
               role: "user",
               content: [
                 {
                   type: "text",
-                  text: "Generate concise alt text (10-50 words) for this image. Focus on the main subject and key visual elements. Be specific but brief. Always end with a complete sentence and period."
+                  text: "Generate direct, concise alt text (5-15 words) for this image. Focus on the main subject and key visual elements. Be brief and factual. Avoid articles and verbose descriptions."
                 },
                 {
                   type: "image_url",
@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
               ]
             }
           ],
-          max_tokens: 100,
+          max_tokens: 50,
           temperature: 0.7
         });
 
@@ -75,16 +75,12 @@ export async function POST(request: NextRequest) {
       .replace(/[,\s]+$/, '') // Remove trailing commas and spaces
       .replace(/[,\s]+/g, ' ') // Replace multiple spaces with single space
       .replace(/\s+/g, ' ') // Normalize all whitespace
-      .substring(0, 150); // Limit to 150 characters
+      .substring(0, 100); // Limit to 100 characters
     
-    // Ensure the alt text ends with proper punctuation
-    if (altText && !altText.match(/[.!?]$/)) {
-      // If it doesn't end with punctuation, add a period
-      altText = altText.trim() + '.';
-      // If adding the period makes it too long, truncate and add period
-      if (altText.length > 150) {
-        altText = altText.substring(0, 149) + '.';
-      }
+    // Remove trailing periods for direct style (unless grammatically necessary)
+    altText = altText.trim();
+    if (altText.endsWith('.') && !altText.match(/[.!?]$/)) {
+      altText = altText.slice(0, -1);
     }
 
     if (!altText || altText.length < 3) {
