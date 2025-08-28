@@ -265,83 +265,138 @@ async function getSectorPeers(symbol: string): Promise<BenzingaQuote[]> {
   }
 }
 
-// Function to fetch historical data for monthly and YTD performance using targeted date ranges
-async function fetchHistoricalData(symbol: string): Promise<HistoricalData | null> {
+// Function to fetch historical data using batchhistory endpoint for accurate period calculations
+async function fetchHistoricalData(symbol: string, quote?: BenzingaQuote): Promise<HistoricalData | null> {
   try {
-    // Helper function to fetch data for a specific period
-    const fetchPeriodData = async (period: string, description: string) => {
-      const url = `https://api.benzinga.com/api/v2/bars` +
-        `?token=${process.env.BENZINGA_API_KEY}` +
-        `&symbols=${symbol}` +
-        `&from=${period}` +
-        `&interval=1D`;
-
-      console.log(`Fetching ${description} data for ${symbol}:`, url);
-
-      const res = await fetch(url);
-      if (!res.ok) {
-        console.error(`Failed to fetch ${description} data for ${symbol}:`, res.statusText);
-        return null;
-      }
-
-      const data = await res.json();
-      
-      if (!data || !Array.isArray(data) || data.length === 0) {
-        console.log(`No ${description} data found for ${symbol}`);
-        return null;
-      }
-
-      // Find the data for our specific symbol
-      const symbolData = data.find((item: BenzingaBarsResponse) => item.symbol === symbol);
-      if (!symbolData || !symbolData.candles || !Array.isArray(symbolData.candles) || symbolData.candles.length === 0) {
-        console.log(`No candle data found for ${symbol} in ${description}`);
-        return null;
-      }
-
-      const candles = symbolData.candles;
-      
-      // Sort candles by date (oldest first)
-      const sortedCandles = candles.sort((a: BenzingaCandle, b: BenzingaCandle) => 
-        new Date(a.dateTime).getTime() - new Date(b.dateTime).getTime()
-      );
-
-      return {
-        startPrice: sortedCandles[0]?.close || 0,
-        endPrice: sortedCandles[sortedCandles.length - 1]?.close || 0,
-        startDate: sortedCandles[0]?.dateTime,
-        endDate: sortedCandles[sortedCandles.length - 1]?.dateTime
-      };
+    console.log(`=== FETCHING HISTORICAL DATA FOR ${symbol} USING BATCHHISTORY ===`);
+    
+    // Calculate the dates for each period
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    
+    // YTD: January 1st of current year to current date
+    const ytdStart = new Date(currentYear, 0, 1); // January 1st
+    
+    // Monthly: 30 days ago to current date
+    const monthlyStart = new Date(now.getTime() - (30 * 24 * 60 * 60 * 1000));
+    
+    // 3 Month: 90 days ago to current date
+    const threeMonthStart = new Date(now.getTime() - (90 * 24 * 60 * 60 * 1000));
+    
+    // 6 Month: 180 days ago to current date
+    const sixMonthStart = new Date(now.getTime() - (180 * 24 * 60 * 60 * 1000));
+    
+    // 1 Year: 365 days ago to current date
+    const oneYearStart = new Date(now.getTime() - (365 * 24 * 60 * 60 * 1000));
+    
+    const formatDate = (date: Date) => date.toISOString().split('T')[0];
+    
+    // Prepare the batch request
+    const batchRequest = {
+      symbols: [symbol],
+      from: formatDate(oneYearStart), // Start from 1 year ago to get all data
+      to: formatDate(now),
+      interval: "1D"
     };
-
-    // Fetch data for each period using Benzinga's built-in shortcuts
-    const [ytdData, monthlyData, threeMonthData, sixMonthData, oneYearData] = await Promise.all([
-      fetchPeriodData('YTD', 'YTD'),
-      fetchPeriodData('1MONTH', '1-month'),
-      fetchPeriodData('3MONTH', '3-month'),
-      fetchPeriodData('6MONTH', '6-month'),
-      fetchPeriodData('1YEAR', '1-year')
-    ]);
-
-    // Calculate returns
-    const calculateReturn = (startPrice: number, endPrice: number) => {
-      if (startPrice === 0) return undefined;
-      return ((endPrice - startPrice) / startPrice) * 100;
+    
+    console.log('Batch request:', batchRequest);
+    
+    const url = `https://data-api.benzinga.com/rest/v2/batchhistory?token=${process.env.BENZINGA_API_KEY}`;
+    
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(batchRequest)
+    });
+    
+    if (!res.ok) {
+      console.error(`Failed to fetch batch history for ${symbol}:`, res.statusText);
+      console.log('Using fallback historical calculation for', symbol);
+      
+      // Fallback: Use the original bars endpoint approach
+      return await fetchHistoricalDataFallback(symbol, quote);
+    }
+    
+    const data = await res.json();
+    console.log('Batch history response received:', !!data);
+    
+    if (!data || !Array.isArray(data) || data.length === 0) {
+      console.log(`No batch history data found for ${symbol}`);
+      return null;
+    }
+    
+    // Find the data for our specific symbol
+    const symbolData = data.find((item: any) => item.symbol === symbol);
+    if (!symbolData || !symbolData.candles || !Array.isArray(symbolData.candles) || symbolData.candles.length === 0) {
+      console.log(`No candle data found for ${symbol} in batch history`);
+      return null;
+    }
+    
+    const candles = symbolData.candles;
+    console.log(`Found ${candles.length} candles for ${symbol}`);
+    
+    // Helper function to find the closest candle to a given date
+    const findClosestCandle = (targetDate: Date) => {
+      const targetTime = targetDate.getTime();
+      let closestCandle = candles[0];
+      let minDiff = Math.abs(new Date(candles[0].dateTime).getTime() - targetTime);
+      
+      for (const candle of candles) {
+        const candleTime = new Date(candle.dateTime).getTime();
+        const diff = Math.abs(candleTime - targetTime);
+        if (diff < minDiff) {
+          minDiff = diff;
+          closestCandle = candle;
+        }
+      }
+      
+      return closestCandle;
     };
-
+    
+    // Helper function to calculate return between two dates
+    const calculatePeriodReturn = (startDate: Date, endDate: Date) => {
+      const startCandle = findClosestCandle(startDate);
+      const endCandle = findClosestCandle(endDate);
+      
+      if (!startCandle || !endCandle) {
+        console.log(`Missing candle data for period calculation`);
+        return undefined;
+      }
+      
+      const startPrice = startCandle.open || startCandle.close;
+      const endPrice = endCandle.close;
+      
+      if (!startPrice || !endPrice) {
+        console.log(`Missing price data for period calculation`);
+        return undefined;
+      }
+      
+      const returnPercent = ((endPrice - startPrice) / startPrice) * 100;
+      
+      console.log(`Period calculation: ${startDate.toISOString().split('T')[0]} ($${startPrice}) to ${endDate.toISOString().split('T')[0]} ($${endPrice}) = ${returnPercent.toFixed(2)}%`);
+      
+      return returnPercent;
+    };
+    
+    // Calculate returns for each period
+    const ytdReturn = calculatePeriodReturn(ytdStart, now);
+    const monthlyReturn = calculatePeriodReturn(monthlyStart, now);
+    const threeMonthReturn = calculatePeriodReturn(threeMonthStart, now);
+    const sixMonthReturn = calculatePeriodReturn(sixMonthStart, now);
+    const oneYearReturn = calculatePeriodReturn(oneYearStart, now);
+    
     const historicalData: HistoricalData = {
       symbol,
-      monthlyReturn: monthlyData ? calculateReturn(monthlyData.startPrice, monthlyData.endPrice) : undefined,
-      ytdReturn: ytdData ? calculateReturn(ytdData.startPrice, ytdData.endPrice) : undefined,
-      threeMonthReturn: threeMonthData ? calculateReturn(threeMonthData.startPrice, threeMonthData.endPrice) : undefined,
-      sixMonthReturn: sixMonthData ? calculateReturn(sixMonthData.startPrice, sixMonthData.endPrice) : undefined,
-      oneYearReturn: oneYearData ? calculateReturn(oneYearData.startPrice, oneYearData.endPrice) : undefined
+      monthlyReturn,
+      ytdReturn,
+      threeMonthReturn,
+      sixMonthReturn,
+      oneYearReturn
     };
-
-    // Log detailed information for debugging
+    
     console.log(`Historical data for ${symbol}:`, historicalData);
-    if (ytdData) console.log(`YTD: ${ytdData.startDate} ($${ytdData.startPrice}) to ${ytdData.endDate} ($${ytdData.endPrice})`);
-    if (monthlyData) console.log(`Monthly: ${monthlyData.startDate} ($${monthlyData.startPrice}) to ${monthlyData.endDate} ($${monthlyData.endPrice})`);
-
     return historicalData;
 
   } catch (error) {
@@ -481,7 +536,7 @@ export async function POST(request: Request) {
       }
 
       // Fetch historical data for monthly and YTD performance
-      let historicalData = await fetchHistoricalData(symbol);
+      let historicalData = await fetchHistoricalData(symbol, q);
       
       // If historical API fails, use fallback calculation
       if (!historicalData) {
@@ -826,5 +881,160 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error('Error generating price actions:', error);
     return NextResponse.json({ priceActions: [], error: 'Failed to generate price actions.' });
+  }
+}
+
+// Fallback function using the original bars endpoint approach
+async function fetchHistoricalDataFallback(symbol: string, quote?: BenzingaQuote): Promise<HistoricalData | null> {
+  try {
+    console.log(`=== FETCHING HISTORICAL DATA FALLBACK FOR ${symbol} ===`);
+    
+    // Helper function to fetch data for a specific period
+    const fetchPeriodData = async (period: string, description: string) => {
+      const url = `https://api.benzinga.com/api/v2/bars` +
+        `?token=${process.env.BENZINGA_API_KEY}` +
+        `&symbols=${symbol}` +
+        `&from=${period}` +
+        `&interval=1D`;
+
+      console.log(`Fetching ${description} data for ${symbol}:`, url);
+
+      const res = await fetch(url);
+      if (!res.ok) {
+        console.error(`Failed to fetch ${description} data for ${symbol}:`, res.statusText);
+        return null;
+      }
+
+      const data = await res.json();
+      
+      if (!data || !Array.isArray(data) || data.length === 0) {
+        console.log(`No ${description} data found for ${symbol}`);
+        return null;
+      }
+
+      // Find the data for our specific symbol
+      const symbolData = data.find((item: BenzingaBarsResponse) => item.symbol === symbol);
+      if (!symbolData || !symbolData.candles || !Array.isArray(symbolData.candles) || symbolData.candles.length === 0) {
+        console.log(`No candle data found for ${symbol} in ${description}`);
+        return null;
+      }
+
+      const candles = symbolData.candles;
+      
+      // Sort candles by date (oldest first)
+      const sortedCandles = candles.sort((a: BenzingaCandle, b: BenzingaCandle) => 
+        new Date(a.dateTime).getTime() - new Date(b.dateTime).getTime()
+      );
+
+      return {
+        startPrice: sortedCandles[0]?.close || 0,
+        endPrice: sortedCandles[sortedCandles.length - 1]?.close || 0,
+        startDate: sortedCandles[0]?.dateTime,
+        endDate: sortedCandles[sortedCandles.length - 1]?.dateTime
+      };
+    };
+
+    // Fetch data for each period using Benzinga's built-in shortcuts
+    const [ytdData, threeMonthData, sixMonthData, oneYearData] = await Promise.all([
+      fetchPeriodData('YTD', 'YTD'),
+      fetchPeriodData('3MONTH', '3-month'),
+      fetchPeriodData('6MONTH', '6-month'),
+      fetchPeriodData('1YEAR', '1-year')
+    ]);
+
+    // Don't fetch monthly data here - we'll calculate it manually for true month-to-month
+    let monthlyData = null;
+
+    // Calculate returns function
+    const calculateReturn = (startPrice: number, endPrice: number) => {
+      if (startPrice === 0) return undefined;
+      return ((endPrice - startPrice) / startPrice) * 100;
+    };
+
+    // Calculate true monthly return (previous month end to current month end)
+    let trueMonthlyReturn = undefined;
+    if (quote && quote.previousClosePrice) {
+      console.log('=== CALCULATING TRUE MONTHLY RETURN ===');
+      
+      // Get the current date and calculate the previous month end
+      const now = new Date();
+      const currentMonth = now.getMonth();
+      const currentYear = now.getFullYear();
+      
+      // Calculate the last day of the previous month
+      const previousMonthEnd = new Date(currentYear, currentMonth, 0); // Day 0 = last day of previous month
+      const formatDate = (date: Date) => date.toISOString().split('T')[0];
+      
+      console.log('Current date:', now.toISOString());
+      console.log('Previous month end:', previousMonthEnd.toISOString());
+      
+      // Fetch data for the previous month end
+      const previousMonthUrl = `https://api.benzinga.com/api/v2/bars` +
+        `?token=${process.env.BENZINGA_API_KEY}` +
+        `&symbols=${symbol}` +
+        `&from=${formatDate(previousMonthEnd)}` +
+        `&to=${formatDate(previousMonthEnd)}` +
+        `&interval=1D`;
+
+      console.log('Previous month URL:', previousMonthUrl);
+
+      try {
+        const prevMonthRes = await fetch(previousMonthUrl);
+        console.log('Previous month response status:', prevMonthRes.status);
+        
+        if (prevMonthRes.ok) {
+          const prevMonthData = await prevMonthRes.json();
+          console.log('Previous month data received:', !!prevMonthData);
+          
+          if (prevMonthData && Array.isArray(prevMonthData) && prevMonthData.length > 0) {
+            const prevMonthSymbolData = prevMonthData.find((item: BenzingaBarsResponse) => item.symbol === symbol);
+            console.log('Previous month symbol data found:', !!prevMonthSymbolData);
+            
+            if (prevMonthSymbolData && prevMonthSymbolData.candles && prevMonthSymbolData.candles.length > 0) {
+              const prevMonthCandle = prevMonthSymbolData.candles[0];
+              const prevMonthClose = prevMonthCandle.close;
+              const currentClose = quote.previousClosePrice || quote.close;
+              
+              console.log('Previous month end candle found:', prevMonthCandle.dateTime);
+              console.log('Previous month close:', prevMonthClose);
+              console.log('Current close:', currentClose);
+              
+              if (prevMonthClose && currentClose) {
+                trueMonthlyReturn = calculateReturn(prevMonthClose, currentClose);
+                console.log(`True monthly calculation (month-to-month): (${currentClose} - ${prevMonthClose}) / ${prevMonthClose} * 100 = ${trueMonthlyReturn}%`);
+                console.log(`Previous month end: ${prevMonthCandle.dateTime} ($${prevMonthClose})`);
+                console.log(`Current month end: ${quote.closeDate} ($${currentClose})`);
+              } else {
+                console.log('Missing price data for true monthly calculation');
+              }
+            } else {
+              console.log('No candle data found in previous month response');
+            }
+          } else {
+            console.log('Previous month data is empty or invalid');
+          }
+        } else {
+          console.log('Previous month API request failed:', prevMonthRes.statusText);
+        }
+      } catch (error) {
+        console.log('True monthly calculation failed:', error);
+      }
+    }
+
+    const historicalData: HistoricalData = {
+      symbol,
+      monthlyReturn: trueMonthlyReturn !== undefined ? trueMonthlyReturn : undefined,
+      ytdReturn: ytdData ? calculateReturn(ytdData.startPrice, ytdData.endPrice) : undefined,
+      threeMonthReturn: threeMonthData ? calculateReturn(threeMonthData.startPrice, threeMonthData.endPrice) : undefined,
+      sixMonthReturn: sixMonthData ? calculateReturn(sixMonthData.startPrice, sixMonthData.endPrice) : undefined,
+      oneYearReturn: oneYearData ? calculateReturn(oneYearData.startPrice, oneYearData.endPrice) : undefined
+    };
+
+    console.log(`Historical data for ${symbol}:`, historicalData);
+    return historicalData;
+    
+  } catch (error) {
+    console.error(`Error fetching historical data fallback for ${symbol}:`, error);
+    return null;
   }
 }
