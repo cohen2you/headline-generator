@@ -649,28 +649,33 @@ export async function POST(request: Request) {
         const yearLow = q.fiftyTwoWeekLow;
         const yearHigh = q.fiftyTwoWeekHigh;
         
-        // Calculate position within 52-week range (0 = at low, 1 = at high)
-        const rangePosition = (currentPrice - yearLow) / (yearHigh - yearLow);
-        
         let rangeText = '';
         
-        if (rangePosition >= 0.95) {
-          // Within 5% of high
-          rangeText = `. The stock is trading near its 52-week high of $${formatPrice(yearHigh)}`;
-        } else if (rangePosition <= 0.05) {
-          // Within 5% of low
-          rangeText = `. The stock is trading near its 52-week low of $${formatPrice(yearLow)}`;
-        } else if (rangePosition >= 0.85) {
-          // Approaching high
-          rangeText = `. The stock is approaching its 52-week high of $${formatPrice(yearHigh)}`;
-        } else if (rangePosition <= 0.15) {
-          // Near low
-          rangeText = `. The stock is trading near its 52-week low of $${formatPrice(yearLow)}`;
+        // Check if stock is above the 52-week high (new high)
+        if (currentPrice > yearHigh) {
+          rangeText = `. The stock is trading at a new 52-week high`;
         } else {
-          // Middle of range - only mention if it's a significant range
-          const rangePercent = ((yearHigh - yearLow) / yearLow) * 100;
-          if (rangePercent > 20) {
-            rangeText = `. The stock is trading within its 52-week range of $${formatPrice(yearLow)} to $${formatPrice(yearHigh)}`;
+          // Calculate position within 52-week range (0 = at low, 1 = at high)
+          const rangePosition = (currentPrice - yearLow) / (yearHigh - yearLow);
+          
+          if (rangePosition >= 0.95) {
+            // Within 5% of high
+            rangeText = `. The stock is trading near its 52-week high of $${formatPrice(yearHigh)}`;
+          } else if (rangePosition <= 0.05) {
+            // Within 5% of low
+            rangeText = `. The stock is trading near its 52-week low of $${formatPrice(yearLow)}`;
+          } else if (rangePosition >= 0.85) {
+            // Approaching high
+            rangeText = `. The stock is approaching its 52-week high of $${formatPrice(yearHigh)}`;
+          } else if (rangePosition <= 0.15) {
+            // Near low
+            rangeText = `. The stock is trading near its 52-week low of $${formatPrice(yearLow)}`;
+          } else {
+            // Middle of range - only mention if it's a significant range
+            const rangePercent = ((yearHigh - yearLow) / yearLow) * 100;
+            if (rangePercent > 20) {
+              rangeText = `. The stock is trading within its 52-week range of $${formatPrice(yearLow)} to $${formatPrice(yearHigh)}`;
+            }
           }
         }
         
