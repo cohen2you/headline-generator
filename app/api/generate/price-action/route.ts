@@ -328,7 +328,7 @@ async function fetchHistoricalData(symbol: string, quote?: BenzingaQuote): Promi
     }
     
     // Find the data for our specific symbol
-    const symbolData = data.find((item: any) => item.symbol === symbol);
+    const symbolData = data.find((item: BenzingaBarsResponse) => item.symbol === symbol);
     if (!symbolData || !symbolData.candles || !Array.isArray(symbolData.candles) || symbolData.candles.length === 0) {
       console.log(`No candle data found for ${symbol} in batch history`);
       return null;
@@ -943,7 +943,7 @@ async function fetchHistoricalDataFallback(symbol: string, quote?: BenzingaQuote
     ]);
 
     // Don't fetch monthly data here - we'll calculate it manually for true month-to-month
-    let monthlyData = null;
+    // Removed monthlyData variable since we're not using it
 
     // Calculate returns function
     const calculateReturn = (startPrice: number, endPrice: number) => {
