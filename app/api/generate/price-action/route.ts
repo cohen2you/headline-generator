@@ -585,63 +585,13 @@ export async function POST(request: Request) {
         priceActionText = `${symbol} Price Action: ${companyName} shares were ${upDown} ${absChange}% at $${lastPrice}${marketStatusPhrase} on ${dayOfWeek}`;
       }
 
-      // Add historical performance data if available
-      if (historicalData) {
-        let historicalText = '';
-        
-        // Add monthly and YTD performance with improved flow
-        if (historicalData.monthlyReturn !== undefined && historicalData.ytdReturn !== undefined) {
-          const monthlyReturn = historicalData.monthlyReturn;
-          const ytdReturn = historicalData.ytdReturn;
-          
-          // Determine the flow based on performance and daily movement
-          const dailyChange = changePercent;
-          
-          if (monthlyReturn > 0 && ytdReturn < 0) {
-            // Good month, bad year
-            if (dailyChange > 0) {
-              historicalText = `, extending their monthly gain to ${monthlyReturn.toFixed(2)}% despite being down ${Math.abs(ytdReturn).toFixed(2)}% so far this year`;
-            } else {
-              historicalText = `, maintaining their monthly gain of ${monthlyReturn.toFixed(2)}% despite being down ${Math.abs(ytdReturn).toFixed(2)}% so far this year`;
-            }
-          } else if (monthlyReturn > 0 && ytdReturn > 0) {
-            // Good month, good year
-            if (dailyChange > 0) {
-              historicalText = `, extending their monthly gain of ${monthlyReturn.toFixed(2)}% and ${ytdReturn.toFixed(2)}% rise since the start of the year`;
-            } else {
-              historicalText = `, maintaining their monthly gain of ${monthlyReturn.toFixed(2)}% and ${ytdReturn.toFixed(2)}% rise since the start of the year`;
-            }
-          } else if (monthlyReturn < 0 && ytdReturn < 0) {
-            // Bad month, bad year
-            if (dailyChange < 0) {
-              historicalText = `, extending their monthly decline of ${Math.abs(monthlyReturn).toFixed(2)}% and ${Math.abs(ytdReturn).toFixed(2)}% drop since the start of the year`;
-            } else {
-              historicalText = `, despite today's gain, still down ${Math.abs(monthlyReturn).toFixed(2)}% this month and ${Math.abs(ytdReturn).toFixed(2)}% since the start of the year`;
-            }
-          } else if (monthlyReturn < 0 && ytdReturn > 0) {
-            // Bad month, good year
-            if (dailyChange < 0) {
-              historicalText = `, pulling back ${Math.abs(monthlyReturn).toFixed(2)}% this month but still up ${ytdReturn.toFixed(2)}% since the start of the year`;
-            } else {
-              historicalText = `, despite today's gain, still down ${Math.abs(monthlyReturn).toFixed(2)}% this month but up ${ytdReturn.toFixed(2)}% since the start of the year`;
-            }
-          }
-        } else if (historicalData.monthlyReturn !== undefined) {
-          // Only monthly data available
+              // Add historical performance data if available (monthly only)
+        if (historicalData && historicalData.monthlyReturn !== undefined) {
           const monthlyReturn = historicalData.monthlyReturn;
           const monthlyDirection = monthlyReturn > 0 ? 'gain' : 'decline';
-          historicalText = `, with a monthly ${monthlyDirection} of ${Math.abs(monthlyReturn).toFixed(2)}%`;
-        } else if (historicalData.ytdReturn !== undefined) {
-          // Only YTD data available
-          const ytdReturn = historicalData.ytdReturn;
-          const ytdDirection = ytdReturn > 0 ? 'up' : 'down';
-          historicalText = `, ${ytdDirection} ${Math.abs(ytdReturn).toFixed(2)}% since the start of the year`;
-        }
-        
-        if (historicalText) {
+          const historicalText = `, with a monthly ${monthlyDirection} of ${Math.abs(monthlyReturn).toFixed(2)}%`;
           priceActionText += historicalText;
         }
-      }
 
       // Add 52-week range context if available
       if (q.fiftyTwoWeekLow && q.fiftyTwoWeekHigh && q.lastTradePrice) {
