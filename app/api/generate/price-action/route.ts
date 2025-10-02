@@ -465,7 +465,7 @@ function getMarketStatus(): 'open' | 'premarket' | 'afterhours' | 'closed' {
 
 export async function POST(request: Request) {
   try {
-    const { tickers, priceActionOnly, briefAnalysis, grouped } = await request.json();
+    const { tickers, priceActionOnly, briefAnalysis, grouped, smartAnalysis } = await request.json();
 
     if (!tickers?.trim()) {
       return NextResponse.json({ priceActions: [], error: 'Ticker(s) required.' });
@@ -638,8 +638,379 @@ export async function POST(request: Request) {
       priceActionText = priceActionText.replace(/,\s*according to Benzinga Pro\.?$/, '');
       priceActionText = priceActionText.replace(/,\s*according to Benzinga Pro data\.?$/, '');
       
-      // Add the final attribution
+      // Smart Analysis - automatically choose the best narrative
+      if (smartAnalysis) {
+        // Don't add attribution yet - we'll add it at the end of smart analysis
+        // Fetch additional data from Polygon for smart analysis
+        let polygonData = null;
+        try {
+          console.log(`=== FETCHING POLYGON DATA FOR SMART ANALYSIS: ${symbol} ===`);
+          // Use current day data instead of previous day
+          const today = new Date().toISOString().split('T')[0];
+          const polygonUrl = `https://api.polygon.io/v2/aggs/ticker/${symbol}/range/1/day/${today}/${today}?adjusted=true&apikey=${process.env.POLYGON_API_KEY}`;
+          console.log('Polygon URL:', polygonUrl.replace(process.env.POLYGON_API_KEY || '', 'HIDDEN_KEY'));
+          
+          const polygonRes = await fetch(polygonUrl);
+          console.log('Polygon response status:', polygonRes.status);
+          
+          if (polygonRes.ok) {
+            const polygonResponse = await polygonRes.json();
+            console.log('Polygon response received:', !!polygonResponse);
+            if (polygonResponse.results && polygonResponse.results.length > 0) {
+              polygonData = polygonResponse.results[0];
+              console.log('Polygon data extracted:', !!polygonData);
+            }
+          } else {
+            const errorText = await polygonRes.text();
+            console.log('Polygon API error:', errorText);
+          }
+        } catch (error) {
+          console.log('Polygon API call failed for smart analysis:', error);
+        }
+
+        // Use Polygon data as single source of truth
+        if (!polygonData) {
+          console.log('No Polygon data available, falling back to Benzinga');
+          return {
+            ticker: symbol,
+            companyName: companyName,
+            priceAction: priceActionText,
+            narrativeType: 'fallback',
+            smartAnalysis: true
+          };
+        }
+
+        // Extract Polygon data
+        const polygonVolume = polygonData.v; // Volume
+        const polygonHigh = polygonData.h;   // High
+        const polygonLow = polygonData.l;    // Low
+        const polygonOpen = polygonData.o;   // Open
+        const polygonClose = polygonData.c;  // Close
+        const polygonVWAP = polygonData.vw;  // Volume-weighted average price
+        
+        console.log('Using Polygon data - Volume:', polygonVolume, 'High:', polygonHigh, 'Low:', polygonLow, 'Close:', polygonClose);
+        
+        // Calculate returns using Polygon data (more accurate than Benzinga)
+        let ytdReturn = 0;
+        let sixMonthReturn = 0;
+        let threeMonthReturn = 0;
+        let oneMonthReturn = 0;
+        
+        // Try to get more accurate historical data from Polygon
+        try {
+          const now = new Date();
+          // Fix date calculations - ensure we're going backwards in time
+          const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 6, now.getDate());
+          const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, now.getDate());
+          const oneMonthAgo = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
+          // YTD should be January 1st of current year, not 6 months ago
+          const ytdStart = new Date(now.getFullYear(), 0, 1);
+          
+          console.log('Date calculations:', {
+            now: now.toDateString(),
+            sixMonthsAgo: sixMonthsAgo.toDateString(),
+            threeMonthsAgo: threeMonthsAgo.toDateString(),
+            oneMonthAgo: oneMonthAgo.toDateString(),
+            ytdStart: ytdStart.toDateString()
+          });
+
+          const formatDate = (date: Date) => date.toISOString().split('T')[0];
+
+          // Fetch data from start of current year to now for YTD calculations
+          const yearStart = new Date(now.getFullYear(), 0, 1); // January 1st of current year
+          const historicalUrl = `https://api.polygon.io/v2/aggs/ticker/${symbol}/range/1/day/${formatDate(yearStart)}/${formatDate(now)}?adjusted=true&apikey=${process.env.POLYGON_API_KEY}`;
+          console.log('Fetching Polygon historical data for accurate returns (current year)...');
+
+          const historicalRes = await fetch(historicalUrl);
+          if (historicalRes.ok) {
+            const historicalResponse = await historicalRes.json();
+            if (historicalResponse.results && historicalResponse.results.length > 0) {
+              const currentPrice = polygonClose;
+              const historicalData = historicalResponse.results;
+
+              // Sort data by date (oldest first)
+              historicalData.sort((a: any, b: any) => a.t - b.t);
+
+              // Log the date range of available data
+              const firstDate = new Date(historicalData[0].t);
+              const lastDate = new Date(historicalData[historicalData.length - 1].t);
+              console.log(`Available historical data range: ${firstDate.toDateString()} to ${lastDate.toDateString()}`);
+              console.log(`Total data points: ${historicalData.length}`);
+
+              // Find data points by actual dates
+              const findDataByDate = (targetDate: Date) => {
+                const targetTimestamp = targetDate.getTime();
+                let closestData = null;
+                let minDiff = Infinity;
+
+                for (const data of historicalData) {
+                  const dataDate = new Date(data.t);
+                  const diff = Math.abs(dataDate.getTime() - targetTimestamp);
+                  if (diff < minDiff) {
+                    minDiff = diff;
+                    closestData = data;
+                  }
+                }
+                return closestData;
+              };
+
+              // Calculate 6-month return using actual 6-month-ago date
+              const sixMonthData = findDataByDate(sixMonthsAgo);
+              if (sixMonthData) {
+                sixMonthReturn = ((currentPrice - sixMonthData.c) / sixMonthData.c) * 100;
+                console.log(`Polygon 6-month calculation: ${sixMonthData.c} to ${currentPrice} = ${sixMonthReturn.toFixed(2)}% (from ${new Date(sixMonthData.t).toDateString()})`);
+              }
+
+              // Calculate 3-month return using actual 3-month-ago date
+              const threeMonthData = findDataByDate(threeMonthsAgo);
+              if (threeMonthData) {
+                threeMonthReturn = ((currentPrice - threeMonthData.c) / threeMonthData.c) * 100;
+                console.log(`Polygon 3-month calculation: ${threeMonthData.c} to ${currentPrice} = ${threeMonthReturn.toFixed(2)}% (from ${new Date(threeMonthData.t).toDateString()})`);
+              }
+
+              // Calculate 1-month return using actual 1-month-ago date
+              const oneMonthData = findDataByDate(oneMonthAgo);
+              if (oneMonthData) {
+                oneMonthReturn = ((currentPrice - oneMonthData.c) / oneMonthData.c) * 100;
+                console.log(`Polygon 1-month calculation: ${oneMonthData.c} to ${currentPrice} = ${oneMonthReturn.toFixed(2)}% (from ${new Date(oneMonthData.t).toDateString()})`);
+              }
+
+              // Calculate YTD return using actual YTD start date
+              // Find the first trading day of the year, not just the closest to Jan 1
+              console.log(`Searching for January ${now.getFullYear()} data...`);
+              const ytdData = historicalData.find((data: any) => {
+                const dataDate = new Date(data.t);
+                const isJanuary = dataDate.getFullYear() === now.getFullYear() && dataDate.getMonth() === 0;
+                if (isJanuary) {
+                  console.log(`Found January data: ${dataDate.toDateString()}`);
+                }
+                return isJanuary;
+              });
+              if (ytdData) {
+                ytdReturn = ((currentPrice - ytdData.c) / ytdData.c) * 100;
+                console.log(`Polygon YTD calculation: ${ytdData.c} to ${currentPrice} = ${ytdReturn.toFixed(2)}% (from ${new Date(ytdData.t).toDateString()})`);
+              } else {
+                console.log(`No January ${now.getFullYear()} data found, using fallback...`);
+                // Fallback to findDataByDate if no January data found
+                const fallbackYtdData = findDataByDate(ytdStart);
+                if (fallbackYtdData) {
+                  ytdReturn = ((currentPrice - fallbackYtdData.c) / fallbackYtdData.c) * 100;
+                  console.log(`Polygon YTD calculation (fallback): ${fallbackYtdData.c} to ${currentPrice} = ${ytdReturn.toFixed(2)}% (from ${new Date(fallbackYtdData.t).toDateString()})`);
+                }
+              }
+            }
+          }
+        } catch (error) {
+          console.log('Polygon historical calculation failed, using Benzinga data:', error);
+          // Fallback to Benzinga data
+          if (historicalData) {
+            ytdReturn = historicalData.ytdReturn || 0;
+            sixMonthReturn = historicalData.sixMonthReturn || 0;
+            threeMonthReturn = historicalData.threeMonthReturn || 0;
+            oneMonthReturn = historicalData.monthlyReturn || 0;
+          }
+        }
+        
+        // Calculate distance from 52-week high/low using Polygon close price
+        const distanceFromHigh = q.fiftyTwoWeekHigh && polygonClose ? 
+          ((polygonClose - q.fiftyTwoWeekHigh) / q.fiftyTwoWeekHigh) * 100 : 0;
+        const distanceFromLow = q.fiftyTwoWeekLow && polygonClose ? 
+          ((polygonClose - q.fiftyTwoWeekLow) / q.fiftyTwoWeekLow) * 100 : 0;
+        
+        // Build smart narrative using Polygon data
+        let narrativeType = 'range'; // default
+        
+        // Use the correct price - if we're in premarket/afterhours, use the current price from Benzinga
+        // Otherwise use Polygon's close price
+        const currentPrice = marketStatus === 'premarket' || marketStatus === 'afterhours' ? 
+          q.lastTradePrice : polygonClose;
+        const currentChange = marketStatus === 'premarket' || marketStatus === 'afterhours' ? 
+          changePercent : ((polygonClose - polygonOpen) / polygonOpen) * 100;
+        const currentUpDown = currentChange > 0 ? 'up' : currentChange < 0 ? 'down' : 'unchanged';
+        const currentAbsChange = Math.abs(currentChange).toFixed(2);
+        
+        // Create appropriate time phrase based on market status
+        let timePhrase = '';
+        if (marketStatus === 'premarket') {
+          timePhrase = ' in premarket trading';
+        } else if (marketStatus === 'afterhours') {
+          timePhrase = ' in after-hours trading';
+        } else if (marketStatus === 'open') {
+          timePhrase = ' at the time of publication';
+        } else {
+          timePhrase = ' while the market was closed';
+        }
+        
+        let smartPriceActionText = `${symbol} Price Action: ${companyName} shares were ${currentUpDown === 'up' ? 'up' : currentUpDown === 'down' ? 'down' : 'unchanged'} ${currentAbsChange}% at $${currentPrice.toFixed(2)}${timePhrase} on ${dayOfWeek}`;
+
+        // Build rich historical context first
+        let historicalContext = '';
+        
+        // Create comprehensive historical perspective
+        if (Math.abs(ytdReturn) > 10 || Math.abs(sixMonthReturn) > 20) {
+          if (ytdReturn > 0 && sixMonthReturn > 0) {
+            historicalContext = ` It's been quite a ride for investors, with the stock surging ${ytdReturn.toFixed(1)}% this year and ${sixMonthReturn.toFixed(1)}% over the past six months`;
+          } else if (ytdReturn < 0 && sixMonthReturn < 0) {
+            historicalContext = ` It's been a rough stretch for shareholders, with the stock falling ${Math.abs(ytdReturn).toFixed(1)}% this year and ${Math.abs(sixMonthReturn).toFixed(1)}% over the past six months`;
+          } else if (ytdReturn > 0 && sixMonthReturn < 0) {
+            historicalContext = ` The stock has managed to gain ${ytdReturn.toFixed(1)}% this year despite a ${Math.abs(sixMonthReturn).toFixed(1)}% slide over the past six months`;
+          } else if (ytdReturn < 0 && sixMonthReturn > 0) {
+            historicalContext = ` The stock has slipped ${Math.abs(ytdReturn).toFixed(1)}% this year despite a ${sixMonthReturn.toFixed(1)}% rally over the past six months`;
+          }
+        } else if (Math.abs(threeMonthReturn) > 5) {
+          if (threeMonthReturn > 0) {
+            historicalContext = ` The stock has been trending higher, gaining ${threeMonthReturn.toFixed(1)}% over the past three months`;
+          } else {
+            historicalContext = ` The stock has been trending lower, falling ${Math.abs(threeMonthReturn).toFixed(1)}% over the past three months`;
+          }
+        }
+
+        // Determine narrative type using Polygon data
+        const dailyChange = ((polygonClose - polygonOpen) / polygonOpen) * 100;
+        const intradayRange = ((polygonHigh - polygonLow) / polygonLow) * 100;
+        // Volume analysis removed per user request
+        
+        if (Math.abs(oneMonthReturn) > 5 || Math.abs(threeMonthReturn) > 15 || Math.abs(distanceFromHigh) < 5) {
+          // Strong momentum or near 52-week high
+          narrativeType = 'momentum';
+          if (oneMonthReturn > 0) {
+            if (currentChange > 0) {
+              smartPriceActionText += `, continuing a solid ${Math.abs(oneMonthReturn).toFixed(1)}% run over the past month.`;
+            } else {
+              smartPriceActionText += `, taking a breather after a solid ${Math.abs(oneMonthReturn).toFixed(1)}% run over the past month.`;
+            }
+          } else if (oneMonthReturn < 0) {
+            if (currentChange < 0) {
+              smartPriceActionText += `, continuing a ${Math.abs(oneMonthReturn).toFixed(1)}% slide over the past month.`;
+            } else {
+              smartPriceActionText += `, showing some resilience after a ${Math.abs(oneMonthReturn).toFixed(1)}% slide over the past month.`;
+            }
+          }
+
+          // Add historical context
+          if (historicalContext) {
+            smartPriceActionText += historicalContext;
+          }
+
+          if (Math.abs(distanceFromHigh) < 5) {
+            smartPriceActionText += ` and sitting just ${Math.abs(distanceFromHigh).toFixed(1)}% below its 52-week high of $${formatPrice(q.fiftyTwoWeekHigh)}`;
+          }
+
+          // Volume analysis removed per user request
+        } else if (Math.abs(dailyChange) > 4 || intradayRange > 6) {
+          // High volatility move
+          narrativeType = 'volatility';
+          const moveSignificance = Math.abs(dailyChange) / 2.5; // vs average daily range
+          smartPriceActionText += `, delivering one of the stock's ${moveSignificance > 1.5 ? 'bigger' : 'more notable'} single-day moves`;
+
+          // Add historical context
+          if (historicalContext) {
+            smartPriceActionText += historicalContext;
+          }
+
+          // Volume analysis removed per user request
+
+          if (intradayRange > 3) {
+            smartPriceActionText += ` after a wild ${intradayRange.toFixed(1)}% intraday swing`;
+          }
+
+          if (q.fiftyTwoWeekLow && q.fiftyTwoWeekHigh && polygonClose) {
+            const rangePosition = ((polygonClose - q.fiftyTwoWeekLow) / (q.fiftyTwoWeekHigh - q.fiftyTwoWeekLow)) * 100;
+            if (rangePosition > 80) {
+              smartPriceActionText += ` as it pushes toward its 52-week high`;
+            } else if (rangePosition < 20) {
+              smartPriceActionText += ` as it tests support near its 52-week low`;
+            }
+          }
+        } else {
+          // Range-bound trading
+          narrativeType = 'range';
+
+          // Add historical context first
+          if (historicalContext) {
+            smartPriceActionText += historicalContext;
+          }
+
+          if (q.fiftyTwoWeekLow && q.fiftyTwoWeekHigh && polygonClose) {
+            const rangePosition = ((polygonClose - q.fiftyTwoWeekLow) / (q.fiftyTwoWeekHigh - q.fiftyTwoWeekLow)) * 100;
+            if (rangePosition > 75) {
+              smartPriceActionText += `, trading in the upper end of its 52-week range between $${formatPrice(q.fiftyTwoWeekLow)} and $${formatPrice(q.fiftyTwoWeekHigh)}`;
+            } else if (rangePosition < 25) {
+              smartPriceActionText += `, trading in the lower end of its 52-week range between $${formatPrice(q.fiftyTwoWeekLow)} and $${formatPrice(q.fiftyTwoWeekHigh)}`;
+            } else {
+              smartPriceActionText += `, trading within its 52-week range of $${formatPrice(q.fiftyTwoWeekLow)} to $${formatPrice(q.fiftyTwoWeekHigh)}`;
+            }
+          }
+
+          // Volume analysis removed per user request
+
+          if (intradayRange > 3) {
+            smartPriceActionText += ` after a ${intradayRange.toFixed(1)}% intraday range`;
+          }
+        }
+
+        // Use OpenAI to enhance and vary the language
+        try {
+          const openai = new OpenAI({
+            apiKey: process.env.OPENAI_API_KEY,
+          });
+
+          const enhancementPrompt = `You are a financial journalist writing casual, conversational price action summaries. Rewrite the following price action text to sound more natural and human-like while keeping all the factual data points intact. Use everyday language that real people would use.
+
+Original text: "${smartPriceActionText}"
+
+Requirements:
+- Keep the header format exactly: "${symbol} Price Action: " at the beginning
+- Keep all factual data (percentages, prices, timeframes) exactly the same
+- Use casual, conversational tone - avoid formal/AI words like "notable", "remarkable", "impressive", "significant"
+- Use simple, direct language that sounds like a real person talking
+- Avoid time phrases that sound like the day is over: "by Thursday", "as of Thursday", "on Thursday"
+- Avoid awkward phrases like "this Thursday"
+- Instead use natural phrases like: "Thursday morning", "Thursday afternoon", "Thursday's session", "Thursday's trading", or just "Thursday"
+- Avoid repetitive phrases like "solid run", "quite a ride", etc.
+- Sound like you're explaining to a friend, not writing a formal report
+- End with attribution: "according to Benzinga Pro data."
+
+Return only the enhanced text, no explanations.`;
+
+          const completion = await openai.chat.completions.create({
+            model: "gpt-4o",
+            messages: [
+              {
+                role: "system",
+                content: "You are an expert financial journalist who writes engaging, varied market summaries with natural language flow."
+              },
+              {
+                role: "user", 
+                content: enhancementPrompt
+              }
+            ],
+            max_tokens: 200,
+            temperature: 0.8, // Higher temperature for more variety
+          });
+
+          const enhancedText = completion.choices[0]?.message?.content?.trim();
+          if (enhancedText && enhancedText.length > 50) {
+            smartPriceActionText = enhancedText;
+            console.log(`Enhanced price action text for ${symbol}`);
+          }
+        } catch (error) {
+          console.log(`OpenAI enhancement failed for ${symbol}, using original text:`, error);
+          // Fallback to original text with attribution
+          smartPriceActionText += ', according to Benzinga Pro data.';
+        }
+
+        return {
+          ticker: symbol,
+          companyName: companyName,
+          priceAction: smartPriceActionText,
+          narrativeType: narrativeType,
+          smartAnalysis: true
+        };
+      } else {
+        // Add attribution for non-smart analysis
       priceActionText += ', according to Benzinga Pro data.';
+      }
 
       // Move briefAnalysis check before priceActionOnly
       if (briefAnalysis) {

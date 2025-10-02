@@ -152,6 +152,35 @@ const PriceActionGenerator = forwardRef<PriceActionGeneratorRef>((props, ref) =>
     }
   }
 
+  async function generateSmartPriceAction() {
+    if (!tickers.trim()) {
+      setPriceActionError('Please enter ticker(s) first.');
+      return;
+    }
+    setPriceActions([]);
+    setPriceActionError('');
+    setLoadingPriceAction(true);
+    try {
+      const res = await fetch('/api/generate/price-action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          tickers,
+          smartAnalysis: true
+        }),
+      });
+      if (!res.ok) throw new Error('Failed to generate smart price action');
+      const data = await res.json();
+      setPriceActions(data.priceActions);
+    } catch (error: unknown) {
+      console.error('Error generating smart price action:', error);
+      if (error instanceof Error) setPriceActionError(error.message);
+      else setPriceActionError(String(error));
+    } finally {
+      setLoadingPriceAction(false);
+    }
+  }
+
   const renderPriceActionWithBoldLabel = (priceAction: string, idx: number) => {
     const labelMatch = priceAction.match(/^(.*?:)(.*)$/);
     let beforeText = '';
@@ -165,7 +194,7 @@ const PriceActionGenerator = forwardRef<PriceActionGeneratorRef>((props, ref) =>
     const cleanText = mainText.replace(/,\s*according to Benzinga Pro data\.?$/, '');
     
     return (
-      <span className="mb-1 text-black" ref={el => { priceActionRefs.current[idx] = el; }}>
+      <span className="mb-1 text-gray-900 dark:text-gray-100" ref={el => { priceActionRefs.current[idx] = el; }}>
         <strong>{beforeText}</strong>
         <span className="font-normal">
           {cleanText}
@@ -236,6 +265,13 @@ const PriceActionGenerator = forwardRef<PriceActionGeneratorRef>((props, ref) =>
       />
       <div className="flex flex-wrap gap-2 mb-4">
         <button
+          onClick={() => generateSmartPriceAction()}
+          disabled={loadingPriceAction || !tickers.trim()}
+          className="bg-green-600 text-white px-4 py-2 rounded disabled:bg-green-300 mb-4 font-semibold"
+        >
+          {loadingPriceAction ? 'Analyzing...' : '🧠 Smart Price Action'}
+        </button>
+        <button
           onClick={() => generatePriceActionOnly()}
           disabled={loadingPriceAction || !tickers.trim()}
           className="bg-yellow-500 text-white px-4 py-2 rounded disabled:bg-yellow-300 mb-4"
@@ -273,7 +309,7 @@ const PriceActionGenerator = forwardRef<PriceActionGeneratorRef>((props, ref) =>
               // Grouped mode
               return (
                 <li key={i} className="flex flex-col items-start border-b border-yellow-200 pb-2 mb-2">
-                  <span className="block text-black mb-2">
+                  <span className="block text-gray-900 dark:text-gray-100 mb-2">
                     {renderPriceActionWithBoldLabel(action.priceAction, i)}
                   </span>
                   <button
@@ -284,12 +320,30 @@ const PriceActionGenerator = forwardRef<PriceActionGeneratorRef>((props, ref) =>
                   </button>
                 </li>
               );
+            } else if (action && typeof action === 'object' && 'smartAnalysis' in action) {
+              // Smart Analysis mode
+              return (
+                <li key={i} className="flex flex-col items-start border-b border-green-200 pb-2 mb-2">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
+                      🧠 {action.narrativeType?.toUpperCase() || 'SMART'} ANALYSIS
+                    </span>
+                  </div>
+                  {renderPriceActionWithBoldLabel(action.priceAction, i)}
+                  <button
+                    onClick={() => copyPriceActionHTML(i)}
+                    className="mt-2 bg-green-200 hover:bg-green-300 text-green-800 px-2 py-1 rounded text-xs"
+                  >
+                    {copiedPriceActionIndex === i ? 'Copied!' : 'Copy'}
+                  </button>
+                </li>
+              );
             } else if (action && typeof action === 'object' && 'briefAnalysis' in action) {
               // Brief Analysis mode
               return (
                 <li key={i} className="flex flex-col items-start border-b border-yellow-200 pb-2 mb-2">
                   {renderPriceActionWithBoldLabel(action.priceAction, i)}
-                  <span className="block text-black mt-2 mb-2">{typeof action.briefAnalysis === 'string' ? action.briefAnalysis : ''}</span>
+                  <span className="block text-gray-900 dark:text-gray-100 mt-2 mb-2">{typeof action.briefAnalysis === 'string' ? action.briefAnalysis : ''}</span>
                   <button
                     onClick={() => copyPriceActionHTML(i)}
                     className="mt-2 bg-yellow-200 hover:bg-yellow-300 text-yellow-800 px-2 py-1 rounded text-xs"
@@ -302,7 +356,7 @@ const PriceActionGenerator = forwardRef<PriceActionGeneratorRef>((props, ref) =>
               // Price Action Only mode (string)
               return (
                 <li key={i} className="flex justify-between items-start">
-                  <span className="flex-1 text-black">
+                  <span className="flex-1 text-gray-900 dark:text-gray-100">
                     {renderPriceActionWithBoldLabel(action, i)}
                   </span>
                   <button
@@ -317,7 +371,7 @@ const PriceActionGenerator = forwardRef<PriceActionGeneratorRef>((props, ref) =>
               // Price Action Only mode (object)
               return (
                 <li key={i} className="flex justify-between items-start">
-                  <span className="flex-1 text-black">
+                  <span className="flex-1 text-gray-900 dark:text-gray-100">
                     {renderPriceActionWithBoldLabel(action.priceAction, i)}
                   </span>
                   <button
@@ -334,9 +388,9 @@ const PriceActionGenerator = forwardRef<PriceActionGeneratorRef>((props, ref) =>
                 <li key={i} className="flex flex-col items-start border-b border-yellow-200 pb-2 mb-2">
                   {renderPriceActionWithBoldLabel(action.priceAction, i)}
                   {/* Always display the 52-week range line if present, with a space above */}
-                  {action.fiftyTwoWeekRangeLine && <span className="block text-black mb-2 mt-2">{action.fiftyTwoWeekRangeLine}</span>}
+                  {action.fiftyTwoWeekRangeLine && <span className="block text-gray-900 dark:text-gray-100 mb-2 mt-2">{action.fiftyTwoWeekRangeLine}</span>}
                   <span className="block h-4" />
-                  <pre className="whitespace-pre-wrap text-black" style={{ fontFamily: 'inherit', marginTop: 0 }}>
+                  <pre className="whitespace-pre-wrap text-gray-900 dark:text-gray-100" style={{ fontFamily: 'inherit', marginTop: 0 }}>
                     {action.technicalAnalysis}
                   </pre>
                   <button
