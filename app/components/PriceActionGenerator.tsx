@@ -201,14 +201,16 @@ const PriceActionGenerator = forwardRef<PriceActionGeneratorRef>((props, ref) =>
         <span className="font-normal">
           {cleanText}
           {hasBenzingaPro && (
-            <a
-              href="https://www.benzinga.com/pro/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-yellow-700 underline hover:text-yellow-900"
-            >
-              , according to Benzinga Pro data.
-            </a>
+            <>
+              , <a
+                href="https://www.benzinga.com/pro/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-yellow-700 underline hover:text-yellow-900"
+              >
+                according to Benzinga Pro data
+              </a>.
+            </>
           )}
         </span>
       </span>
