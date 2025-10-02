@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, forwardRef, useImperativeHandle } from 'react';
-import CTALineGenerator from './CTALineGenerator';
 
 interface HeadlineToolsProps {
   articleText: string;
@@ -148,7 +147,6 @@ const HeadlineTools = forwardRef<HeadlineToolsRef, HeadlineToolsProps>(
             </div>
           )}
         </section>
-        <CTALineGenerator />
       </>
     );
   }

@@ -44,6 +44,8 @@ const ContentGenerator = forwardRef<ContentGeneratorRef, ContentGeneratorProps>(
       technicalAnalysis?: string;
       historicalContext?: string;
       fiftyTwoWeekRangeLine?: string; // Added this field
+      grouped?: boolean;
+      individualActions?: PriceActionObj[];
     };
     const [priceActions, setPriceActions] = useState<(string | PriceActionObj)[]>([]);
     const [loadingPriceAction, setLoadingPriceAction] = useState(false);
@@ -254,6 +256,33 @@ const ContentGenerator = forwardRef<ContentGeneratorRef, ContentGeneratorProps>(
       }
     }
 
+    async function generateGroupedPriceAction() {
+      setPriceActionError('');
+      setLoadingPriceAction(true);
+      setPriceActions([]);
+      try {
+        const res = await fetch('/api/generate/price-action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tickers, grouped: true }),
+        });
+        if (!res.ok) throw new Error('Failed to fetch grouped price action');
+        const data = await res.json();
+        if (data.error) {
+          setPriceActionError(data.error);
+        } else if (Array.isArray(data.priceActions)) {
+          setPriceActions(data.priceActions);
+        } else {
+          setPriceActionError('Invalid response format');
+        }
+      } catch (error: unknown) {
+        if (error instanceof Error) setPriceActionError(error.message);
+        else setPriceActionError(String(error));
+      } finally {
+        setLoadingPriceAction(false);
+      }
+    }
+
     return (
       <>
         {/* Lead Generator Section */}
@@ -358,6 +387,13 @@ const ContentGenerator = forwardRef<ContentGeneratorRef, ContentGeneratorProps>(
             >
               {loadingPriceAction ? 'Generating Price Action...' : 'Full Analysis'}
             </button>
+            <button
+              onClick={generateGroupedPriceAction}
+              disabled={loadingPriceAction || !tickers.trim()}
+              className="bg-yellow-700 text-white px-4 py-2 rounded disabled:bg-yellow-300 mb-4"
+            >
+              {loadingPriceAction ? 'Generating...' : 'Grouped Price Action'}
+            </button>
           </div>
           {priceActionError && <p className="text-red-600 mb-4">{priceActionError}</p>}
 
@@ -373,30 +409,61 @@ const ContentGenerator = forwardRef<ContentGeneratorRef, ContentGeneratorProps>(
                     beforeText = labelMatch[1];
                     mainText = labelMatch[2];
                   }
-                  const phrase = 'according to Benzinga Pro.';
-                  const phraseIndex = mainText.indexOf(phrase);
-                  let mainBefore = mainText;
-                  let mainAfter = '';
-                  if (phraseIndex !== -1) {
-                    mainBefore = mainText.slice(0, phraseIndex);
-                    mainAfter = mainText.slice(phraseIndex + phrase.length);
-                  }
+                  
+                  // Debug logging
+                  console.log('Price Action Debug:', {
+                    original: priceAction,
+                    beforeText,
+                    mainText
+                  });
+                  
+                  // Always ensure the hyperlink is present
+                  const hasBenzingaPro = mainText.includes('Benzinga Pro');
+                  const cleanText = mainText.replace(/,\s*according to Benzinga Pro data\.?$/, '');
+                  
                   return (
                     <span className="mb-1 text-black" ref={el => { priceActionRefs.current[idx] = el; }}>
                       <strong>{beforeText}</strong>
-                      <span className="font-normal">{mainBefore}
-                        {phraseIndex !== -1 && (
-                          <>
-                            <a
-                              href="https://www.benzinga.com/pro/"
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-yellow-700 underline hover:text-yellow-900"
-                            >
-                              {phrase}
-                            </a>
-                            {mainAfter}
-                          </>
+                      <span className="font-normal">
+                        {cleanText}
+                        {hasBenzingaPro && (
+                          <a
+                            href="https://www.benzinga.com/pro/"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-yellow-700 underline hover:text-yellow-900"
+                          >
+                            , according to Benzinga Pro data.
+                          </a>
+                        )}
+                      </span>
+                    </span>
+                  );
+                };
+
+                // Helper to render grouped price action with better formatting
+                const renderGroupedPriceAction = (priceAction: string, idx: number) => {
+                  // Remove the duplicate "Price Action:" from the text since we're adding it as a label
+                  const cleanPriceAction = priceAction.replace(/^Price Action:\s*/, '');
+                  
+                  // Always ensure the hyperlink is present
+                  const hasBenzingaPro = cleanPriceAction.includes('Benzinga Pro');
+                  const cleanText = cleanPriceAction.replace(/,\s*according to Benzinga Pro data\.?$/, '');
+                  
+                  return (
+                    <span className="mb-1 text-black" ref={el => { priceActionRefs.current[idx] = el; }}>
+                      <strong>Price Action: </strong>
+                      <span className="font-normal">
+                        {cleanText}
+                        {hasBenzingaPro && (
+                          <a
+                            href="https://www.benzinga.com/pro/"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-yellow-700 underline hover:text-yellow-900"
+                          >
+                            , according to Benzinga Pro data.
+                          </a>
                         )}
                       </span>
                     </span>
@@ -425,7 +492,22 @@ const ContentGenerator = forwardRef<ContentGeneratorRef, ContentGeneratorProps>(
                   }
                 };
 
-                if (action && typeof action === 'object' && 'briefAnalysis' in action) {
+                if (action && typeof action === 'object' && action.grouped) {
+                  // Grouped Price Action mode
+                  return (
+                    <li key={i} className="flex justify-between items-start">
+                      <span className="flex-1 text-black">
+                        {renderGroupedPriceAction(action.priceAction, i)}
+                      </span>
+                      <button
+                        onClick={copyPriceActionHTML}
+                        className="ml-4 bg-yellow-200 hover:bg-yellow-300 text-yellow-800 px-2 py-1 rounded text-xs"
+                      >
+                        {copiedPriceActionIndex === i ? 'Copied!' : 'Copy'}
+                      </button>
+                    </li>
+                  );
+                } else if (action && typeof action === 'object' && 'briefAnalysis' in action) {
                   // Brief Analysis mode
                   return (
                     <li key={i} className="flex flex-col items-start border-b border-yellow-200 pb-2 mb-2">

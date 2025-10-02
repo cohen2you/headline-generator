@@ -1,12 +1,45 @@
 import { NextResponse } from 'next/server';
 
 const CTA_SECOND_SENTENCES = [
-  'Check the latest price here.',
-  'See real-time price here.',
-  'See the chart here.',
-  'Track it now here.',
-  'Check the price action here.',
-  'Track live prices here.'
+  // Action-oriented CTAs
+  'See the full story here.',
+  'Get the complete picture here.',
+  'Check out the latest moves here.',
+  'Track the action here.',
+  'Watch the momentum here.',
+  'See what is happening here.',
+  
+  // Urgency-based CTAs
+  'Get the scoop here.',
+  'Stay ahead of the curve here.',
+  'Get the latest updates here.',
+  'See what is driving the move here.',
+  'Track the latest developments here.',
+  'Follow the breaking news here.',
+  
+  // Value-focused CTAs
+  'See if it is worth your attention here.',
+  'Check the market position here.',
+  'Get the complete analysis here.',
+  'See the full breakdown here.',
+  'Check the fundamentals here.',
+  'Review the technical setup here.',
+  
+  // Curiosity-driven CTAs
+  'See what is driving the movement here.',
+  'Find out why here.',
+  'Get the inside scoop here.',
+  'See what the experts say here.',
+  'Check the analyst take here.',
+  'See the market dynamics here.',
+  
+  // Professional CTAs
+  'Get the details here.',
+  'See the complete data here.',
+  'Check the full analysis here.',
+  'View the charts here.',
+  'Get the market research here.',
+  'See the trading setup here.'
 ];
 
 function getBenzingaLink(ticker: string) {
@@ -33,86 +66,119 @@ type Quote = {
 function getFirstSentence(ticker: string, quote: Quote) {
   const symbol = ticker.toUpperCase();
   const changePercent = typeof quote.changePercent === 'number' ? quote.changePercent : 0;
-  const volume = quote.volume;
-  const avgVolume = quote.averageVolume;
   const lastPrice = quote.lastTradePrice;
   const fiftyTwoWeekHigh = quote.fiftyTwoWeekHigh;
   const fiftyTwoWeekLow = quote.fiftyTwoWeekLow;
   const pe = quote.pe;
   const sector = quote.sector;
   const industry = quote.industry;
+  const volume = quote.volume;
+  const averageVolume = quote.averageVolume;
 
   // Template sets for each scenario
   const templates = {
     surging: [
-      `${symbol} stock is surging on strong momentum.`,
-      `${symbol} shares are rallying sharply today.`,
-      `${symbol} is posting impressive gains in the latest session.`,
-      `${symbol} stock is on the move, climbing higher.`,
+      `${symbol} is charging ahead with explosive momentum.`,
+      `${symbol} shares are powering higher on strong volume.`,
+      `${symbol} is surging to new heights today.`,
+      `${symbol} stock is racing ahead of the pack.`,
+      `${symbol} is among today's top performers.`,
+      `${symbol} shares are climbing with conviction.`,
+      `${symbol} is delivering impressive returns.`,
+      `${symbol} stock is showing exceptional strength.`,
     ],
     slumping: [
-      `${symbol} stock is slumping fast.`,
-      `${symbol} shares are under heavy selling pressure.`,
-      `${symbol} is seeing a sharp decline in price.`,
-      `${symbol} stock is tumbling in today's session.`,
+      `${symbol} is taking a hit from negative sentiment.`,
+      `${symbol} shares are sliding on disappointing news.`,
+      `${symbol} is feeling the pressure from bearish momentum.`,
+      `${symbol} stock is struggling to find support.`,
+      `${symbol} is among today's weakest performers.`,
+      `${symbol} shares are retreating from recent levels.`,
+      `${symbol} is encountering selling pressure.`,
+      `${symbol} stock is showing notable weakness.`,
     ],
     higher: [
-      `${symbol} stock is moving higher.`,
-      `${symbol} shares are trending up modestly.`,
-      `${symbol} is gaining ground.`,
-      `${symbol} stock is ticking upward.`,
+      `${symbol} is building positive momentum.`,
+      `${symbol} shares are advancing steadily.`,
+      `${symbol} is showing upward movement.`,
+      `${symbol} stock is gaining positive traction.`,
+      `${symbol} is demonstrating bullish strength.`,
+      `${symbol} shares are trending higher.`,
+      `${symbol} is gathering positive momentum.`,
+      `${symbol} stock is moving in positive territory.`,
     ],
     underperforming: [
-      `${symbol} stock is underperforming.`,
-      `${symbol} shares are lagging the market.`,
-      `${symbol} is slipping lower.`,
-      `${symbol} stock is drifting down.`,
+      `${symbol} is facing resistance from sellers.`,
+      `${symbol} shares are experiencing downward pressure.`,
+      `${symbol} is under selling pressure.`,
+      `${symbol} stock is trending lower.`,
+      `${symbol} is having a challenging session.`,
+      `${symbol} shares are under pressure.`,
+      `${symbol} is lagging behind market performance.`,
+      `${symbol} stock is showing weakness.`,
     ],
     steady: [
-      `${symbol} is consolidating in a tight range.`,
-      `${symbol} shares are holding firm.`,
-      `${symbol} is trading sideways.`,
-      `${symbol} is showing resilience.`,
-      `${symbol} is maintaining stability.`,
-      `${symbol} is range-bound.`,
-      `${symbol} is showing little movement.`,
-      `${symbol} is holding its ground.`,
-      `${symbol} is consolidating in the middle of its 52-week range.`,
-      `${symbol} is maintaining a large market cap in the ${sector || 'market'} sector.`,
-      `${symbol} is trading with a P/E ratio of ${pe ? pe.toFixed(1) : 'N/A'}.`,
-      `${symbol} is steady in the ${industry || 'market'} industry.`,
-      `${symbol} is holding near its 50-day moving average.`,
-      `${symbol} is trading in the upper third of its 52-week range.`,
-      `${symbol} is trading in the lower third of its 52-week range.`,
+      // Technical analysis focused
+      `${symbol} is holding steady in today's choppy market.`,
+      `${symbol} shares are consolidating after recent moves.`,
+      `${symbol} is biding its time at current levels.`,
+      `${symbol} stock is taking a breather.`,
+      `${symbol} is trading in a tight range.`,
+      `${symbol} shares are showing limited movement.`,
+      `${symbol} is maintaining a sideways pattern.`,
+      `${symbol} stock is staying put for now.`,
+      
+      // Fundamental focused
+      `${symbol} is trading at ${pe ? pe.toFixed(1) : 'N/A'}x earnings, ${pe && pe < 15 ? 'below market average' : pe && pe > 25 ? 'above market average' : 'in line with market average'}.`,
+      `${symbol} operates in the ${sector ? sector.toLowerCase() : 'market'} sector.`,
+      `${symbol} shares are ${volume && averageVolume && volume > averageVolume * 1.5 ? 'experiencing above-average volume' : 'trading with typical volume'}.`,
+      `${symbol} is a ${industry ? industry.toLowerCase() : 'market'} sector company.`,
+      
+      // Market position focused
+      `${symbol} is ${fiftyTwoWeekHigh && fiftyTwoWeekLow && lastPrice ? ((lastPrice - fiftyTwoWeekLow) / (fiftyTwoWeekHigh - fiftyTwoWeekLow) > 0.7 ? 'trading near its 52-week high' : (lastPrice - fiftyTwoWeekLow) / (fiftyTwoWeekHigh - fiftyTwoWeekLow) < 0.3 ? 'trading near its 52-week low' : 'trading in the middle of its 52-week range') : 'trading within its historical range'}.`,
+      `${symbol} shares are ${fiftyTwoWeekHigh && lastPrice && lastPrice > fiftyTwoWeekHigh * 0.95 ? 'approaching resistance levels' : fiftyTwoWeekLow && lastPrice && lastPrice < fiftyTwoWeekLow * 1.05 ? 'testing support levels' : 'trading within normal parameters'}.`,
     ],
     high: [
-      `${symbol} stock is testing its 52-week high.`,
-      `${symbol} shares are trading near their annual peak.`,
-      `${symbol} is challenging its highest level of the year.`,
+      `${symbol} is approaching key resistance levels.`,
+      `${symbol} shares are testing new highs.`,
+      `${symbol} is reaching significant price levels.`,
+      `${symbol} stock is challenging resistance.`,
+      `${symbol} is poised for potential breakout.`,
+      `${symbol} shares are at critical resistance.`,
+      `${symbol} is testing upper boundaries.`,
+      `${symbol} stock is at important technical levels.`,
     ],
     low: [
-      `${symbol} stock is testing its 52-week low.`,
-      `${symbol} shares are trading near their annual bottom.`,
-      `${symbol} is approaching its lowest level of the year.`,
-    ],
-    volume: [
-      `${symbol} stock spikes on heavy volume.`,
-      `${symbol} shares are seeing a surge in trading activity.`,
-      `${symbol} is experiencing unusually high volume.`,
+      `${symbol} is testing key support levels.`,
+      `${symbol} shares are approaching critical lows.`,
+      `${symbol} is at significant support.`,
+      `${symbol} stock is testing lower boundaries.`,
+      `${symbol} is at important technical levels.`,
+      `${symbol} shares are near support zones.`,
+      `${symbol} is testing critical support.`,
+      `${symbol} stock is at key technical levels.`,
     ],
   };
 
   const steadyUpper = [
-    `${symbol} is trading in the upper third of its 52-week range.`,
-    `${symbol} is holding near its annual highs.`,
-    `${symbol} is consolidating close to its 52-week peak.`,
-    `${symbol} is showing strength near its 52-week high.`
+    `${symbol} is trading near recent highs.`,
+    `${symbol} is performing well relative to peers.`,
+    `${symbol} is showing positive momentum.`,
+    `${symbol} is in a favorable position.`,
+    `${symbol} is trading at elevated levels.`,
+    `${symbol} is demonstrating strength.`,
+    `${symbol} is in positive territory.`,
+    `${symbol} is showing upward bias.`
   ];
   const steadyLower = [
-    `${symbol} is trading in the lower third of its 52-week range.`,
-    `${symbol} is hovering near its annual lows.`,
-    `${symbol} is consolidating close to its 52-week bottom.`,
-    `${symbol} is showing weakness near its 52-week low.`
+    `${symbol} is trading near recent lows.`,
+    `${symbol} is underperforming relative to peers.`,
+    `${symbol} is showing downward pressure.`,
+    `${symbol} is in a challenging position.`,
+    `${symbol} is trading at depressed levels.`,
+    `${symbol} is demonstrating weakness.`,
+    `${symbol} is in negative territory.`,
+    `${symbol} is showing downward bias.`
   ];
 
   // Determine scenario
@@ -120,8 +186,6 @@ function getFirstSentence(ticker: string, quote: Quote) {
     return templates.high[Math.floor(Math.random() * templates.high.length)];
   } else if (fiftyTwoWeekLow && lastPrice !== undefined && lastPrice <= fiftyTwoWeekLow * 1.005) {
     return templates.low[Math.floor(Math.random() * templates.low.length)];
-  } else if (volume && avgVolume && volume > avgVolume * 2) {
-    return templates.volume[Math.floor(Math.random() * templates.volume.length)];
   } else if (changePercent > 3) {
     return templates.surging[Math.floor(Math.random() * templates.surging.length)];
   } else if (changePercent < -3) {

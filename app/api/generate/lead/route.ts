@@ -19,7 +19,8 @@ Write a standard lead that:
 - Is concise (2-3 sentences maximum).
 - Provides broader context that sets up the specific story in the article.
 - Creates a smooth transition into the existing first paragraph.
-- Does NOT repeat or reword what's already in the article's first paragraph.
+- CRITICAL: Does NOT repeat or reword what's already in the article's first paragraph.
+- CRITICAL: Avoid using the same key phrases, terminology, or concepts that appear in the article's opening.
 - Focuses on the bigger picture or trend that leads to this specific development.
 - Uses simple, direct language; no jargon.
 - Can be added to the beginning of the article without requiring any changes to existing content.
@@ -35,7 +36,8 @@ Write a hook lead that:
 - Creates an attention-grabbing opening that hints at the story without revealing it.
 - Poses a question or presents a surprising angle that leads to the article's topic.
 - Makes readers want to continue reading to discover the answer or details.
-- Does NOT repeat or reword what's already in the article's first paragraph.
+- CRITICAL: Does NOT repeat or reword what's already in the article's first paragraph.
+- CRITICAL: Avoid using the same key phrases, terminology, or concepts that appear in the article's opening.
 - Can be added to the beginning of the article without requiring any changes to existing content.
 - IMPORTANT: Do NOT start with "In a..." or similar phrases. Vary your opening structure.
 - The hook should create curiosity that flows into the article's existing first paragraph.
@@ -50,12 +52,38 @@ Write a context lead that:
 - Provides broader market context and background that sets up the specific story.
 - Explains the bigger picture or trend that leads to this particular development.
 - Gives readers the necessary background to understand why this story matters.
-- Does NOT repeat or reword what's already in the article's first paragraph.
+- CRITICAL: Does NOT repeat or reword what's already in the article's first paragraph.
+- CRITICAL: Avoid using the same key phrases, terminology, or concepts that appear in the article's opening.
 - Uses straightforward language; no jargon.
 - Can be added to the beginning of the article without requiring any changes to existing content.
 - IMPORTANT: Do NOT start with "In a..." or similar phrases. Vary your opening structure.
 - The context should provide background that flows naturally into the article's existing first paragraph.
 - Examples: "Digital transformation continues reshaping traditional finance..." or "As blockchain technology matures, new opportunities emerge..."
+
+Lead:`,
+
+      one_sentence: `You are a financial journalist writing for a broad audience.
+
+Write a single, powerful lead sentence that:
+- Is exactly ONE sentence (no more, no less).
+- Is SHORT and PUNCHY (15-25 words maximum).
+- Captures the essence of the story in a compelling way.
+- Provides BROADER CONTEXT or BACKGROUND that sets up the specific story.
+- CRITICAL: Does NOT mention the same companies, people, locations, or specific details as the article's first paragraph.
+- CRITICAL: Avoid using the same key phrases, terminology, or concepts that appear in the article's opening.
+- CRITICAL: If the article mentions "West Coast," "office markets," "real estate," etc., use DIFFERENT language and concepts.
+- Focuses on the bigger picture, trend, or market context that leads to this story.
+- Uses vivid, specific language that grabs attention.
+- Can be seamlessly added to the beginning of the article.
+- Uses active voice and strong verbs.
+- IMPORTANT: Do NOT use "amid," "In a...," "As...," or similar formal/dated phrases. Use fresh, direct language.
+- Keep it concise and impactful - avoid long, complex sentences.
+- CRITICAL: The lead should provide completely different context than what's already in the first paragraph.
+
+EXAMPLES OF WHAT TO AVOID:
+- If article mentions "West Coast office markets" → DON'T use "real estate tides" or "office markets"
+- If article mentions "Hudson Pacific Properties" → DON'T mention real estate companies
+- If article mentions "improving conditions" → DON'T use "shifting tides" or "renewed vitality"
 
 Lead:`,
     };

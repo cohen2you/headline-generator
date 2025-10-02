@@ -1,20 +1,59 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Headline Generator
 
-## Getting Started
+A Next.js application that generates compelling financial headlines using AI.
 
-First, run the development server:
+## Features
+
+- **AI-Powered Headline Generation**: Uses OpenAI GPT-4 to create engaging financial headlines
+- **Multiple Enhancement Options**: Various headline improvement techniques (urgency, specificity, quotes, etc.)
+- **Quote Integration**: Seamlessly incorporate quotes into headlines
+- **Analyst Name Filtering**: Automatically replaces specific analyst names with "Analyst" to avoid conflicts
+- **Alt-Text Generator**: Generate sophisticated alt text for images using OpenAI GPT-4 Vision (similar to AltText.ai quality)
+
+## Setup
+
+### 1. Install Dependencies
+
+```bash
+npm install
+```
+
+### 2. Environment Variables
+
+Create a `.env.local` file with the following variables:
+
+```bash
+# Required: OpenAI API Key for headline generation
+OPENAI_API_KEY=your_openai_api_key_here
+
+# Required: Google Cloud Vision API service account key file
+# Place your vision-api-service.json file in the root directory
+```
+
+### 3. Alt-Text Generator Setup
+
+The Alt-Text Generator uses OpenAI GPT-4 Vision for sophisticated image analysis:
+
+- Uses the same OpenAI API key as the headline generator
+- Provides AltText.ai-quality descriptions
+- Analyzes images directly for context, relationships, and meaning
+- Generates natural, conversational alt text descriptions
+
+### 4. Install Dependencies
+
+```bash
+npm install
+```
+
+### 5. Run the Development Server
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+
+## Getting Started
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 

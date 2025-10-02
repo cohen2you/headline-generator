@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, forwardRef, useImperativeHandle, useRef } from 'react';
+import React, { useState, forwardRef, useImperativeHandle } from 'react';
 import { cleanHeadline } from './utils';
 
 interface HeadlineWorkshopProps {
@@ -26,20 +26,16 @@ const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
     const [directQuotes, setDirectQuotes] = useState<string[]>([]);
     const [loadingDirectQuotes, setLoadingDirectQuotes] = useState(false);
     const [showDirectQuotes, setShowDirectQuotes] = useState(false);
- 
+    
     const [currentHeadline, setCurrentHeadline] = useState<string>('');
     const [headlineHistory, setHeadlineHistory] = useState<HeadlineVersion[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
     const [customEnhancement, setCustomEnhancement] = useState('');
-    // Removed unused customHeadline state since we're using customHeadlines array
-    const [loadingCustom, setLoadingCustom] = useState(false);
     const [customHeadlines, setCustomHeadlines] = useState<string[]>([]);
-    const [copiedCustomIndex, setCopiedCustomIndex] = useState<number | null>(null);
-    
-    // Use ref to persist custom headlines across re-renders
-    const customHeadlinesRef = useRef<string[]>([]);
+    const [selectedHeadline, setSelectedHeadline] = useState('');
+    const [loadingCustom, setLoadingCustom] = useState(false);
 
     const clearData = () => {
       setStep('initial');
@@ -54,9 +50,9 @@ const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
       setError('');
       setCopiedIndex(null);
       setCustomEnhancement('');
-             setLoadingCustom(false);
-       setCustomHeadlines([]);
-      setCopiedCustomIndex(null);
+      setCustomHeadlines([]);
+      setSelectedHeadline('');
+      setLoadingCustom(false);
     };
 
     useImperativeHandle(ref, () => ({
@@ -105,42 +101,27 @@ const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
       if (quote.trim()) {
         setLoading(true);
         setError('');
-        
         try {
-          // Format the quote with Title Case and single quotes
-          const formattedQuote = quote
-            .split(' ')
-            .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-            .join(' ');
-          
-          // Call API to generate a new headline incorporating the quote
           const res = await fetch('/api/generate/headline-workshop', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
-              articleText,
+              articleText, 
               action: 'incorporate_quote',
-              quote: formattedQuote
+              quote 
             }),
           });
 
-          if (!res.ok) throw new Error('Failed to generate headline with quote');
+          if (!res.ok) throw new Error('Failed to incorporate quote');
           const data = await res.json();
           
           if (data.error) {
             throw new Error(data.error);
           }
 
-          const newHeadline = cleanHeadline(data.headlines[0]);
-          setCurrentHeadline(newHeadline);
-          
-          // Add to headline history
-          setHeadlineHistory(prev => [...prev, {
-            text: newHeadline,
-            enhancementType: 'direct_quote',
-            timestamp: new Date()
-          }]);
-          
+          const cleanedHeadline = cleanHeadline(data.headlines[0]);
+          setCurrentHeadline(cleanedHeadline);
+          setStep('enhancement');
         } catch (error: unknown) {
           if (error instanceof Error) setError(error.message);
           else setError(String(error));
@@ -163,19 +144,19 @@ const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 
-            articleText,
-            action: 'generate_initial'
+            articleText, 
+            action: 'generate_initial' 
           }),
         });
 
-        if (!res.ok) throw new Error('Failed to generate initial headlines');
+        if (!res.ok) throw new Error('Failed to generate headlines');
         const data = await res.json();
         
         if (data.error) {
           throw new Error(data.error);
         }
 
-        const cleanedHeadlines = data.headlines.map((hl: string) => cleanHeadline(hl));
+        const cleanedHeadlines = data.headlines.map((headline: string) => cleanHeadline(headline));
         setInitialHeadlines(cleanedHeadlines);
         setKeyNames(data.keyNames || []);
         setStep('selection');
@@ -189,12 +170,14 @@ const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
 
     const selectHeadline = (headline: string) => {
       setCurrentHeadline(headline);
-      setHeadlineHistory([{ text: headline, timestamp: new Date() }]);
       setStep('enhancement');
     };
 
     const enhanceHeadline = async (enhancementType: string, specificQuote?: string) => {
-      if (!currentHeadline.trim()) return;
+      if (!currentHeadline.trim()) {
+        setError('Please select a headline first.');
+        return;
+      }
 
       setLoading(true);
       setError('');
@@ -203,12 +186,12 @@ const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 
-            articleText,
+            articleText, 
             action: 'enhance',
             selectedHeadline: currentHeadline,
             enhancementType,
             specificQuote,
-            customEnhancement: enhancementType === 'custom' ? customEnhancement : undefined
+            customEnhancement
           }),
         });
 
@@ -219,21 +202,15 @@ const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
           throw new Error(data.error);
         }
 
-        const enhancedHeadline = cleanHeadline(data.enhancedHeadline || data.headlines?.[0] || currentHeadline);
-        
-        // Replace the current headline with the enhanced version
+        const enhancedHeadline = cleanHeadline(data.enhancedHeadline);
         setCurrentHeadline(enhancedHeadline);
-         setHeadlineHistory(prev => [...prev, { 
-           text: enhancedHeadline, 
-           enhancementType, 
-           timestamp: new Date() 
-         }]);
-         setCustomEnhancement('');
-         
-         // Update key names if provided
-         if (data.keyNames) {
-           setKeyNames(data.keyNames);
-         }
+        
+        // Add to history
+        setHeadlineHistory(prev => [...prev, {
+          text: enhancedHeadline,
+          enhancementType,
+          timestamp: new Date()
+        }]);
       } catch (error: unknown) {
         if (error instanceof Error) setError(error.message);
         else setError(String(error));
@@ -247,17 +224,10 @@ const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
     };
 
     const startOver = () => {
-      setStep('initial');
-      setInitialHeadlines([]);
-      setCurrentHeadline('');
-      setHeadlineHistory([]);
+      clearData();
     };
 
-    const generateCustomHeadline = async () => {
-      console.log('=== GENERATE CUSTOM HEADLINE CALLED ===');
-      console.log('Current customHeadlines state:', customHeadlines);
-      console.log('Current customHeadlinesRef:', customHeadlinesRef.current);
-      
+    const generateCustomHeadlines = async (generateSimilar = false) => {
       if (!articleText.trim()) {
         setError('Please enter article text first.');
         return;
@@ -269,30 +239,22 @@ const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
         const res = await fetch('/api/generate/custom-headlines', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ articleText }),
+          body: JSON.stringify({ 
+            articleText,
+            selectedHeadline: generateSimilar ? selectedHeadline : '',
+            generateSimilar
+          }),
         });
 
-        if (!res.ok) throw new Error('Failed to generate custom headline');
+        if (!res.ok) throw new Error('Failed to generate custom headlines');
         const data = await res.json();
         
         if (data.error) {
           throw new Error(data.error);
         }
 
-        const cleanedHeadline = cleanHeadline(data.headlines[0]);
-        console.log('Generated new custom headline:', cleanedHeadline);
-        console.log('Previous custom headlines count (state):', customHeadlines.length);
-        console.log('Previous custom headlines count (ref):', customHeadlinesRef.current.length);
-        
-        // setCustomHeadline removed - using customHeadlines array instead
-        
-        // Update both state and ref
-        const newArray = [...customHeadlinesRef.current, cleanedHeadline];
-        customHeadlinesRef.current = newArray;
-        setCustomHeadlines(newArray);
-        
-        console.log('Updated custom headlines array (state):', newArray);
-        console.log('Updated custom headlines ref:', customHeadlinesRef.current);
+        const cleanedHeadlines = data.headlines.map((headline: string) => cleanHeadline(headline));
+        setCustomHeadlines(cleanedHeadlines);
       } catch (error: unknown) {
         if (error instanceof Error) setError(error.message);
         else setError(String(error));
@@ -301,110 +263,100 @@ const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
       }
     };
 
-    const copyCustomHeadlineToClipboard = (text: string, index: number) => {
-      navigator.clipboard.writeText(text);
-      setCopiedCustomIndex(index);
-      setTimeout(() => setCopiedCustomIndex(null), 2000);
-    };
-
-         const clearCustomHeadlines = () => {
-       setCustomHeadlines([]);
-       setCopiedCustomIndex(null);
-     };
-
     const enhancementOptions = [
-      { type: 'shorter', label: 'Make it shorter', icon: '📏', description: 'Cut unnecessary words for clarity' },
-      { type: 'punchier', label: 'Make it punchier', icon: '💥', description: 'Add more impact and urgency' },
-      { type: 'more_detailed', label: 'Add more detail', icon: '📝', description: 'Include specific numbers and facts' }
+      { type: 'urgent', label: 'Make it more urgent/emotional', icon: '⚡', description: 'Add breaking news urgency' },
+      { type: 'specific', label: 'Add specific numbers/data', icon: '📊', description: 'Include exact figures and dates' },
+      { type: 'analyst', label: 'Include analyst reactions', icon: '👨‍💼', description: 'Add expert authority' },
+      { type: 'context', label: 'Add market context', icon: '🌍', description: 'Connect to broader trends' },
+      { type: 'shorter', label: 'Make it shorter for social media', icon: '📱', description: 'Optimize for sharing' },
+      { type: 'curiosity', label: 'Add curiosity/teaser element', icon: '❓', description: 'Create click-worthy intrigue' },
+      { type: 'risk', label: 'Add risk/warning angle', icon: '⚠️', description: 'Emphasize potential dangers' },
     ];
 
-    return (
-      <div className="max-w-4xl mx-auto">
+        return (
+      <div className="max-w-4xl mx-auto p-6 border-2 border-blue-600 rounded-lg bg-blue-50">
+ 
+        
         {/* Step 1: Initial Headline Generation */}
         {step === 'initial' && (
           <div className="text-center">
             <h2 className="text-2xl font-bold mb-4 text-blue-600">🎯 Headline Workshop</h2>
             <p className="text-gray-600 mb-6">Let&apos;s create the perfect headline together, step by step.</p>
             
-            {/* Custom Headline Section - Always Visible */}
-            <div className="mb-6 p-4 border-2 border-green-600 rounded-lg bg-green-50">
-              <h3 className="text-lg font-semibold mb-3 text-green-800">✨ Quick Custom Headline</h3>
-              <p className="text-sm text-green-700 mb-4">Get thoughtful, AI-generated headlines instantly</p>
+
+            
+            {/* Custom Headlines Section - Always Visible */}
+            <div className="mb-6 p-6 border-4 border-green-600 rounded-lg bg-green-50 shadow-lg">
+              <h3 className="text-xl font-bold mb-3 text-green-800">✨ Quick Custom Headlines</h3>
+              <p className="text-base text-green-700 mb-4">Get 3 diverse, AI-generated headlines to choose from</p>
               
               <div className="space-y-3">
-                {/* Generate Button */}
-                <button
-                  onClick={generateCustomHeadline}
-                  disabled={loadingCustom || !articleText.trim()}
-                  className="bg-green-600 text-white px-8 py-3 rounded-lg disabled:bg-gray-400 hover:bg-green-700 transition-colors w-full max-w-md"
-                >
-                  {loadingCustom ? 'Generating Custom Headline...' : 'Generate Custom Headline'}
-                </button>
-
-                {/* Generated Headlines List */}
-                {(() => {
-                  console.log('=== RENDERING CUSTOM HEADLINES SECTION ===');
-                  console.log('State customHeadlines count:', customHeadlines.length);
-                  console.log('Ref customHeadlines count:', customHeadlinesRef.current.length);
-                  console.log('State customHeadlines array:', customHeadlines);
-                  console.log('Ref customHeadlines array:', customHeadlinesRef.current);
-                  
-                  // Use ref data if state is empty but ref has data
-                  const headlinesToShow = customHeadlines.length > 0 ? customHeadlines : customHeadlinesRef.current;
-                  console.log('Headlines to show:', headlinesToShow);
-                  
-                  return headlinesToShow.length > 0;
-                })() && (
-                  <div className="mt-4">
-                    <h4 className="text-sm font-medium text-green-800 mb-3">Generated Headlines:</h4>
-                                         <div className="space-y-2 max-h-96 overflow-y-auto">
-                       {(customHeadlines.length > 0 ? customHeadlines : customHeadlinesRef.current).map((headline, index) => (
-                        <div key={index} className="bg-white border border-green-200 rounded-lg p-3 flex items-center justify-between">
-                          <div className="flex-1">
-                            <p className="text-sm font-medium text-green-900">{headline}</p>
-                            <p className="text-xs text-green-600 mt-1">Version {index + 1}</p>
-                          </div>
-                          <div className="flex gap-2 ml-3">
-                            <button
-                              onClick={() => copyCustomHeadlineToClipboard(headline, index)}
-                              className="bg-green-100 hover:bg-green-200 text-green-800 px-3 py-1 rounded text-xs transition-colors"
-                            >
-                              {copiedCustomIndex === index ? 'Copied!' : 'Copy'}
-                            </button>
+                {customHeadlines.length > 0 ? (
+                  <div className="bg-white border border-green-200 rounded-lg p-4">
+                    <h4 className="text-sm font-medium text-green-800 mb-3">Your Custom Headlines:</h4>
+                    <div className="space-y-3">
+                      {customHeadlines.map((headline, index) => (
+                        <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded border">
+                          <span className="text-sm text-gray-700 flex-1">{headline}</span>
+                          <div className="flex gap-1 ml-2">
                             <button
                               onClick={() => selectHeadline(headline)}
-                              className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs transition-colors"
+                              className="bg-green-500 text-white px-2 py-1 rounded text-xs hover:bg-green-600"
                             >
-                              Use This
+                              Use
+                            </button>
+                            <button
+                              onClick={() => {
+                                setSelectedHeadline(headline);
+                                generateCustomHeadlines(true);
+                              }}
+                              className="bg-blue-500 text-white px-2 py-1 rounded text-xs hover:bg-blue-600"
+                            >
+                              Three More Like This
+                            </button>
+                            <button
+                              onClick={() => copyToClipboard(headline, index)}
+                              className="bg-purple-500 text-white px-2 py-1 rounded text-xs hover:bg-purple-600"
+                            >
+                              {copiedIndex === index ? 'Copied!' : 'Copy'}
                             </button>
                           </div>
                         </div>
                       ))}
                     </div>
-                    
-                    {/* Clear All Button */}
-                    <div className="mt-4 text-center">
+                    <div className="flex gap-2 justify-center mt-4">
                       <button
-                        onClick={clearCustomHeadlines}
-                        className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded transition-colors text-sm"
+                        onClick={() => generateCustomHeadlines(false)}
+                        disabled={loadingCustom || !articleText.trim()}
+                        className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 disabled:bg-gray-400 transition-colors"
                       >
-                        Clear All Headlines
+                        {loadingCustom ? 'Generating...' : 'Generate 3 New Headlines'}
                       </button>
                     </div>
                   </div>
+                ) : (
+                  <button
+                    onClick={() => generateCustomHeadlines(false)}
+                    disabled={loadingCustom || !articleText.trim()}
+                    className="bg-green-600 text-white px-8 py-4 rounded-lg disabled:bg-gray-400 hover:bg-green-700 transition-colors w-full max-w-md text-lg font-semibold shadow-md"
+                  >
+                    {loadingCustom ? 'Generating Custom Headlines...' : 'Generate 3 Custom Headlines'}
+                  </button>
                 )}
               </div>
             </div>
             
             <div className="border-t border-gray-200 pt-4">
-              <h3 className="text-lg font-semibold mb-3 text-gray-800">Or try the full workshop experience:</h3>
-              <button
-                onClick={generateInitialHeadlines}
-                disabled={loading || !articleText.trim()}
-                className="bg-blue-600 text-white px-8 py-3 rounded-lg disabled:bg-gray-400 hover:bg-blue-700 transition-colors w-full max-w-md"
-              >
-                {loading ? 'Generating Initial Headlines...' : 'Start Headline Workshop'}
-              </button>
+              <div className="p-4 border-2 border-blue-600 rounded-lg bg-blue-50">
+                <h3 className="text-lg font-semibold mb-3 text-blue-800">Or try the full workshop experience:</h3>
+                <button
+                  onClick={generateInitialHeadlines}
+                  disabled={loading || !articleText.trim()}
+                  className="bg-blue-600 text-white px-8 py-3 rounded-lg disabled:bg-gray-400 hover:bg-blue-700 transition-colors w-full max-w-md"
+                >
+                  {loading ? 'Generating Initial Headlines...' : 'Start Headline Workshop'}
+                </button>
+              </div>
             </div>
             
             {error && <p className="text-red-600 mt-4">{error}</p>}
@@ -413,7 +365,7 @@ const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
 
         {/* Step 2: Headline Selection */}
         {step === 'selection' && (
-          <div>
+          <div className="text-center">
             <div className="flex justify-between items-center mb-4">
               <div>
                 <h2 className="text-xl font-semibold text-blue-600">Step 1: Choose Your Starting Point</h2>
@@ -487,6 +439,10 @@ const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
                </div>
              )}
 
+
+
+
+
              {/* Direct Quotes Section */}
              <div className="mb-6 p-4 bg-purple-50 border border-purple-200 rounded-lg">
                <div className="flex items-center justify-between mb-3">
@@ -500,73 +456,71 @@ const HeadlineWorkshop = forwardRef<HeadlineWorkshopRef, HeadlineWorkshopProps>(
                  </button>
                </div>
                
-                               {showDirectQuotes && directQuotes.length > 0 && directQuotes.some(quote => quote.trim() !== '') && (
-                  <div className="space-y-2">
-                    <p className="text-sm text-purple-700 mb-3">Select a quote to incorporate into your headline:</p>
-                    {directQuotes.filter(quote => quote.trim() !== '').map((quote, index) => (
-                      <div key={index} className="flex items-center justify-between text-sm text-purple-700 bg-white border border-purple-300 rounded p-3">
-                        <div className="flex-1">
-                          <span className="font-medium">Quote {index + 1}:</span> &quot;{quote}&quot;
-                        </div>
-                        <button
-                          onClick={() => selectDirectQuote(quote)}
-                          className="ml-3 px-3 py-1 bg-purple-600 text-white text-xs rounded hover:bg-purple-700 transition-colors"
-                        >
-                          Use This Quote
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                
-                {showDirectQuotes && (directQuotes.length === 0 || directQuotes.every(quote => quote.trim() === '')) && (
-                  <p className="text-sm text-purple-600">No headline-worthy quotes available.</p>
-                )}
-             </div>
-
-             
-
-                           {/* Enhancement Options */}
-              <div className="mb-6">
-                <h3 className="text-lg font-medium mb-3">Enhance your headline:</h3>
-                
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
-                  {enhancementOptions.map((option) => (
-                    <button
-                      key={option.type}
-                      onClick={() => enhanceHeadline(option.type)}
-                      disabled={loading}
-                      className="flex flex-col items-center p-4 border border-gray-300 rounded-lg transition-colors text-center hover:border-blue-400 hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                      title={option.description}
-                    >
-                      <span className="text-2xl mb-2">{option.icon}</span>
-                      <span className="font-medium">{option.label}</span>
-                      <span className="text-sm text-gray-600 mt-1">{option.description}</span>
-                    </button>
-                  ))}
-                </div>
-
-               {/* Custom Enhancement */}
-               <div className="p-4 border border-gray-300 rounded-lg bg-gray-50">
-                 <h4 className="font-medium mb-3">Custom Enhancement:</h4>
-                 <div className="flex gap-2">
-                   <input
-                     type="text"
-                     value={customEnhancement}
-                     onChange={(e) => setCustomEnhancement(e.target.value)}
-                     placeholder="Describe how you want to enhance the headline (e.g., 'add urgency', 'include specific numbers', 'make it more emotional')..."
-                     className="flex-1 p-3 border border-gray-300 rounded"
-                   />
-                   <button
-                     onClick={() => enhanceHeadline('custom')}
-                     disabled={loading || !customEnhancement.trim()}
-                     className="bg-purple-600 text-white px-6 py-3 rounded disabled:bg-gray-400 hover:bg-purple-700 transition-colors"
-                   >
-                     Apply
-                   </button>
+               {showDirectQuotes && directQuotes.length > 0 && (
+                 <div className="space-y-2">
+                   {directQuotes.map((quote, index) => (
+                     <div key={index} className="flex items-center justify-between text-sm text-purple-700 bg-white border border-purple-300 rounded p-3">
+                       <div className="flex-1">
+                         <span className="font-medium">Quote {index + 1}:</span> &quot;{quote}&quot;
+                       </div>
+                       <button
+                         onClick={() => selectDirectQuote(quote)}
+                         className="ml-3 px-3 py-1 bg-purple-600 text-white text-xs rounded hover:bg-purple-700 transition-colors"
+                       >
+                         Use This Quote
+                       </button>
+                     </div>
+                   ))}
                  </div>
-               </div>
+               )}
+               
+               {showDirectQuotes && directQuotes.length === 0 && (
+                 <p className="text-sm text-purple-600">No headline-worthy quotes available.</p>
+               )}
              </div>
+
+             {/* Enhancement Options */}
+             <div className="mb-6">
+               <h3 className="text-lg font-medium mb-3">How would you like to enhance this headline?</h3>
+               
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {enhancementOptions.map((option) => (
+                  <button
+                    key={option.type}
+                    onClick={() => enhanceHeadline(option.type)}
+                    disabled={loading}
+                    className="flex flex-col p-4 border border-gray-300 rounded-lg transition-colors text-left hover:border-blue-400 hover:bg-blue-50"
+                  >
+                    <div className="flex items-center mb-1">
+                      <span className="text-xl mr-3">{option.icon}</span>
+                      <span className="font-medium">{option.label}</span>
+                    </div>
+                    <span className="text-sm text-gray-600">{option.description}</span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Custom Enhancement */}
+              <div className="mt-4 p-4 border border-gray-300 rounded-lg">
+                <h4 className="font-medium mb-2">Custom Enhancement:</h4>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={customEnhancement}
+                    onChange={(e) => setCustomEnhancement(e.target.value)}
+                    placeholder="Describe how you want to enhance the headline..."
+                    className="flex-1 p-2 border border-gray-300 rounded"
+                  />
+                  <button
+                    onClick={() => enhanceHeadline('custom')}
+                    disabled={loading || !customEnhancement.trim()}
+                    className="bg-purple-600 text-white px-4 py-2 rounded disabled:bg-gray-400"
+                  >
+                    Apply
+                  </button>
+                </div>
+              </div>
+            </div>
 
             {/* Headline History */}
             {headlineHistory.length > 1 && (

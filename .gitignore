@@ -39,3 +39,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# API credentials and sensitive files
+vision-api-service.json
+*.json.key
+*.pem
+*.key
