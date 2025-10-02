@@ -9,6 +9,8 @@ export interface PriceActionGeneratorRef {
 const PriceActionGenerator = forwardRef<PriceActionGeneratorRef>((props, ref) => {
   // Price Action Generator state
   const [tickers, setTickers] = useState('');
+  const [primaryTicker, setPrimaryTicker] = useState('');
+  const [comparisonTickers, setComparisonTickers] = useState('');
   type PriceActionObj = {
     ticker: string;
     companyName: string;
@@ -20,6 +22,8 @@ const PriceActionGenerator = forwardRef<PriceActionGeneratorRef>((props, ref) =>
     individualActions?: PriceActionObj[];
     narrativeType?: string;
     smartAnalysis?: boolean;
+    vsAnalysis?: boolean;
+    briefAnalysis?: string;
   };
   const [priceActions, setPriceActions] = useState<(string | PriceActionObj)[]>([]);
   const [loadingPriceAction, setLoadingPriceAction] = useState(false);
@@ -31,6 +35,8 @@ const PriceActionGenerator = forwardRef<PriceActionGeneratorRef>((props, ref) =>
 
   const clearData = () => {
     setTickers('');
+    setPrimaryTicker('');
+    setComparisonTickers('');
     setPriceActions([]);
     setLoadingPriceAction(false);
     setPriceActionError('');
@@ -166,7 +172,7 @@ const PriceActionGenerator = forwardRef<PriceActionGeneratorRef>((props, ref) =>
       const res = await fetch('/api/generate/price-action', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           tickers,
           smartAnalysis: true
         }),
@@ -176,6 +182,36 @@ const PriceActionGenerator = forwardRef<PriceActionGeneratorRef>((props, ref) =>
       setPriceActions(data.priceActions);
     } catch (error: unknown) {
       console.error('Error generating smart price action:', error);
+      if (error instanceof Error) setPriceActionError(error.message);
+      else setPriceActionError(String(error));
+    } finally {
+      setLoadingPriceAction(false);
+    }
+  }
+
+  async function generateVsSmartPriceAction() {
+    if (!primaryTicker.trim() || !comparisonTickers.trim()) {
+      setPriceActionError('Please enter both primary ticker and comparison ticker(s).');
+      return;
+    }
+    setPriceActions([]);
+    setPriceActionError('');
+    setLoadingPriceAction(true);
+    try {
+      const res = await fetch('/api/generate/price-action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          primaryTicker: primaryTicker.trim(),
+          comparisonTickers: comparisonTickers.trim(),
+          vsAnalysis: true
+        }),
+      });
+      if (!res.ok) throw new Error('Failed to generate vs smart price action');
+      const data = await res.json();
+      setPriceActions(data.priceActions);
+    } catch (error: unknown) {
+      console.error('Error generating vs smart price action:', error);
       if (error instanceof Error) setPriceActionError(error.message);
       else setPriceActionError(String(error));
     } finally {
@@ -267,6 +303,38 @@ const PriceActionGenerator = forwardRef<PriceActionGeneratorRef>((props, ref) =>
         onChange={(e) => setTickers(e.target.value.toUpperCase())}
         className="w-full p-2 border border-yellow-400 rounded mb-4"
       />
+      
+      {/* Vs. Smart Price Action Fields */}
+      <div className="border-t border-gray-300 pt-4 mb-4">
+        <h3 className="text-lg font-semibold mb-3 text-gray-900 dark:text-gray-100">Vs. Smart Price Action</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Primary Ticker
+            </label>
+            <input
+              type="text"
+              placeholder="e.g., AAPL"
+              value={primaryTicker}
+              onChange={(e) => setPrimaryTicker(e.target.value.toUpperCase())}
+              className="w-full p-2 border border-blue-400 rounded"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Comparison Ticker(s)
+            </label>
+            <input
+              type="text"
+              placeholder="e.g., MSFT, GOOGL, TSLA"
+              value={comparisonTickers}
+              onChange={(e) => setComparisonTickers(e.target.value.toUpperCase())}
+              className="w-full p-2 border border-blue-400 rounded"
+            />
+          </div>
+        </div>
+      </div>
+      
       <div className="flex flex-wrap gap-2 mb-4">
         <button
           onClick={() => generateSmartPriceAction()}
@@ -274,6 +342,13 @@ const PriceActionGenerator = forwardRef<PriceActionGeneratorRef>((props, ref) =>
           className="bg-green-600 text-white px-4 py-2 rounded disabled:bg-green-300 mb-4 font-semibold"
         >
           {loadingPriceAction ? 'Analyzing...' : '🧠 Smart Price Action'}
+        </button>
+        <button
+          onClick={() => generateVsSmartPriceAction()}
+          disabled={loadingPriceAction || !primaryTicker.trim() || !comparisonTickers.trim()}
+          className="bg-blue-600 text-white px-4 py-2 rounded disabled:bg-blue-300 mb-4 font-semibold"
+        >
+          {loadingPriceAction ? 'Comparing...' : '⚔️ Vs. Smart Price Action'}
         </button>
         <button
           onClick={() => generatePriceActionOnly()}
@@ -337,6 +412,28 @@ const PriceActionGenerator = forwardRef<PriceActionGeneratorRef>((props, ref) =>
                   <button
                     onClick={() => copyPriceActionHTML(i)}
                     className="mt-2 bg-green-200 hover:bg-green-300 text-green-800 px-2 py-1 rounded text-xs"
+                  >
+                    {copiedPriceActionIndex === i ? 'Copied!' : 'Copy'}
+                  </button>
+                </li>
+              );
+            } else if (action && typeof action === 'object' && 'vsAnalysis' in action) {
+              // Vs. Analysis mode - render like brief analysis with two paragraphs
+              console.log('VS Analysis action data:', action);
+              return (
+                <li key={i} className="flex flex-col items-start border-b border-blue-200 pb-2 mb-2">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                      ⚔️ VS ANALYSIS
+                    </span>
+                  </div>
+                  {renderPriceActionWithBoldLabel(action.priceAction, i)}
+                  {action.briefAnalysis && (
+                    <span className="block text-gray-900 dark:text-gray-100 mt-2 mb-2">{action.briefAnalysis}</span>
+                  )}
+                  <button
+                    onClick={() => copyPriceActionHTML(i)}
+                    className="mt-2 bg-blue-200 hover:bg-blue-300 text-blue-800 px-2 py-1 rounded text-xs"
                   >
                     {copiedPriceActionIndex === i ? 'Copied!' : 'Copy'}
                   </button>

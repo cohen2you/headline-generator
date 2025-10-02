@@ -468,18 +468,28 @@ function getMarketStatus(): 'open' | 'premarket' | 'afterhours' | 'closed' {
 
 export async function POST(request: Request) {
   try {
-    const { tickers, priceActionOnly, briefAnalysis, grouped, smartAnalysis } = await request.json();
+    const { tickers, priceActionOnly, briefAnalysis, grouped, smartAnalysis, primaryTicker, comparisonTickers, vsAnalysis } = await request.json();
 
-    if (!tickers?.trim()) {
+    if (!tickers?.trim() && !vsAnalysis) {
       return NextResponse.json({ priceActions: [], error: 'Ticker(s) required.' });
+    }
+    
+    if (vsAnalysis && (!primaryTicker?.trim() || !comparisonTickers?.trim())) {
+      return NextResponse.json({ priceActions: [], error: 'Primary ticker and comparison ticker(s) required for vs analysis.' });
     }
 
     // Clean and validate tickers
-    const cleanedTickers = tickers
+    let cleanedTickers: string;
+    if (vsAnalysis) {
+      // For vs analysis, use primary ticker
+      cleanedTickers = primaryTicker.trim().toUpperCase();
+    } else {
+      cleanedTickers = tickers
       .split(',')
       .map((ticker: string) => ticker.trim().toUpperCase())
       .filter((ticker: string) => ticker.length > 0)
       .join(',');
+    }
 
     if (!cleanedTickers) {
       return NextResponse.json({ priceActions: [], error: 'No valid ticker symbols provided.' });
@@ -1010,6 +1020,247 @@ Return only the enhanced text, no explanations.`;
           narrativeType: narrativeType,
           smartAnalysis: true
         };
+      } else if (vsAnalysis && primaryTicker && comparisonTickers) {
+        // Vs. Analysis - Compare primary ticker against comparison tickers
+        const primarySymbol = primaryTicker.trim().toUpperCase();
+        const comparisonSymbols = comparisonTickers.split(',').map((t: string) => t.trim().toUpperCase());
+        
+        if (symbol !== primarySymbol) {
+          // Skip non-primary tickers in vs analysis
+          return null;
+        }
+
+        console.log(`=== VS ANALYSIS: ${primarySymbol} vs ${comparisonSymbols.join(', ')} ===`);
+        
+        // Fetch data for all tickers
+        const allTickers = [primarySymbol, ...comparisonSymbols];
+        const tickerData: Array<{
+          symbol: string;
+          benzinga: BenzingaQuote;
+          polygon: { t: number; o: number; h: number; l: number; c: number; v: number } | null;
+        }> = [];
+        
+        for (const ticker of allTickers) {
+          try {
+            // Get Benzinga data
+            const benzingaUrl = `https://api.benzinga.com/api/v2/quoteDelayed?token=${process.env.BENZINGA_API_KEY}&symbols=${ticker}`;
+            const benzingaRes = await fetch(benzingaUrl);
+            const benzingaData = await benzingaRes.json();
+            
+            // Get Polygon data
+            const today = new Date().toISOString().split('T')[0];
+            const polygonUrl = `https://api.polygon.io/v2/aggs/ticker/${ticker}/range/1/day/${today}/${today}?adjusted=true&apikey=${process.env.POLYGON_API_KEY}`;
+            const polygonRes = await fetch(polygonUrl);
+            const polygonData = polygonRes.ok ? await polygonRes.json() : null;
+            
+            if (benzingaData[ticker]) {
+              tickerData.push({
+                symbol: ticker,
+                benzinga: benzingaData[ticker],
+                polygon: polygonData?.results?.[0] || null
+              });
+            }
+          } catch (error) {
+            console.log(`Error fetching data for ${ticker}:`, error);
+          }
+        }
+        
+        if (tickerData.length < 2) {
+          return {
+            ticker: symbol,
+            companyName: companyName,
+            priceAction: `Unable to fetch comparison data for all tickers.`,
+            vsAnalysis: true
+          };
+        }
+        
+        // Generate comparative analysis using OpenAI
+        const primaryData = tickerData.find(t => t.symbol === primarySymbol);
+        const comparisonData = tickerData.filter(t => t.symbol !== primarySymbol);
+        
+        if (!primaryData) {
+          return {
+            ticker: symbol,
+            companyName: companyName,
+            priceAction: `Unable to fetch data for primary ticker ${primarySymbol}.`,
+            vsAnalysis: true
+          };
+        }
+        
+        // Fetch comprehensive historical data for broader perspective
+        const historicalData: Array<{
+          symbol: string;
+          ytdReturn: number;
+          sixMonthReturn: number;
+          oneYearReturn: number;
+          currentPrice: number;
+          ytdStartPrice: number;
+          sixMonthsAgoPrice: number;
+          oneYearAgoPrice: number;
+        }> = [];
+        
+        for (const ticker of allTickers) {
+          try {
+            // Get 1 year of historical data from Polygon for comprehensive analysis
+            const oneYearAgo = new Date();
+            oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+            const fromDate = oneYearAgo.toISOString().split('T')[0];
+            const toDate = new Date().toISOString().split('T')[0];
+            
+            const historicalUrl = `https://api.polygon.io/v2/aggs/ticker/${ticker}/range/1/day/${fromDate}/${toDate}?adjusted=true&apikey=${process.env.POLYGON_API_KEY}`;
+            const historicalRes = await fetch(historicalUrl);
+            const historicalDataResponse = historicalRes.ok ? await historicalRes.json() : null;
+            
+            if (historicalDataResponse?.results?.length > 0) {
+              const sortedData = historicalDataResponse.results.sort((a: { t: number }, b: { t: number }) => a.t - b.t);
+              
+              // Find YTD start (first trading day of current year)
+              const currentYear = new Date().getFullYear();
+              const ytdStart = sortedData.find((item: { t: number }) => {
+                const date = new Date(item.t);
+                return date.getFullYear() === currentYear;
+              }) || sortedData[Math.floor(sortedData.length * 0.8)]; // Fallback to 80% through data
+              
+              // Find 6 months ago
+              const sixMonthsAgo = new Date();
+              sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+              const sixMonthsAgoData = sortedData.find((item: { t: number }) => {
+                const date = new Date(item.t);
+                return date >= sixMonthsAgo;
+              }) || sortedData[Math.floor(sortedData.length * 0.5)]; // Fallback to middle of data
+              
+              const oneYearAgoData = sortedData[0];
+              const currentData = sortedData[sortedData.length - 1];
+              
+              const ytdReturn = ytdStart ? ((currentData.c - ytdStart.c) / ytdStart.c) * 100 : 0;
+              const sixMonthReturn = ((currentData.c - sixMonthsAgoData.c) / sixMonthsAgoData.c) * 100;
+              const oneYearReturn = ((currentData.c - oneYearAgoData.c) / oneYearAgoData.c) * 100;
+              
+              console.log(`Historical data for ${ticker}:`, {
+                ytdReturn: ytdReturn,
+                sixMonthReturn: sixMonthReturn,
+                oneYearReturn: oneYearReturn,
+                dataPoints: sortedData.length
+              });
+              
+              historicalData.push({
+                symbol: ticker,
+                ytdReturn: ytdReturn,
+                sixMonthReturn: sixMonthReturn,
+                oneYearReturn: oneYearReturn,
+                currentPrice: currentData.c,
+                ytdStartPrice: ytdStart?.c || 0,
+                sixMonthsAgoPrice: sixMonthsAgoData.c,
+                oneYearAgoPrice: oneYearAgoData.c
+              });
+            }
+          } catch (error) {
+            console.log(`Error fetching historical data for ${ticker}:`, error);
+          }
+        }
+
+        const primaryHistorical = historicalData.find(h => h.symbol === primarySymbol);
+        const comparisonHistorical = historicalData.filter(h => h.symbol !== primarySymbol);
+
+        const comparisonPrompt = `You are a financial analyst writing a comprehensive comparative price action analysis. Compare the primary ticker against the comparison tickers with both daily and broader historical perspective.
+
+PRIMARY TICKER: ${primarySymbol} (${primaryData.benzinga.name})
+- Current Price: $${primaryData.benzinga.lastTradePrice}
+- Daily Change: ${primaryData.benzinga.changePercent}%
+- 52-week range: $${primaryData.benzinga.fiftyTwoWeekLow} - $${primaryData.benzinga.fiftyTwoWeekHigh}
+${primaryHistorical ? `- YTD performance: ${primaryHistorical.ytdReturn.toFixed(1)}%
+- 6-month performance: ${primaryHistorical.sixMonthReturn.toFixed(1)}%
+- 1-year performance: ${primaryHistorical.oneYearReturn.toFixed(1)}%` : ''}
+
+COMPARISON TICKERS:
+${comparisonData.map(t => {
+  const hist = comparisonHistorical.find(h => h.symbol === t.symbol);
+  return `${t.symbol} (${t.benzinga.name}): $${t.benzinga.lastTradePrice}${hist ? `, YTD: ${hist.ytdReturn.toFixed(1)}%, 6-month: ${hist.sixMonthReturn.toFixed(1)}%, 1-year: ${hist.oneYearReturn.toFixed(1)}%` : ''}`;
+}).join('\n')}
+
+Write a comprehensive comparative analysis in EXACTLY this format:
+
+FORMAT TEMPLATE:
+[Primary Ticker] vs [Comparison Tickers]: [First paragraph about daily price action of primary ticker only, 2-3 sentences, end with period and attribution]
+
+Now, let's zoom out and see how [Primary Ticker]'s stacking up against [Comparison Tickers] over the longer haul. [Second paragraph with comprehensive historical analysis, no attribution at end]
+
+REQUIREMENTS:
+- First paragraph: Focus ONLY on primary ticker's daily performance (current price, daily change, 52-week range context)
+- Format ALL prices with exactly 2 decimal places (e.g., $257.24, not $257.235)
+- End first paragraph with: ", according to Benzinga Pro data."
+- Second paragraph: Start with "Now, let's zoom out and see how [primary ticker]'s stacking up against [comparison tickers] over the longer haul."
+- Second paragraph: Compare YTD, 6-month, and 1-year performance trends
+- Second paragraph: Be analytical and strategic, focus on relative positioning
+- Use casual, conversational tone (avoid words like "notable", "remarkable", "impressive")
+- Keep total under 300 words
+- Sound like you're explaining to a friend
+
+Start with: "${primarySymbol} vs ${comparisonSymbols.join(', ')}: "`;
+
+        const completion = await openai.chat.completions.create({
+          model: "gpt-4o",
+          messages: [
+            {
+              role: "system",
+              content: "You are a financial analyst who writes engaging, conversational market comparisons."
+            },
+            {
+              role: "user", 
+              content: comparisonPrompt
+            }
+          ],
+          max_tokens: 350,
+          temperature: 0.7,
+        });
+
+        let vsAnalysisText = completion.choices[0]?.message?.content?.trim() || 
+          `${primarySymbol} is trading at $${primaryData.benzinga.lastTradePrice} (${primaryData.benzinga.changePercent}%) compared to ${comparisonSymbols.join(', ')}.`;
+        
+        // The AI should now generate the correct format with proper paragraph breaks
+        // Just ensure we don't have duplicate attributions
+        vsAnalysisText = vsAnalysisText.replace(/, according to Benzinga Pro data\.?/g, '');
+        
+        // If the AI didn't follow the format, add attribution after first paragraph
+        if (vsAnalysisText.includes('Now, let\'s zoom out')) {
+          const parts = vsAnalysisText.split('Now, let\'s zoom out');
+          if (parts.length === 2 && !parts[0].includes('according to Benzinga Pro data')) {
+            const firstParagraph = parts[0].trim() + ', according to Benzinga Pro data.';
+            const secondParagraph = 'Now, let\'s zoom out' + parts[1].trim();
+            vsAnalysisText = firstParagraph + '\n\n' + secondParagraph;
+          }
+        } else {
+          vsAnalysisText += ', according to Benzinga Pro data.';
+        }
+
+        // Split the text into two parts for proper paragraph rendering
+        let priceActionText = '';
+        let briefAnalysisText = '';
+        
+        if (vsAnalysisText.includes('Now, let\'s zoom out')) {
+          const parts = vsAnalysisText.split('Now, let\'s zoom out');
+          if (parts.length === 2) {
+            priceActionText = parts[0].trim();
+            briefAnalysisText = 'Now, let\'s zoom out' + parts[1].trim();
+            console.log('VS Analysis split:', { priceActionText, briefAnalysisText });
+          } else {
+            priceActionText = vsAnalysisText;
+          }
+        } else {
+          priceActionText = vsAnalysisText;
+          console.log('VS Analysis no split found, using full text:', vsAnalysisText);
+        }
+
+        const result = {
+          ticker: symbol,
+          companyName: companyName,
+          priceAction: priceActionText,
+          briefAnalysis: briefAnalysisText,
+          vsAnalysis: true
+        };
+        
+        console.log('VS Analysis API response:', result);
+        return result;
       } else {
         // Add attribution for non-smart analysis
       priceActionText += ', according to Benzinga Pro data.';
