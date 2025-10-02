@@ -36,4 +36,12 @@ export interface AltTextGenerationOptions {
   includeComposition: boolean;
   maxPredictions: number;
   confidenceThreshold: number;
+}
+
+export interface PriceActionObj {
+  ticker: string;
+  companyName: string;
+  priceAction: string;
+  narrativeType?: string;
+  smartAnalysis?: boolean;
 } 

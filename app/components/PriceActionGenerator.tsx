@@ -18,6 +18,8 @@ const PriceActionGenerator = forwardRef<PriceActionGeneratorRef>((props, ref) =>
     fiftyTwoWeekRangeLine?: string;
     grouped?: boolean;
     individualActions?: PriceActionObj[];
+    narrativeType?: string;
+    smartAnalysis?: boolean;
   };
   const [priceActions, setPriceActions] = useState<(string | PriceActionObj)[]>([]);
   const [loadingPriceAction, setLoadingPriceAction] = useState(false);

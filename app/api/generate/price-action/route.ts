@@ -689,7 +689,7 @@ export async function POST(request: Request) {
         const polygonLow = polygonData.l;    // Low
         const polygonOpen = polygonData.o;   // Open
         const polygonClose = polygonData.c;  // Close
-        const polygonVWAP = polygonData.vw;  // Volume-weighted average price
+        // const polygonVWAP = polygonData.vw;  // Volume-weighted average price (unused for now)
         
         console.log('Using Polygon data - Volume:', polygonVolume, 'High:', polygonHigh, 'Low:', polygonLow, 'Close:', polygonClose);
         
@@ -732,7 +732,7 @@ export async function POST(request: Request) {
               const historicalData = historicalResponse.results;
 
               // Sort data by date (oldest first)
-              historicalData.sort((a: any, b: any) => a.t - b.t);
+              historicalData.sort((a: { t: number }, b: { t: number }) => a.t - b.t);
 
               // Log the date range of available data
               const firstDate = new Date(historicalData[0].t);
@@ -781,7 +781,7 @@ export async function POST(request: Request) {
               // Calculate YTD return using actual YTD start date
               // Find the first trading day of the year, not just the closest to Jan 1
               console.log(`Searching for January ${now.getFullYear()} data...`);
-              const ytdData = historicalData.find((data: any) => {
+              const ytdData = historicalData.find((data: { t: number; c: number }) => {
                 const dataDate = new Date(data.t);
                 const isJanuary = dataDate.getFullYear() === now.getFullYear() && dataDate.getMonth() === 0;
                 if (isJanuary) {
@@ -817,8 +817,8 @@ export async function POST(request: Request) {
         // Calculate distance from 52-week high/low using Polygon close price
         const distanceFromHigh = q.fiftyTwoWeekHigh && polygonClose ? 
           ((polygonClose - q.fiftyTwoWeekHigh) / q.fiftyTwoWeekHigh) * 100 : 0;
-        const distanceFromLow = q.fiftyTwoWeekLow && polygonClose ? 
-          ((polygonClose - q.fiftyTwoWeekLow) / q.fiftyTwoWeekLow) * 100 : 0;
+        // const distanceFromLow = q.fiftyTwoWeekLow && polygonClose ? 
+        //   ((polygonClose - q.fiftyTwoWeekLow) / q.fiftyTwoWeekLow) * 100 : 0;
         
         // Build smart narrative using Polygon data
         let narrativeType = 'range'; // default
