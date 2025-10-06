@@ -8,6 +8,7 @@ import OpenAI from 'openai';
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 // Polygon API interfaces
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 type PolygonSnapshot = {
   status: string;
   request_id: string;
@@ -42,6 +43,7 @@ type PolygonSnapshot = {
   };
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 type PolygonTickerOverview = {
   count: number;
   request_id: string;
@@ -70,6 +72,7 @@ type PolygonTickerOverview = {
   };
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 type PolygonHistoricalData = {
   status: string;
   request_id: string;
@@ -454,7 +457,6 @@ async function fetchPolygonData(symbol: string): Promise<PolygonData> {
 }
 
 // Removed - no longer needed with Polygon API
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function generateTechnicalAnalysis(quote: PolygonData, sectorComparison?: PolygonData[]): Promise<string> {
   try {
     let sectorComparisonText = '';
@@ -629,7 +631,6 @@ async function getSectorPeers(symbol: string): Promise<PolygonData[]> {
 }
 
 // Function to fetch historical data using batchhistory endpoint for accurate period calculations
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function fetchHistoricalData(symbol: string, quote?: PolygonData): Promise<HistoricalData | null> {
   try {
     console.log(`=== FETCHING HISTORICAL DATA FOR ${symbol} USING BATCHHISTORY ===`);
@@ -770,7 +771,6 @@ async function fetchHistoricalData(symbol: string, quote?: PolygonData): Promise
 }
 
 // Fallback function to calculate approximate historical returns using available quote data
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function calculateApproximateReturns(quote: PolygonData): HistoricalData | null {
   try {
     if (!quote.lastTradePrice || !quote.fiftyTwoWeekLow || !quote.fiftyTwoWeekHigh) {
@@ -1624,7 +1624,6 @@ Start with: "${primarySymbol} vs ${comparisonSymbols.join(', ')}: "`;
 }
 
 // Fallback function using the original bars endpoint approach
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function fetchHistoricalDataFallback(symbol: string, quote?: PolygonData): Promise<HistoricalData | null> {
   try {
     console.log(`=== FETCHING HISTORICAL DATA FALLBACK FOR ${symbol} ===`);
