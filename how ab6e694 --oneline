@@ -1,0 +1,10 @@
+[33m30466e7[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mlatest-deployment[m[33m, [m[1;31morigin/master[m[33m, [m[1;31morigin/latest-deployment[m[33m, [m[1;31morigin/HEAD[m[33m, [m[1;32mmaster[m[33m)[m Remove YTD performance from price action output
+[33m91af1df[m Fix 52-week range logic - detect when stock trades above previous 52-week high
+[33m5a8f596[m Fix TypeScript errors in price action route - remove unused variables and fix typing
+[33m70b833c[m Fix price action monthly calculation - use accurate YTD data instead of rolling 30-day periods
+[33m9c44ec4[m Improve verbiage logic to consider daily movement vs historical performance
+[33m2a92009[m Merge branch 'master' of https://github.com/cohen2you/headline-generator
+[33m09c0710[m Add 52-week range context to price action output with smart positioning logic
+[33m64c2f65[m Implement accurate historical data with targeted API calls and conversational language
+[33m56c5db1[m Update alt text generation to be more direct and concise
+[33m48faa8c[m Ensure alt text always ends with complete sentences and proper punctuation

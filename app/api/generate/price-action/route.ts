@@ -7,55 +7,192 @@ import OpenAI from 'openai';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-interface BenzingaQuote {
-  symbol?: string;
-  name?: string;
-  changePercent?: number;
-  lastTradePrice?: number;
-  closeDate?: string;
-  // Historical data fields from Benzinga API
-  fiftyTwoWeekLow?: number;
-  fiftyTwoWeekHigh?: number;
-  fiftyDayAveragePrice?: number;
-  hundredDayAveragePrice?: number;
-  twoHundredDayAveragePrice?: number;
-  previousClosePrice?: number;
-  volume?: number;
-  averageVolume?: number;
-  // Additional price and valuation data
-  open?: number;
-  high?: number;
-  low?: number;
-  close?: number;
-  marketCap?: number;
-  pe?: number;
-  forwardPE?: number;
-  sharesOutstanding?: number;
-  sharesFloat?: number;
-  // Extended hours trading data
-  ethPrice?: number;
-  ethVolume?: number;
-  ethTime?: number;
-  // Additional fields from API response
-  change?: number;
-  previousCloseDate?: string;
-  lastTradeTime?: number;
-  bidPrice?: number;
-  askPrice?: number;
-  bidSize?: number;
-  askSize?: number;
-  size?: number;
-  bidTime?: number;
-  askTime?: number;
-  exchange?: string;
-  isoExchange?: string;
-  bzExchange?: string;
+// Polygon API interfaces
+interface PolygonSnapshot {
+  status: string;
+  request_id: string;
+  ticker?: {
+    ticker: string;
+    todaysChange: number;
+    todaysChangePerc: number;
+    day?: {
+      o: number; // open
+      h: number; // high
+      l: number; // low
+      c: number; // close
+      v: number; // volume
+    };
+    prevDay?: {
+      o: number;
+      h: number;
+      l: number;
+      c: number;
+      v: number;
+    };
+    lastTrade?: {
+      p: number; // price
+      s: number; // size
+      t: number; // timestamp
+    };
+    lastQuote?: {
+      p: number; // bid/ask price
+      s: number; // size
+      t: number; // timestamp
+    };
+  };
+}
+
+interface PolygonTickerOverview {
+  count: number;
+  request_id: string;
+  results?: {
+    active: boolean;
+    name: string;
+    market_cap?: number;
+    sic_description?: string;
+    description?: string;
+    primary_exchange?: string;
+    currency_name: string;
+    ticker: string;
   type?: string;
+    homepage_url?: string;
+    phone_number?: string;
+    address?: {
+      address1?: string;
+      city?: string;
+      state?: string;
+      postal_code?: string;
+    };
+    branding?: {
+      logo_url?: string;
+      icon_url?: string;
+    };
+  };
+}
+
+interface PolygonHistoricalData {
+  status: string;
+  request_id: string;
+  results?: Array<{
+    v: number; // volume
+    vw: number; // volume weighted average price
+    o: number; // open
+    c: number; // close
+    h: number; // high
+    l: number; // low
+    t: number; // timestamp
+    n: number; // number of transactions
+  }>;
+}
+
+interface PolygonRSI {
+  status: string;
+  request_id: string;
+  results?: {
+    underlying?: {
+      aggregates?: Array<{
+        c: number;
+        h: number;
+        l: number;
+        n: number;
+        o: number;
+        t: number;
+        v: number;
+        vw: number;
+      }>;
+    };
+    values?: Array<{
+      timestamp: number;
+      value: number;
+    }>;
+  };
+}
+
+interface PolygonSMA {
+  status: string;
+  request_id: string;
+  results?: {
+    underlying?: {
+      aggregates?: Array<{
+        c: number;
+        h: number;
+        l: number;
+        n: number;
+        o: number;
+        t: number;
+        v: number;
+        vw: number;
+      }>;
+    };
+    values?: Array<{
+      timestamp: number;
+      value: number;
+    }>;
+  };
+}
+
+interface PolygonEMA {
+  status: string;
+  request_id: string;
+  results?: {
+    underlying?: {
+      aggregates?: Array<{
+        c: number;
+        h: number;
+        l: number;
+        n: number;
+        o: number;
+        t: number;
+        v: number;
+        vw: number;
+      }>;
+    };
+    values?: Array<{
+      timestamp: number;
+      value: number;
+    }>;
+  };
+}
+
+interface PolygonData {
+  // From snapshot endpoint
+  currentPrice: number;
+  todaysChange: number;
+  todaysChangePerc: number;
+  previousClose: number;
+  volume: number;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  
+  // From ticker overview endpoint
+  companyName: string;
+  marketCap: number;
+  industry: string;
+  description: string;
+  primaryExchange: string;
+  currency: string;
+  
+  // Calculated from historical data
+  fiftyTwoWeekHigh: number;
+  fiftyTwoWeekLow: number;
+  
+  // Technical indicators
+  rsi?: number;
+  rsiSignal?: 'overbought' | 'oversold' | 'neutral';
+  sma50?: number;
+  sma200?: number;
+  ema50?: number;
+  ema200?: number;
+  
+  // For compatibility with existing code
+  symbol: string;
+  name: string;
+  changePercent: number;
+  lastTradePrice: number;
+  previousClosePrice: number;
   sector?: string;
-  industry?: string;
-  currency?: string;
-  dividendYield?: number;
-  dividend?: number;
 }
 
 interface HistoricalData {
@@ -65,22 +202,6 @@ interface HistoricalData {
   threeMonthReturn?: number;
   sixMonthReturn?: number;
   oneYearReturn?: number;
-}
-
-interface BenzingaCandle {
-  open: number;
-  high: number;
-  low: number;
-  close: number;
-  volume: number;
-  time: number;
-  dateTime: string;
-}
-
-interface BenzingaBarsResponse {
-  symbol: string;
-  interval: number;
-  candles: BenzingaCandle[];
 }
 
 // Utility function to truncate to two decimal places
@@ -93,7 +214,247 @@ function formatPrice(val: number | undefined): string {
   return typeof val === 'number' ? truncateToTwoDecimals(val).toFixed(2) : 'N/A';
 }
 
-async function generateTechnicalAnalysis(quote: BenzingaQuote, sectorComparison?: BenzingaQuote[]): Promise<string> {
+// Helper function to get date strings for API calls
+function getOneYearAgo(): string {
+  const oneYearAgo = new Date();
+  oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+  return oneYearAgo.toISOString().split('T')[0];
+}
+
+function getToday(): string {
+  return new Date().toISOString().split('T')[0];
+}
+
+// Function to fetch RSI (Relative Strength Index) data
+async function fetchRSI(symbol: string): Promise<{ rsi: number | undefined; signal: 'overbought' | 'oversold' | 'neutral' }> {
+  try {
+    console.log(`=== FETCHING RSI DATA FOR ${symbol} ===`);
+    
+    const today = new Date().toISOString().split('T')[0];
+    const rsiUrl = `https://api.polygon.io/v1/indicators/rsi/${symbol}?timestamp=${today}&timespan=day&adjusted=true&window=14&series_type=close&order=desc&limit=1&apikey=${process.env.POLYGON_API_KEY}`;
+    
+    const response = await fetch(rsiUrl);
+    
+    if (!response.ok) {
+      console.log(`RSI API returned status ${response.status} for ${symbol}`);
+      return { rsi: undefined, signal: 'neutral' };
+    }
+    
+    const data: PolygonRSI = await response.json();
+    
+    if (data.results?.values && data.results.values.length > 0) {
+      const rsiValue = data.results.values[0].value;
+      
+      // Determine RSI signal
+      let signal: 'overbought' | 'oversold' | 'neutral' = 'neutral';
+      if (rsiValue >= 70) {
+        signal = 'overbought';
+      } else if (rsiValue <= 30) {
+        signal = 'oversold';
+      }
+      
+      console.log(`RSI for ${symbol}: ${rsiValue.toFixed(2)} (${signal})`);
+      
+      return { rsi: rsiValue, signal };
+    }
+    
+    console.log(`No RSI data available for ${symbol}`);
+    return { rsi: undefined, signal: 'neutral' };
+  } catch (error) {
+    console.error(`Error fetching RSI for ${symbol}:`, error);
+    return { rsi: undefined, signal: 'neutral' };
+  }
+}
+
+// Function to fetch SMA (Simple Moving Average) data
+async function fetchSMA(symbol: string, window: number): Promise<number | undefined> {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const smaUrl = `https://api.polygon.io/v1/indicators/sma/${symbol}?timestamp=${today}&timespan=day&adjusted=true&window=${window}&series_type=close&order=desc&limit=1&apikey=${process.env.POLYGON_API_KEY}`;
+    
+    const response = await fetch(smaUrl);
+    
+    if (!response.ok) {
+      console.log(`SMA-${window} API returned status ${response.status} for ${symbol}`);
+      return undefined;
+    }
+    
+    const data: PolygonSMA = await response.json();
+    
+    if (data.results?.values && data.results.values.length > 0) {
+      const smaValue = data.results.values[0].value;
+      console.log(`SMA-${window} for ${symbol}: ${smaValue.toFixed(2)}`);
+      return smaValue;
+    }
+    
+    console.log(`No SMA-${window} data available for ${symbol}`);
+    return undefined;
+  } catch (error) {
+    console.error(`Error fetching SMA-${window} for ${symbol}:`, error);
+    return undefined;
+  }
+}
+
+// Function to fetch EMA (Exponential Moving Average) data
+async function fetchEMA(symbol: string, window: number): Promise<number | undefined> {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const emaUrl = `https://api.polygon.io/v1/indicators/ema/${symbol}?timestamp=${today}&timespan=day&adjusted=true&window=${window}&series_type=close&order=desc&limit=1&apikey=${process.env.POLYGON_API_KEY}`;
+    
+    const response = await fetch(emaUrl);
+    
+    if (!response.ok) {
+      console.log(`EMA-${window} API returned status ${response.status} for ${symbol}`);
+      return undefined;
+    }
+    
+    const data: PolygonEMA = await response.json();
+    
+    if (data.results?.values && data.results.values.length > 0) {
+      const emaValue = data.results.values[0].value;
+      console.log(`EMA-${window} for ${symbol}: ${emaValue.toFixed(2)}`);
+      return emaValue;
+    }
+    
+    console.log(`No EMA-${window} data available for ${symbol}`);
+    return undefined;
+  } catch (error) {
+    console.error(`Error fetching EMA-${window} for ${symbol}:`, error);
+    return undefined;
+  }
+}
+
+// Main function to fetch all Polygon data for a ticker
+async function fetchPolygonData(symbol: string): Promise<PolygonData> {
+  try {
+    console.log(`=== FETCHING POLYGON DATA FOR ${symbol} ===`);
+    
+    const [snapshotRes, overviewRes, historicalRes, rsiData, sma50, sma200, ema50, ema200] = await Promise.all([
+      // Get real-time data
+      fetch(`https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers/${symbol}?apikey=${process.env.POLYGON_API_KEY}`),
+      
+      // Get company information
+      fetch(`https://api.polygon.io/v3/reference/tickers/${symbol}?apikey=${process.env.POLYGON_API_KEY}`),
+      
+      // Get 1-year historical data for 52-week range
+      fetch(`https://api.polygon.io/v2/aggs/ticker/${symbol}/range/1/day/${getOneYearAgo()}/${getToday()}?adjusted=true&apikey=${process.env.POLYGON_API_KEY}`),
+      
+      // Get technical indicators
+      fetchRSI(symbol),
+      fetchSMA(symbol, 50),
+      fetchSMA(symbol, 200),
+      fetchEMA(symbol, 50),
+      fetchEMA(symbol, 200)
+    ]);
+
+    const [snapshot, overview, historical] = await Promise.all([
+      snapshotRes.json(),
+      overviewRes.json(),
+      historicalRes.json()
+    ]);
+
+    console.log('Polygon API responses received:', {
+      snapshot: !!snapshot.ticker,
+      overview: !!overview.results,
+      historical: !!historical.results,
+      rsi: rsiData.rsi !== undefined,
+      sma50: sma50 !== undefined,
+      sma200: sma200 !== undefined,
+      ema50: ema50 !== undefined,
+      ema200: ema200 !== undefined
+    });
+
+    // Calculate 52-week high/low from historical data
+    let fiftyTwoWeekHigh = 0;
+    let fiftyTwoWeekLow = Infinity;
+    
+    if (historical.results && historical.results.length > 0) {
+      historical.results.forEach((bar: any) => {
+        fiftyTwoWeekHigh = Math.max(fiftyTwoWeekHigh, bar.h);
+        fiftyTwoWeekLow = Math.min(fiftyTwoWeekLow, bar.l);
+      });
+    }
+
+    // Extract data from snapshot
+    const tickerData = snapshot.ticker;
+    const currentPrice = tickerData?.lastTrade?.p || tickerData?.day?.c || 0;
+    const todaysChange = tickerData?.todaysChange || 0;
+    const todaysChangePerc = tickerData?.todaysChangePerc || 0;
+    const previousClose = tickerData?.prevDay?.c || 0;
+    const volume = tickerData?.day?.v || 0;
+    const open = tickerData?.day?.o || 0;
+    const high = tickerData?.day?.h || 0;
+    const low = tickerData?.day?.l || 0;
+    const close = tickerData?.day?.c || 0;
+
+    // Extract data from overview
+    const overviewData = overview.results;
+    const companyName = overviewData?.name || symbol;
+    const marketCap = overviewData?.market_cap || 0;
+    const industry = overviewData?.sic_description || 'N/A';
+    const description = overviewData?.description || '';
+    const primaryExchange = overviewData?.primary_exchange || 'N/A';
+    const currency = overviewData?.currency_name || 'USD';
+
+    const polygonData: PolygonData = {
+      // Snapshot data
+      currentPrice,
+      todaysChange,
+      todaysChangePerc,
+      previousClose,
+      volume,
+      open,
+      high,
+      low,
+      close,
+      
+      // Overview data
+      companyName,
+      marketCap,
+      industry,
+      description,
+      primaryExchange,
+      currency,
+      
+      // Calculated data
+      fiftyTwoWeekHigh,
+      fiftyTwoWeekLow: fiftyTwoWeekLow === Infinity ? 0 : fiftyTwoWeekLow,
+      
+      // Technical indicators
+      rsi: rsiData.rsi,
+      rsiSignal: rsiData.signal,
+      sma50,
+      sma200,
+      ema50,
+      ema200,
+      
+      // For compatibility with existing code
+      symbol,
+      name: companyName,
+      changePercent: todaysChangePerc,
+      lastTradePrice: currentPrice,
+      previousClosePrice: previousClose,
+      sector: industry // Using industry as sector for now
+    };
+
+    console.log('Polygon data processed:', {
+      symbol: polygonData.symbol,
+      companyName: polygonData.companyName,
+      currentPrice: polygonData.currentPrice,
+      changePercent: polygonData.changePercent,
+      fiftyTwoWeekHigh: polygonData.fiftyTwoWeekHigh,
+      fiftyTwoWeekLow: polygonData.fiftyTwoWeekLow
+    });
+
+    return polygonData;
+  } catch (error) {
+    console.error(`Error fetching Polygon data for ${symbol}:`, error);
+    throw error;
+  }
+}
+
+// Removed - no longer needed with Polygon API
+async function generateTechnicalAnalysis(quote: any, sectorComparison?: any[]): Promise<string> {
   try {
     let sectorComparisonText = '';
     if (sectorComparison && sectorComparison.length > 0) {
@@ -237,7 +598,7 @@ const sectorPeers: { [key: string]: string[] } = {
 // Universal sector peers for any stock not in predefined list
 const universalPeers = ['XLI', 'XLF', 'XLK', 'XLV', 'XLE', 'XLP', 'XLY']; // Sector ETFs: Industrial, Financial, Tech, Healthcare, Energy, Consumer Staples, Consumer Discretionary
 
-async function getSectorPeers(symbol: string): Promise<BenzingaQuote[]> {
+async function getSectorPeers(symbol: string): Promise<any[]> {
   try {
     let peers = sectorPeers[symbol.toUpperCase()];
     
@@ -261,7 +622,7 @@ async function getSectorPeers(symbol: string): Promise<BenzingaQuote[]> {
       return [];
     }
     
-    return Object.values(data) as BenzingaQuote[];
+    return Object.values(data) as any[];
   } catch (error) {
     console.error('Error fetching sector peers:', error);
     return [];
@@ -269,7 +630,7 @@ async function getSectorPeers(symbol: string): Promise<BenzingaQuote[]> {
 }
 
 // Function to fetch historical data using batchhistory endpoint for accurate period calculations
-async function fetchHistoricalData(symbol: string, quote?: BenzingaQuote): Promise<HistoricalData | null> {
+async function fetchHistoricalData(symbol: string, quote?: any): Promise<HistoricalData | null> {
   try {
     console.log(`=== FETCHING HISTORICAL DATA FOR ${symbol} USING BATCHHISTORY ===`);
     
@@ -331,7 +692,7 @@ async function fetchHistoricalData(symbol: string, quote?: BenzingaQuote): Promi
     }
     
     // Find the data for our specific symbol
-    const symbolData = data.find((item: BenzingaBarsResponse) => item.symbol === symbol);
+    const symbolData = data.find((item: any) => item.symbol === symbol);
     if (!symbolData || !symbolData.candles || !Array.isArray(symbolData.candles) || symbolData.candles.length === 0) {
       console.log(`No candle data found for ${symbol} in batch history`);
       return null;
@@ -409,7 +770,7 @@ async function fetchHistoricalData(symbol: string, quote?: BenzingaQuote): Promi
 }
 
 // Fallback function to calculate approximate historical returns using available quote data
-function calculateApproximateReturns(quote: BenzingaQuote): HistoricalData | null {
+function calculateApproximateReturns(quote: any): HistoricalData | null {
   try {
     if (!quote.lastTradePrice || !quote.fiftyTwoWeekLow || !quote.fiftyTwoWeekHigh) {
       return null;
@@ -445,13 +806,23 @@ function calculateApproximateReturns(quote: BenzingaQuote): HistoricalData | nul
   }
 }
 
-// Utility function to detect US market status (Eastern Time)
-function getMarketStatus(): 'open' | 'premarket' | 'afterhours' | 'closed' {
+// Utility function to detect US market status using Polygon API
+async function getMarketStatus(): Promise<'open' | 'premarket' | 'afterhours' | 'closed'> {
+  try {
+    const response = await fetch(`https://api.polygon.io/v1/marketstatus/now?apikey=${process.env.POLYGON_API_KEY}`);
+    const data = await response.json();
+    
+    if (data.market === 'open') return 'open';
+    if (data.market === 'extended-hours') return 'afterhours';
+    return 'closed';
+  } catch (error) {
+    console.log('Polygon market status API failed, falling back to time-based logic:', error);
+    
+    // Fallback to time-based logic
   const now = new Date();
   // Convert to UTC, then to New York time (Eastern Time)
   const nowUtc = now.getTime() + (now.getTimezoneOffset() * 60000);
   // New York is UTC-4 (EDT) or UTC-5 (EST); for simplicity, use UTC-4 (EDT)
-  // For more accuracy, use a timezone library like luxon or moment-timezone
   const nyOffset = -4; // hours
   const nyTime = new Date(nowUtc + (3600000 * nyOffset));
   const day = nyTime.getDay(); // 0 = Sunday, 6 = Saturday
@@ -464,6 +835,7 @@ function getMarketStatus(): 'open' | 'premarket' | 'afterhours' | 'closed' {
   if (time >= 930 && time < 1600) return 'open';
   if (time >= 1600 && time < 2000) return 'afterhours';
   return 'closed';
+  }
 }
 
 export async function POST(request: Request) {
@@ -496,7 +868,7 @@ export async function POST(request: Request) {
     }
 
     // Detect market status and prepare a phrase for the summary line
-    const marketStatus = getMarketStatus();
+    const marketStatus = await getMarketStatus();
     let marketStatusPhrase = '';
     if (marketStatus === 'premarket') {
       marketStatusPhrase = ' during premarket trading';
@@ -506,76 +878,60 @@ export async function POST(request: Request) {
       marketStatusPhrase = ' while the market was closed';
     } // if open, leave as empty string
 
-    const url = `https://api.benzinga.com/api/v2/quoteDelayed?token=${process.env.BENZINGA_API_KEY}&symbols=${cleanedTickers}`;
-
     console.log('=== PRICE ACTION DEBUG ===');
     console.log('Original tickers:', tickers);
     console.log('Cleaned tickers:', cleanedTickers);
-    console.log('API URL:', url);
+    console.log('Market status:', marketStatus);
 
-    const res = await fetch(url);
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`Benzinga API error: ${text}`);
-    }
-    const data = await res.json();
+    // Fetch data from Polygon API
+    const tickerList = cleanedTickers.split(',');
+    const polygonDataPromises = tickerList.map(ticker => fetchPolygonData(ticker.trim()));
+    const polygonDataArray = await Promise.all(polygonDataPromises);
 
-    // Log the raw Benzinga API response for debugging
-    console.log('Benzinga API raw response:', JSON.stringify(data, null, 2));
+    console.log('Polygon data fetched for tickers:', tickerList);
 
-    if (!data || typeof data !== 'object') {
-      return NextResponse.json({ priceActions: [], error: 'Invalid Benzinga response' });
-    }
+    const priceActions = await Promise.all(polygonDataArray.map(async (polygonData) => {
+      if (!polygonData) return null;
 
-    const quotes = Object.values(data) as unknown[];
+      // Log the parsed Polygon data for debugging
+      console.log('Parsed Polygon data:', JSON.stringify(polygonData, null, 2));
 
-    const priceActions = await Promise.all(quotes.map(async (quote) => {
-      if (typeof quote !== 'object' || quote === null) return null;
-
-      const q = quote as BenzingaQuote;
-
-      // Log the parsed BenzingaQuote for debugging
-      console.log('Parsed BenzingaQuote:', JSON.stringify(q, null, 2));
-
-      const symbol = q.symbol ?? 'UNKNOWN';
-      const companyName = q.name ?? symbol;
-      const changePercent = typeof q.changePercent === 'number' ? q.changePercent : 0;
-      const lastPrice = formatPrice(q.lastTradePrice);
+      const symbol = polygonData.symbol;
+      const companyName = polygonData.companyName;
+      const changePercent = polygonData.changePercent;
+      const lastPrice = formatPrice(polygonData.lastTradePrice);
 
       // Skip processing if we don't have valid data
-      if (symbol === 'UNKNOWN' || !q.lastTradePrice) {
-        console.log(`Skipping invalid quote for symbol: ${symbol}, lastTradePrice: ${q.lastTradePrice}`);
+      if (!symbol || !polygonData.lastTradePrice) {
+        console.log(`Skipping invalid data for symbol: ${symbol}, lastTradePrice: ${polygonData.lastTradePrice}`);
         return null; // Return null instead of empty string to filter out invalid quotes
       }
 
-      // Fetch historical data for monthly and YTD performance
-      let historicalData = await fetchHistoricalData(symbol, q);
-      
-      // If historical API fails, use fallback calculation
-      if (!historicalData) {
-        console.log(`Using fallback historical calculation for ${symbol}`);
-        historicalData = calculateApproximateReturns(q);
-      }
+      // For Polygon data, we already have the current price and change data
+      // We can calculate historical returns from the 52-week range if needed
+      let historicalData = null;
 
       // Calculate separate changes for regular session and after-hours
       let regularSessionChange = 0;
       let afterHoursChange = 0;
       let hasAfterHoursData = false;
 
-      if (q.previousClosePrice && q.close && q.ethPrice) {
+      if (polygonData.previousClosePrice && polygonData.close) {
         // Regular session change: (close - previousClose) / previousClose * 100
-        regularSessionChange = ((q.close - q.previousClosePrice) / q.previousClosePrice) * 100;
+        regularSessionChange = ((polygonData.close - polygonData.previousClosePrice) / polygonData.previousClosePrice) * 100;
         
-        // After-hours change: (ethPrice - close) / close * 100
-        afterHoursChange = ((q.ethPrice - q.close) / q.close) * 100;
+        // For after-hours, we can use the current price vs close
+        if (polygonData.currentPrice !== polygonData.close) {
+          afterHoursChange = ((polygonData.currentPrice - polygonData.close) / polygonData.close) * 100;
         hasAfterHoursData = true;
+        }
       }
 
       const upDown = changePercent > 0 ? 'up' : changePercent < 0 ? 'down' : 'unchanged';
       const absChange = Math.abs(changePercent).toFixed(2);
 
-      // Format day of week from closeDate if available, else today
-      const date = q.closeDate ? new Date(q.closeDate) : new Date();
+      // Format day of week from today's date
+      const date = new Date();
       const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
       const dayOfWeek = dayNames[date.getDay()];
 
@@ -598,19 +954,13 @@ export async function POST(request: Request) {
         priceActionText = `${symbol} Price Action: ${companyName} shares were ${upDown} ${absChange}% at $${lastPrice}${marketStatusPhrase} on ${dayOfWeek}`;
       }
 
-              // Add historical performance data if available (monthly only)
-        if (historicalData && historicalData.monthlyReturn !== undefined) {
-          const monthlyReturn = historicalData.monthlyReturn;
-          const monthlyDirection = monthlyReturn > 0 ? 'gain' : 'decline';
-          const historicalText = `, with a monthly ${monthlyDirection} of ${Math.abs(monthlyReturn).toFixed(2)}%`;
-          priceActionText += historicalText;
-        }
+              // Historical performance data is not available with current Polygon implementation
 
       // Add 52-week range context if available
-      if (q.fiftyTwoWeekLow && q.fiftyTwoWeekHigh && q.lastTradePrice) {
-        const currentPrice = q.lastTradePrice;
-        const yearLow = q.fiftyTwoWeekLow;
-        const yearHigh = q.fiftyTwoWeekHigh;
+      if (polygonData.fiftyTwoWeekLow && polygonData.fiftyTwoWeekHigh && polygonData.lastTradePrice) {
+        const currentPrice = polygonData.lastTradePrice;
+        const yearLow = polygonData.fiftyTwoWeekLow;
+        const yearHigh = polygonData.fiftyTwoWeekHigh;
         
         let rangeText = '';
         
@@ -648,195 +998,42 @@ export async function POST(request: Request) {
       }
 
       // Clean up any existing attribution and add the final one
-      priceActionText = priceActionText.replace(/,\s*according to Benzinga Pro\.?$/, '');
-      priceActionText = priceActionText.replace(/,\s*according to Benzinga Pro data\.?$/, '');
+      priceActionText = priceActionText.replace(/,\s*according to Polygon\.?$/, '');
+      priceActionText = priceActionText.replace(/,\s*according to Polygon data\.?$/, '');
       
       // Smart Analysis - automatically choose the best narrative
       if (smartAnalysis) {
         // Don't add attribution yet - we'll add it at the end of smart analysis
-        // Fetch additional data from Polygon for smart analysis
-        let polygonData = null;
-        try {
-          console.log(`=== FETCHING POLYGON DATA FOR SMART ANALYSIS: ${symbol} ===`);
-          // Use current day data instead of previous day
-          const today = new Date().toISOString().split('T')[0];
-          const polygonUrl = `https://api.polygon.io/v2/aggs/ticker/${symbol}/range/1/day/${today}/${today}?adjusted=true&apikey=${process.env.POLYGON_API_KEY}`;
-          console.log('Polygon URL:', polygonUrl.replace(process.env.POLYGON_API_KEY || '', 'HIDDEN_KEY'));
-          
-          const polygonRes = await fetch(polygonUrl);
-          console.log('Polygon response status:', polygonRes.status);
-          
-          if (polygonRes.ok) {
-            const polygonResponse = await polygonRes.json();
-            console.log('Polygon response received:', !!polygonResponse);
-            if (polygonResponse.results && polygonResponse.results.length > 0) {
-              polygonData = polygonResponse.results[0];
-              console.log('Polygon data extracted:', !!polygonData);
-            }
-          } else {
-            const errorText = await polygonRes.text();
-            console.log('Polygon API error:', errorText);
-          }
-        } catch (error) {
-          console.log('Polygon API call failed for smart analysis:', error);
-        }
-
-        // Use Polygon data as single source of truth
-        if (!polygonData) {
-          console.log('No Polygon data available, falling back to Benzinga');
-          return {
-            ticker: symbol,
-            companyName: companyName,
-            priceAction: priceActionText,
-            narrativeType: 'fallback',
-            smartAnalysis: true
-          };
-        }
-
-        // Extract Polygon data
-        const polygonVolume = polygonData.v; // Volume
-        const polygonHigh = polygonData.h;   // High
-        const polygonLow = polygonData.l;    // Low
-        const polygonOpen = polygonData.o;   // Open
-        const polygonClose = polygonData.c;  // Close
-        // const polygonVWAP = polygonData.vw;  // Volume-weighted average price (unused for now)
+        // Use the already fetched Polygon data for smart analysis
+        console.log(`=== USING POLYGON DATA FOR SMART ANALYSIS: ${symbol} ===`);
+        
+        // Extract Polygon data from our already fetched data
+        const polygonVolume = polygonData.volume; // Volume
+        const polygonHigh = polygonData.high;   // High
+        const polygonLow = polygonData.low;    // Low
+        const polygonOpen = polygonData.open;   // Open
+        const polygonClose = polygonData.close;  // Close
         
         console.log('Using Polygon data - Volume:', polygonVolume, 'High:', polygonHigh, 'Low:', polygonLow, 'Close:', polygonClose);
         
-        // Calculate returns using Polygon data (more accurate than Benzinga)
-        let ytdReturn = 0;
-        let sixMonthReturn = 0;
-        let threeMonthReturn = 0;
-        let oneMonthReturn = 0;
+        // For smart analysis, we'll use the 52-week range data we already calculated
+        // and focus on the current day's performance and range position
+        console.log('Using 52-week range for smart analysis:', {
+          high: polygonData.fiftyTwoWeekHigh,
+          low: polygonData.fiftyTwoWeekLow,
+          current: polygonClose
+        });
         
-        // Try to get more accurate historical data from Polygon
-        try {
-          const now = new Date();
-          // Fix date calculations - ensure we're going backwards in time
-          const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 6, now.getDate());
-          const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, now.getDate());
-          const oneMonthAgo = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
-          // YTD should be January 1st of current year, not 6 months ago
-          const ytdStart = new Date(now.getFullYear(), 0, 1);
-          
-          console.log('Date calculations:', {
-            now: now.toDateString(),
-            sixMonthsAgo: sixMonthsAgo.toDateString(),
-            threeMonthsAgo: threeMonthsAgo.toDateString(),
-            oneMonthAgo: oneMonthAgo.toDateString(),
-            ytdStart: ytdStart.toDateString()
-          });
-
-          const formatDate = (date: Date) => date.toISOString().split('T')[0];
-
-          // Fetch data from start of current year to now for YTD calculations
-          const yearStart = new Date(now.getFullYear(), 0, 1); // January 1st of current year
-          const historicalUrl = `https://api.polygon.io/v2/aggs/ticker/${symbol}/range/1/day/${formatDate(yearStart)}/${formatDate(now)}?adjusted=true&apikey=${process.env.POLYGON_API_KEY}`;
-          console.log('Fetching Polygon historical data for accurate returns (current year)...');
-
-          const historicalRes = await fetch(historicalUrl);
-          if (historicalRes.ok) {
-            const historicalResponse = await historicalRes.json();
-            if (historicalResponse.results && historicalResponse.results.length > 0) {
-              const currentPrice = polygonClose;
-              const historicalData = historicalResponse.results;
-
-              // Sort data by date (oldest first)
-              historicalData.sort((a: { t: number }, b: { t: number }) => a.t - b.t);
-
-              // Log the date range of available data
-              const firstDate = new Date(historicalData[0].t);
-              const lastDate = new Date(historicalData[historicalData.length - 1].t);
-              console.log(`Available historical data range: ${firstDate.toDateString()} to ${lastDate.toDateString()}`);
-              console.log(`Total data points: ${historicalData.length}`);
-
-              // Find data points by actual dates
-              const findDataByDate = (targetDate: Date) => {
-                const targetTimestamp = targetDate.getTime();
-                let closestData = null;
-                let minDiff = Infinity;
-
-                for (const data of historicalData) {
-                  const dataDate = new Date(data.t);
-                  const diff = Math.abs(dataDate.getTime() - targetTimestamp);
-                  if (diff < minDiff) {
-                    minDiff = diff;
-                    closestData = data;
-                  }
-                }
-                return closestData;
-              };
-
-              // Calculate 6-month return using actual 6-month-ago date
-              const sixMonthData = findDataByDate(sixMonthsAgo);
-              if (sixMonthData) {
-                sixMonthReturn = ((currentPrice - sixMonthData.c) / sixMonthData.c) * 100;
-                console.log(`Polygon 6-month calculation: ${sixMonthData.c} to ${currentPrice} = ${sixMonthReturn.toFixed(2)}% (from ${new Date(sixMonthData.t).toDateString()})`);
-              }
-
-              // Calculate 3-month return using actual 3-month-ago date
-              const threeMonthData = findDataByDate(threeMonthsAgo);
-              if (threeMonthData) {
-                threeMonthReturn = ((currentPrice - threeMonthData.c) / threeMonthData.c) * 100;
-                console.log(`Polygon 3-month calculation: ${threeMonthData.c} to ${currentPrice} = ${threeMonthReturn.toFixed(2)}% (from ${new Date(threeMonthData.t).toDateString()})`);
-              }
-
-              // Calculate 1-month return using actual 1-month-ago date
-              const oneMonthData = findDataByDate(oneMonthAgo);
-              if (oneMonthData) {
-                oneMonthReturn = ((currentPrice - oneMonthData.c) / oneMonthData.c) * 100;
-                console.log(`Polygon 1-month calculation: ${oneMonthData.c} to ${currentPrice} = ${oneMonthReturn.toFixed(2)}% (from ${new Date(oneMonthData.t).toDateString()})`);
-              }
-
-              // Calculate YTD return using actual YTD start date
-              // Find the first trading day of the year, not just the closest to Jan 1
-              console.log(`Searching for January ${now.getFullYear()} data...`);
-              const ytdData = historicalData.find((data: { t: number; c: number }) => {
-                const dataDate = new Date(data.t);
-                const isJanuary = dataDate.getFullYear() === now.getFullYear() && dataDate.getMonth() === 0;
-                if (isJanuary) {
-                  console.log(`Found January data: ${dataDate.toDateString()}`);
-                }
-                return isJanuary;
-              });
-              if (ytdData) {
-                ytdReturn = ((currentPrice - ytdData.c) / ytdData.c) * 100;
-                console.log(`Polygon YTD calculation: ${ytdData.c} to ${currentPrice} = ${ytdReturn.toFixed(2)}% (from ${new Date(ytdData.t).toDateString()})`);
-              } else {
-                console.log(`No January ${now.getFullYear()} data found, using fallback...`);
-                // Fallback to findDataByDate if no January data found
-                const fallbackYtdData = findDataByDate(ytdStart);
-                if (fallbackYtdData) {
-                  ytdReturn = ((currentPrice - fallbackYtdData.c) / fallbackYtdData.c) * 100;
-                  console.log(`Polygon YTD calculation (fallback): ${fallbackYtdData.c} to ${currentPrice} = ${ytdReturn.toFixed(2)}% (from ${new Date(fallbackYtdData.t).toDateString()})`);
-                }
-              }
-            }
-          }
-        } catch (error) {
-          console.log('Polygon historical calculation failed, using Benzinga data:', error);
-          // Fallback to Benzinga data
-          if (historicalData) {
-            ytdReturn = historicalData.ytdReturn || 0;
-            sixMonthReturn = historicalData.sixMonthReturn || 0;
-            threeMonthReturn = historicalData.threeMonthReturn || 0;
-            oneMonthReturn = historicalData.monthlyReturn || 0;
-          }
-        }
-        
-        // Calculate distance from 52-week high/low using Polygon close price
-        const distanceFromHigh = q.fiftyTwoWeekHigh && polygonClose ? 
-          ((polygonClose - q.fiftyTwoWeekHigh) / q.fiftyTwoWeekHigh) * 100 : 0;
-        // const distanceFromLow = q.fiftyTwoWeekLow && polygonClose ? 
-        //   ((polygonClose - q.fiftyTwoWeekLow) / q.fiftyTwoWeekLow) * 100 : 0;
+        // Calculate distance from 52-week high/low using Polygon data
+        const distanceFromHigh = polygonData.fiftyTwoWeekHigh && polygonClose ? 
+          ((polygonClose - polygonData.fiftyTwoWeekHigh) / polygonData.fiftyTwoWeekHigh) * 100 : 0;
         
         // Build smart narrative using Polygon data
         let narrativeType = 'range'; // default
         
-        // Use the correct price - if we're in premarket/afterhours, use the current price from Benzinga
-        // Otherwise use Polygon's close price
+        // Use the correct price based on market status
         const currentPrice = marketStatus === 'premarket' || marketStatus === 'afterhours' ? 
-          q.lastTradePrice : polygonClose;
+          polygonData.currentPrice : polygonClose;
         const currentChange = marketStatus === 'premarket' || marketStatus === 'afterhours' ? 
           changePercent : ((polygonClose - polygonOpen) / polygonOpen) * 100;
         const currentUpDown = currentChange > 0 ? 'up' : currentChange < 0 ? 'down' : 'unchanged';
@@ -856,110 +1053,104 @@ export async function POST(request: Request) {
         
         let smartPriceActionText = `${symbol} Price Action: ${companyName} shares were ${currentUpDown === 'up' ? 'up' : currentUpDown === 'down' ? 'down' : 'unchanged'} ${currentAbsChange}% at $${currentPrice.toFixed(2)}${timePhrase} on ${dayOfWeek}`;
 
-        // Build rich historical context first
-        let historicalContext = '';
+        // Add technical indicator context
+        let technicalContext = '';
         
-        // Create comprehensive historical perspective
-        if (Math.abs(ytdReturn) > 10 || Math.abs(sixMonthReturn) > 20) {
-          if (ytdReturn > 0 && sixMonthReturn > 0) {
-            historicalContext = ` It's been quite a ride for investors, with the stock surging ${ytdReturn.toFixed(1)}% this year and ${sixMonthReturn.toFixed(1)}% over the past six months`;
-          } else if (ytdReturn < 0 && sixMonthReturn < 0) {
-            historicalContext = ` It's been a rough stretch for shareholders, with the stock falling ${Math.abs(ytdReturn).toFixed(1)}% this year and ${Math.abs(sixMonthReturn).toFixed(1)}% over the past six months`;
-          } else if (ytdReturn > 0 && sixMonthReturn < 0) {
-            historicalContext = ` The stock has managed to gain ${ytdReturn.toFixed(1)}% this year despite a ${Math.abs(sixMonthReturn).toFixed(1)}% slide over the past six months`;
-          } else if (ytdReturn < 0 && sixMonthReturn > 0) {
-            historicalContext = ` The stock has slipped ${Math.abs(ytdReturn).toFixed(1)}% this year despite a ${sixMonthReturn.toFixed(1)}% rally over the past six months`;
+        // Build SMA/EMA context
+        let maContext = '';
+        if (polygonData.sma50 && polygonData.sma200) {
+          const distanceFrom50 = ((currentPrice - polygonData.sma50) / polygonData.sma50) * 100;
+          const distanceFrom200 = ((currentPrice - polygonData.sma200) / polygonData.sma200) * 100;
+          
+          // Check for golden cross or death cross
+          if (polygonData.sma50 > polygonData.sma200 && Math.abs(polygonData.sma50 - polygonData.sma200) / polygonData.sma200 < 0.02) {
+            maContext = ` as the 50-day moving average crosses above the 200-day`;
+          } else if (polygonData.sma50 < polygonData.sma200 && Math.abs(polygonData.sma50 - polygonData.sma200) / polygonData.sma200 < 0.02) {
+            maContext = ` while the 50-day moving average tests the 200-day from below`;
+          } else if (distanceFrom50 > 5) {
+            maContext = ` trading ${Math.abs(distanceFrom50).toFixed(1)}% above its 50-day moving average`;
+          } else if (distanceFrom50 < -5) {
+            maContext = ` trading ${Math.abs(distanceFrom50).toFixed(1)}% below its 50-day moving average`;
+          } else if (distanceFrom200 > 10) {
+            maContext = ` well above its 200-day moving average`;
+          } else if (distanceFrom200 < -10) {
+            maContext = ` below its 200-day moving average`;
           }
-        } else if (Math.abs(threeMonthReturn) > 5) {
-          if (threeMonthReturn > 0) {
-            historicalContext = ` The stock has been trending higher, gaining ${threeMonthReturn.toFixed(1)}% over the past three months`;
-          } else {
-            historicalContext = ` The stock has been trending lower, falling ${Math.abs(threeMonthReturn).toFixed(1)}% over the past three months`;
+        }
+        
+        // Build RSI context
+        let rsiContext = '';
+        if (polygonData.rsi !== undefined) {
+          const rsiValue = polygonData.rsi.toFixed(1);
+          if (polygonData.rsiSignal === 'overbought') {
+            rsiContext = ` with an RSI of ${rsiValue} suggesting overbought conditions`;
+          } else if (polygonData.rsiSignal === 'oversold') {
+            rsiContext = ` with an RSI of ${rsiValue} suggesting oversold conditions`;
+          } else if (polygonData.rsi > 60) {
+            rsiContext = ` with an RSI of ${rsiValue} indicating strong momentum`;
+          } else if (polygonData.rsi < 40) {
+            rsiContext = ` with an RSI of ${rsiValue} showing weak momentum`;
           }
+        }
+        
+        // Combine technical contexts (prioritize MA context, add RSI if both exist)
+        if (maContext && rsiContext) {
+          technicalContext = `${maContext}${rsiContext}`;
+        } else if (maContext) {
+          technicalContext = maContext;
+        } else if (rsiContext) {
+          technicalContext = rsiContext;
         }
 
         // Determine narrative type using Polygon data
         const dailyChange = ((polygonClose - polygonOpen) / polygonOpen) * 100;
         const intradayRange = ((polygonHigh - polygonLow) / polygonLow) * 100;
         // Volume analysis removed per user request
-        
-        if (Math.abs(oneMonthReturn) > 5 || Math.abs(threeMonthReturn) > 15 || Math.abs(distanceFromHigh) < 5) {
-          // Strong momentum or near 52-week high
-          narrativeType = 'momentum';
-          if (oneMonthReturn > 0) {
-            if (currentChange > 0) {
-              smartPriceActionText += `, continuing a solid ${Math.abs(oneMonthReturn).toFixed(1)}% run over the past month.`;
-            } else {
-              smartPriceActionText += `, taking a breather after a solid ${Math.abs(oneMonthReturn).toFixed(1)}% run over the past month.`;
-            }
-          } else if (oneMonthReturn < 0) {
-            if (currentChange < 0) {
-              smartPriceActionText += `, continuing a ${Math.abs(oneMonthReturn).toFixed(1)}% slide over the past month.`;
-            } else {
-              smartPriceActionText += `, showing some resilience after a ${Math.abs(oneMonthReturn).toFixed(1)}% slide over the past month.`;
-            }
-          }
-
-          // Add historical context
-          if (historicalContext) {
-            smartPriceActionText += historicalContext;
-          }
 
           if (Math.abs(distanceFromHigh) < 5) {
-            smartPriceActionText += ` and sitting just ${Math.abs(distanceFromHigh).toFixed(1)}% below its 52-week high of $${formatPrice(q.fiftyTwoWeekHigh)}`;
-          }
-
-          // Volume analysis removed per user request
+          // Near 52-week high
+          narrativeType = 'momentum';
+          smartPriceActionText += ` and sitting just ${Math.abs(distanceFromHigh).toFixed(1)}% below its 52-week high of $${formatPrice(polygonData.fiftyTwoWeekHigh)}`;
+          if (technicalContext) smartPriceActionText += `${technicalContext}`;
         } else if (Math.abs(dailyChange) > 4 || intradayRange > 6) {
           // High volatility move
           narrativeType = 'volatility';
           const moveSignificance = Math.abs(dailyChange) / 2.5; // vs average daily range
           smartPriceActionText += `, delivering one of the stock's ${moveSignificance > 1.5 ? 'bigger' : 'more notable'} single-day moves`;
 
-          // Add historical context
-          if (historicalContext) {
-            smartPriceActionText += historicalContext;
-          }
-
-          // Volume analysis removed per user request
-
           if (intradayRange > 3) {
             smartPriceActionText += ` after a wild ${intradayRange.toFixed(1)}% intraday swing`;
           }
 
-          if (q.fiftyTwoWeekLow && q.fiftyTwoWeekHigh && polygonClose) {
-            const rangePosition = ((polygonClose - q.fiftyTwoWeekLow) / (q.fiftyTwoWeekHigh - q.fiftyTwoWeekLow)) * 100;
+          if (polygonData.fiftyTwoWeekLow && polygonData.fiftyTwoWeekHigh && polygonClose) {
+            const rangePosition = ((polygonClose - polygonData.fiftyTwoWeekLow) / (polygonData.fiftyTwoWeekHigh - polygonData.fiftyTwoWeekLow)) * 100;
             if (rangePosition > 80) {
               smartPriceActionText += ` as it pushes toward its 52-week high`;
             } else if (rangePosition < 20) {
               smartPriceActionText += ` as it tests support near its 52-week low`;
             }
           }
+          if (technicalContext) smartPriceActionText += `${technicalContext}`;
         } else {
           // Range-bound trading
           narrativeType = 'range';
 
-          // Add historical context first
-          if (historicalContext) {
-            smartPriceActionText += historicalContext;
-          }
-
-          if (q.fiftyTwoWeekLow && q.fiftyTwoWeekHigh && polygonClose) {
-            const rangePosition = ((polygonClose - q.fiftyTwoWeekLow) / (q.fiftyTwoWeekHigh - q.fiftyTwoWeekLow)) * 100;
+          if (polygonData.fiftyTwoWeekLow && polygonData.fiftyTwoWeekHigh && polygonClose) {
+            const rangePosition = ((polygonClose - polygonData.fiftyTwoWeekLow) / (polygonData.fiftyTwoWeekHigh - polygonData.fiftyTwoWeekLow)) * 100;
             if (rangePosition > 75) {
-              smartPriceActionText += `, trading in the upper end of its 52-week range between $${formatPrice(q.fiftyTwoWeekLow)} and $${formatPrice(q.fiftyTwoWeekHigh)}`;
+              smartPriceActionText += `, trading in the upper end of its 52-week range between $${formatPrice(polygonData.fiftyTwoWeekLow)} and $${formatPrice(polygonData.fiftyTwoWeekHigh)}`;
             } else if (rangePosition < 25) {
-              smartPriceActionText += `, trading in the lower end of its 52-week range between $${formatPrice(q.fiftyTwoWeekLow)} and $${formatPrice(q.fiftyTwoWeekHigh)}`;
+              smartPriceActionText += `, trading in the lower end of its 52-week range between $${formatPrice(polygonData.fiftyTwoWeekLow)} and $${formatPrice(polygonData.fiftyTwoWeekHigh)}`;
             } else {
-              smartPriceActionText += `, trading within its 52-week range of $${formatPrice(q.fiftyTwoWeekLow)} to $${formatPrice(q.fiftyTwoWeekHigh)}`;
+              smartPriceActionText += `, trading within its 52-week range of $${formatPrice(polygonData.fiftyTwoWeekLow)} to $${formatPrice(polygonData.fiftyTwoWeekHigh)}`;
             }
           }
-
-          // Volume analysis removed per user request
 
           if (intradayRange > 3) {
             smartPriceActionText += ` after a ${intradayRange.toFixed(1)}% intraday range`;
           }
+          
+          if (technicalContext) smartPriceActionText += `${technicalContext}`;
         }
 
         // Use OpenAI to enhance and vary the language
@@ -975,14 +1166,14 @@ Original text: "${smartPriceActionText}"
 Requirements:
 - Keep the header format exactly: "${symbol} Price Action: " at the beginning
 - Keep all factual data (percentages, prices, timeframes) exactly the same
+- IMPORTANT: If the text includes "at the time of publication on [Day]", you MUST keep this phrase intact
 - Use casual, conversational tone - avoid formal/AI words like "notable", "remarkable", "impressive", "significant"
 - Use simple, direct language that sounds like a real person talking
-- Avoid time phrases that sound like the day is over: "by Thursday", "as of Thursday", "on Thursday"
-- Avoid awkward phrases like "this Thursday"
-- Instead use natural phrases like: "Thursday morning", "Thursday afternoon", "Thursday's session", "Thursday's trading", or just "Thursday"
+- Avoid time phrases that sound like the day is over: "by Thursday", "as of Thursday"
+- Instead use natural phrases like: "Thursday morning", "Thursday afternoon", "Thursday's session", "Thursday's trading"
 - Avoid repetitive phrases like "solid run", "quite a ride", etc.
 - Sound like you're explaining to a friend, not writing a formal report
-- End with attribution: "according to Benzinga Pro data."
+- Do NOT include any attribution like "according to Polygon data" at the end
 
 Return only the enhanced text, no explanations.`;
 
@@ -1009,8 +1200,8 @@ Return only the enhanced text, no explanations.`;
           }
         } catch (error) {
           console.log(`OpenAI enhancement failed for ${symbol}, using original text:`, error);
-          // Fallback to original text with attribution
-          smartPriceActionText += ', according to Benzinga Pro data.';
+          // Fallback to original text without attribution (Smart Price Action doesn't need it)
+          // smartPriceActionText remains as is
         }
 
         return {
@@ -1032,34 +1223,14 @@ Return only the enhanced text, no explanations.`;
 
         console.log(`=== VS ANALYSIS: ${primarySymbol} vs ${comparisonSymbols.join(', ')} ===`);
         
-        // Fetch data for all tickers
+        // Fetch data for all tickers using Polygon API
         const allTickers = [primarySymbol, ...comparisonSymbols];
-        const tickerData: Array<{
-          symbol: string;
-          benzinga: BenzingaQuote;
-          polygon: { t: number; o: number; h: number; l: number; c: number; v: number } | null;
-        }> = [];
+        const tickerData: Array<PolygonData> = [];
         
         for (const ticker of allTickers) {
           try {
-            // Get Benzinga data
-            const benzingaUrl = `https://api.benzinga.com/api/v2/quoteDelayed?token=${process.env.BENZINGA_API_KEY}&symbols=${ticker}`;
-            const benzingaRes = await fetch(benzingaUrl);
-            const benzingaData = await benzingaRes.json();
-            
-            // Get Polygon data
-            const today = new Date().toISOString().split('T')[0];
-            const polygonUrl = `https://api.polygon.io/v2/aggs/ticker/${ticker}/range/1/day/${today}/${today}?adjusted=true&apikey=${process.env.POLYGON_API_KEY}`;
-            const polygonRes = await fetch(polygonUrl);
-            const polygonData = polygonRes.ok ? await polygonRes.json() : null;
-            
-            if (benzingaData[ticker]) {
-              tickerData.push({
-                symbol: ticker,
-                benzinga: benzingaData[ticker],
-                polygon: polygonData?.results?.[0] || null
-              });
-            }
+            const data = await fetchPolygonData(ticker);
+            tickerData.push(data);
           } catch (error) {
             console.log(`Error fetching data for ${ticker}:`, error);
           }
@@ -1085,6 +1256,17 @@ Return only the enhanced text, no explanations.`;
             priceAction: `Unable to fetch data for primary ticker ${primarySymbol}.`,
             vsAnalysis: true
           };
+        }
+        
+        // Build RSI comparison context
+        let rsiComparisonText = '';
+        if (primaryData.rsi !== undefined) {
+          rsiComparisonText = `\n\nRSI Analysis:\n${primarySymbol}: ${primaryData.rsi.toFixed(1)} (${primaryData.rsiSignal})`;
+          comparisonData.forEach(data => {
+            if (data.rsi !== undefined) {
+              rsiComparisonText += `\n${data.symbol}: ${data.rsi.toFixed(1)} (${data.rsiSignal})`;
+            }
+          });
         }
         
         // Fetch comprehensive historical data for broader perspective
@@ -1164,10 +1346,12 @@ Return only the enhanced text, no explanations.`;
 
         const comparisonPrompt = `You are a financial analyst writing a comprehensive comparative price action analysis. Compare the primary ticker against the comparison tickers with both daily and broader historical perspective.
 
-PRIMARY TICKER: ${primarySymbol} (${primaryData.benzinga.name})
-- Current Price: $${primaryData.benzinga.lastTradePrice}
-- Daily Change: ${primaryData.benzinga.changePercent}%
-- 52-week range: $${primaryData.benzinga.fiftyTwoWeekLow} - $${primaryData.benzinga.fiftyTwoWeekHigh}
+PRIMARY TICKER: ${primarySymbol} (${primaryData.companyName})
+- Current Price: $${primaryData.lastTradePrice.toFixed(2)}
+- Daily Change: ${primaryData.changePercent.toFixed(2)}%
+- 52-week range: $${primaryData.fiftyTwoWeekLow.toFixed(2)} - $${primaryData.fiftyTwoWeekHigh.toFixed(2)}
+${primaryData.sma50 && primaryData.sma200 ? `- 50-day SMA: $${primaryData.sma50.toFixed(2)}, 200-day SMA: $${primaryData.sma200.toFixed(2)}` : ''}
+${primaryData.rsi !== undefined ? `- RSI: ${primaryData.rsi.toFixed(1)} (${primaryData.rsiSignal})` : ''}
 ${primaryHistorical ? `- YTD performance: ${primaryHistorical.ytdReturn.toFixed(1)}%
 - 6-month performance: ${primaryHistorical.sixMonthReturn.toFixed(1)}%
 - 1-year performance: ${primaryHistorical.oneYearReturn.toFixed(1)}%` : ''}
@@ -1175,7 +1359,9 @@ ${primaryHistorical ? `- YTD performance: ${primaryHistorical.ytdReturn.toFixed(
 COMPARISON TICKERS:
 ${comparisonData.map(t => {
   const hist = comparisonHistorical.find(h => h.symbol === t.symbol);
-  return `${t.symbol} (${t.benzinga.name}): $${t.benzinga.lastTradePrice}${hist ? `, YTD: ${hist.ytdReturn.toFixed(1)}%, 6-month: ${hist.sixMonthReturn.toFixed(1)}%, 1-year: ${hist.oneYearReturn.toFixed(1)}%` : ''}`;
+  const smaText = t.sma50 && t.sma200 ? `, 50-SMA: $${t.sma50.toFixed(2)}, 200-SMA: $${t.sma200.toFixed(2)}` : '';
+  const rsiText = t.rsi !== undefined ? `, RSI: ${t.rsi.toFixed(1)} (${t.rsiSignal})` : '';
+  return `${t.symbol} (${t.companyName}): $${t.lastTradePrice.toFixed(2)}${hist ? `, YTD: ${hist.ytdReturn.toFixed(1)}%, 6-month: ${hist.sixMonthReturn.toFixed(1)}%, 1-year: ${hist.oneYearReturn.toFixed(1)}%` : ''}${smaText}${rsiText}`;
 }).join('\n')}
 
 Write a comprehensive comparative analysis in EXACTLY this format:
@@ -1186,12 +1372,12 @@ FORMAT TEMPLATE:
 Now, let's zoom out and see how [Primary Ticker]'s stacking up against [Comparison Tickers] over the longer haul. [Second paragraph with comprehensive historical analysis, no attribution at end]
 
 REQUIREMENTS:
-- First paragraph: Focus ONLY on primary ticker's daily performance (current price, daily change, 52-week range context)
+- First paragraph: Focus ONLY on primary ticker's daily performance (current price, daily change, 52-week range context, mention MA/RSI if notable)
 - Format ALL prices with exactly 2 decimal places (e.g., $257.24, not $257.235)
-- End first paragraph with: ", according to Benzinga Pro data."
+- End first paragraph with: ", according to Polygon data."
 - Second paragraph: Start with "Now, let's zoom out and see how [primary ticker]'s stacking up against [comparison tickers] over the longer haul."
-- Second paragraph: Compare YTD, 6-month, and 1-year performance trends
-- Second paragraph: Be analytical and strategic, focus on relative positioning
+- Second paragraph: Compare YTD, 6-month, and 1-year performance trends, mention technical indicators (MA positions, RSI levels) if they add insight
+- Second paragraph: Be analytical and strategic, focus on relative positioning and trend strength
 - Use casual, conversational tone (avoid words like "notable", "remarkable", "impressive")
 - Keep total under 300 words
 - Sound like you're explaining to a friend
@@ -1215,22 +1401,22 @@ Start with: "${primarySymbol} vs ${comparisonSymbols.join(', ')}: "`;
         });
 
         let vsAnalysisText = completion.choices[0]?.message?.content?.trim() || 
-          `${primarySymbol} is trading at $${primaryData.benzinga.lastTradePrice} (${primaryData.benzinga.changePercent}%) compared to ${comparisonSymbols.join(', ')}.`;
+          `${primarySymbol} is trading at $${primaryData.lastTradePrice.toFixed(2)} (${primaryData.changePercent.toFixed(2)}%) compared to ${comparisonSymbols.join(', ')}.`;
         
         // The AI should now generate the correct format with proper paragraph breaks
         // Just ensure we don't have duplicate attributions
-        vsAnalysisText = vsAnalysisText.replace(/, according to Benzinga Pro data\.?/g, '');
+        vsAnalysisText = vsAnalysisText.replace(/, according to Polygon data\.?/g, '');
         
         // If the AI didn't follow the format, add attribution after first paragraph
         if (vsAnalysisText.includes('Now, let\'s zoom out')) {
           const parts = vsAnalysisText.split('Now, let\'s zoom out');
-          if (parts.length === 2 && !parts[0].includes('according to Benzinga Pro data')) {
-            const firstParagraph = parts[0].trim() + ', according to Benzinga Pro data.';
+          if (parts.length === 2 && !parts[0].includes('according to Polygon data')) {
+            const firstParagraph = parts[0].trim() + ', according to Polygon data.';
             const secondParagraph = 'Now, let\'s zoom out' + parts[1].trim();
             vsAnalysisText = firstParagraph + '\n\n' + secondParagraph;
           }
         } else {
-          vsAnalysisText += ', according to Benzinga Pro data.';
+          vsAnalysisText += ', according to Polygon data.';
         }
 
         // Split the text into two parts for proper paragraph rendering
@@ -1263,7 +1449,7 @@ Start with: "${primarySymbol} vs ${comparisonSymbols.join(', ')}: "`;
         return result;
       } else {
         // Add attribution for non-smart analysis
-      priceActionText += ', according to Benzinga Pro data.';
+      priceActionText += ', according to Polygon data.';
       }
 
       // Move briefAnalysis check before priceActionOnly
@@ -1272,30 +1458,13 @@ Start with: "${primarySymbol} vs ${comparisonSymbols.join(', ')}: "`;
         let briefAnalysisText = '';
         try {
           let briefPrompt = '';
-          // Add historical performance data to the prompt if available
+          // Historical performance data is not available with current Polygon implementation
           let historicalDataText = '';
-          if (historicalData) {
-            if (historicalData.monthlyReturn !== undefined) {
-              historicalDataText += `\nMonthly Return: ${historicalData.monthlyReturn.toFixed(2)}%`;
-            }
-            if (historicalData.ytdReturn !== undefined) {
-              historicalDataText += `\nYTD Return: ${historicalData.ytdReturn.toFixed(2)}%`;
-            }
-            if (historicalData.threeMonthReturn !== undefined) {
-              historicalDataText += `\n3-Month Return: ${historicalData.threeMonthReturn.toFixed(2)}%`;
-            }
-            if (historicalData.sixMonthReturn !== undefined) {
-              historicalDataText += `\n6-Month Return: ${historicalData.sixMonthReturn.toFixed(2)}%`;
-            }
-            if (historicalData.oneYearReturn !== undefined) {
-              historicalDataText += `\n1-Year Return: ${historicalData.oneYearReturn.toFixed(2)}%`;
-            }
-          }
 
           if (marketStatus === 'afterhours' || marketStatus === 'premarket') {
-            briefPrompt = `You are a financial news analyst. Write a single, concise, insightful analysis (2-3 sentences, no more than 60% the length of a typical news paragraph) about the following stock's global and historical context. Do NOT mention premarket, after-hours, or current price action or volume. Do not mention current session trading activity. Only mention a data point if it is notably high, low, or unusual. Do not mention data points that are within normal or average ranges. Be specific: if referencing the 52-week range, state if the price is near the high or low, or if there is a notable long-term trend, not just 'within the range'. If nothing is notable, say so briefly. Focus only on global or historical data points (52-week range, sector, industry, market cap, P/E ratio, regular session close, previous close, dividend yield, long-term trends). Avoid generic statements and do NOT repeat the price action line. Do not include the ticker in the analysis line.\n\nCompany: ${companyName}\nSector: ${q.sector || 'N/A'}\nIndustry: ${q.industry || 'N/A'}\nMarket Cap: $${q.marketCap ? (q.marketCap >= 1e12 ? (q.marketCap / 1e12).toFixed(2) + 'T' : (q.marketCap / 1e9).toFixed(2) + 'B') : 'N/A'}\nP/E Ratio: ${typeof q.pe === 'number' && q.pe > 0 ? q.pe : 'N/A'}\nDividend Yield: ${q.dividendYield || 'N/A'}\nRegular Close: $${formatPrice(q.close)}\nPrevious Close: $${formatPrice(q.previousClosePrice)}\n52-week Range: $${formatPrice(q.fiftyTwoWeekLow)} - $${formatPrice(q.fiftyTwoWeekHigh)}${historicalDataText}`;
+            briefPrompt = `You are a financial news analyst. Write a single, concise, insightful analysis (2-3 sentences, no more than 60% the length of a typical news paragraph) about the following stock's global and historical context. Do NOT mention premarket, after-hours, or current price action or volume. Do not mention current session trading activity. Only mention a data point if it is notably high, low, or unusual. Do not mention data points that are within normal or average ranges. Be specific: if referencing the 52-week range, state if the price is near the high or low, or if there is a notable long-term trend, not just 'within the range'. If nothing is notable, say so briefly. Focus only on global or historical data points (52-week range, sector, industry, market cap, P/E ratio, regular session close, previous close, dividend yield, long-term trends). Avoid generic statements and do NOT repeat the price action line. Do not include the ticker in the analysis line.\n\nCompany: ${companyName}\nSector: ${polygonData.industry || 'N/A'}\nIndustry: ${polygonData.industry || 'N/A'}\nMarket Cap: $${polygonData.marketCap ? (polygonData.marketCap >= 1e12 ? (polygonData.marketCap / 1e12).toFixed(2) + 'T' : (polygonData.marketCap / 1e9).toFixed(2) + 'B') : 'N/A'}\nP/E Ratio: N/A\nDividend Yield: N/A\nRegular Close: $${formatPrice(polygonData.close)}\nPrevious Close: $${formatPrice(polygonData.previousClose)}\n52-week Range: $${formatPrice(polygonData.fiftyTwoWeekLow)} - $${formatPrice(polygonData.fiftyTwoWeekHigh)}`;
           } else {
-            briefPrompt = `You are a financial news analyst. Write a single, concise, insightful analysis (2-3 sentences, no more than 60% the length of a typical news paragraph) about the following stock's global and historical context. Do NOT mention current price action or volume. Only mention a data point if it is notably high, low, or unusual. Do not mention data points that are within normal or average ranges. Be specific: if referencing the 52-week range, state if the price is near the high or low, or if there is a notable long-term trend, not just 'within the range'. If nothing is notable, say so briefly. Focus only on global or historical data points (52-week range, sector, industry, market cap, P/E ratio, regular session close, previous close, dividend yield, long-term trends). Avoid generic statements and do NOT repeat the price action line. Do not include the ticker in the analysis line.\n\nCompany: ${companyName}\nSector: ${q.sector || 'N/A'}\nIndustry: ${q.industry || 'N/A'}\nMarket Cap: $${q.marketCap ? (q.marketCap >= 1e12 ? (q.marketCap / 1e12).toFixed(2) + 'T' : (q.marketCap / 1e9).toFixed(2) + 'B') : 'N/A'}\nP/E Ratio: ${typeof q.pe === 'number' && q.pe > 0 ? q.pe : 'N/A'}\nDividend Yield: ${q.dividendYield || 'N/A'}\nRegular Close: $${formatPrice(q.close)}\nPrevious Close: $${formatPrice(q.previousClosePrice)}\n52-week Range: $${formatPrice(q.fiftyTwoWeekLow)} - $${formatPrice(q.fiftyTwoWeekHigh)}${historicalDataText}`;
+            briefPrompt = `You are a financial news analyst. Write a single, concise, insightful analysis (2-3 sentences, no more than 60% the length of a typical news paragraph) about the following stock's global and historical context. Do NOT mention current price action or volume. Only mention a data point if it is notably high, low, or unusual. Do not mention data points that are within normal or average ranges. Be specific: if referencing the 52-week range, state if the price is near the high or low, or if there is a notable long-term trend, not just 'within the range'. If nothing is notable, say so briefly. Focus only on global or historical data points (52-week range, sector, industry, market cap, P/E ratio, regular session close, previous close, dividend yield, long-term trends). Avoid generic statements and do NOT repeat the price action line. Do not include the ticker in the analysis line.\n\nCompany: ${companyName}\nSector: ${polygonData.industry || 'N/A'}\nIndustry: ${polygonData.industry || 'N/A'}\nMarket Cap: $${polygonData.marketCap ? (polygonData.marketCap >= 1e12 ? (polygonData.marketCap / 1e12).toFixed(2) + 'T' : (polygonData.marketCap / 1e9).toFixed(2) + 'B') : 'N/A'}\nP/E Ratio: N/A\nDividend Yield: N/A\nRegular Close: $${formatPrice(polygonData.close)}\nPrevious Close: $${formatPrice(polygonData.previousClose)}\n52-week Range: $${formatPrice(polygonData.fiftyTwoWeekLow)} - $${formatPrice(polygonData.fiftyTwoWeekHigh)}`;
           }
           const completion = await openai.chat.completions.create({
             model: 'gpt-4o-mini',
@@ -1326,13 +1495,13 @@ Start with: "${primarySymbol} vs ${comparisonSymbols.join(', ')}: "`;
 
       // Generate technical analysis using OpenAI
       let technicalAnalysis = '';
-      // Use q.close if available, otherwise q.lastTradePrice
-      const closeValue = q.close ?? q.lastTradePrice;
+      // Use polygonData.close if available, otherwise polygonData.lastTradePrice
+      const closeValue = polygonData.close ?? polygonData.lastTradePrice;
       // Check if at least one technical field is present
-      const hasAnyTechnicalField = q.fiftyDayAveragePrice || q.hundredDayAveragePrice || q.twoHundredDayAveragePrice || q.open || q.high || q.low || closeValue;
+      const hasAnyTechnicalField = polygonData.open || polygonData.high || polygonData.low || closeValue;
       if (hasAnyTechnicalField) {
-        // Patch the quote object to always have a close value
-        const patchedQuote = { ...q, close: closeValue };
+        // Patch the polygonData object to always have a close value
+        const patchedQuote = { ...polygonData, close: closeValue };
         // Get sector peers for comparison
         const sectorPeers = await getSectorPeers(symbol);
         technicalAnalysis = await generateTechnicalAnalysis(patchedQuote, sectorPeers);
@@ -1343,10 +1512,10 @@ Start with: "${primarySymbol} vs ${comparisonSymbols.join(', ')}: "`;
       // Add historical context using available Benzinga data
       let historicalContext = '';
       
-      if (q.fiftyTwoWeekLow && q.fiftyTwoWeekHigh && q.lastTradePrice) {
-        const currentPrice = q.lastTradePrice;
-        const low = q.fiftyTwoWeekLow;
-        const high = q.fiftyTwoWeekHigh;
+      if (polygonData.fiftyTwoWeekLow && polygonData.fiftyTwoWeekHigh && polygonData.lastTradePrice) {
+        const currentPrice = polygonData.lastTradePrice;
+        const low = polygonData.fiftyTwoWeekLow;
+        const high = polygonData.fiftyTwoWeekHigh;
         
         // Determine position within 52-week range
         const rangePosition = ((currentPrice - low) / (high - low)) * 100;
@@ -1415,17 +1584,17 @@ Start with: "${primarySymbol} vs ${comparisonSymbols.join(', ')}: "`;
         // For multiple tickers, create a grouped response
         // Extract just the company and price action parts (remove the ticker prefix, attribution, and time/date)
         const priceActionParts = validPriceActions.map(action => {
-          // Remove the ticker prefix, "according to Benzinga Pro" part, and time/date info
+          // Remove the ticker prefix, "according to Polygon" part, and time/date info
           let cleanAction = action.priceAction
             .replace(/^[A-Z]{1,5}\s+Price Action:\s*/, '') // Remove ticker prefix
-            .replace(/,\s*according to Benzinga Pro data\.?$/, '') // Remove attribution
-            .replace(/,\s*according to Benzinga Pro\.?$/, '') // Remove attribution (alternative format)
+            .replace(/,\s*according to Polygon data\.?$/, '') // Remove attribution
+            .replace(/,\s*according to Polygon\.?$/, '') // Remove attribution (alternative format)
             .replace(/\s+at the time of publication on [A-Za-z]+\.?$/, '') // Remove time/date info
             .replace(/\.$/, ''); // Remove trailing period
           
           // Additional cleanup to remove any remaining time/date patterns
-          cleanAction = cleanAction.replace(/\s+at the time of publication on [A-Za-z]+,\s*according to Benzinga Pro data\.?$/, '');
-          cleanAction = cleanAction.replace(/\s+at the time of publication on [A-Za-z]+,\s*according to Benzinga Pro\.?$/, '');
+          cleanAction = cleanAction.replace(/\s+at the time of publication on [A-Za-z]+,\s*according to Polygon data\.?$/, '');
+          cleanAction = cleanAction.replace(/\s+at the time of publication on [A-Za-z]+,\s*according to Polygon\.?$/, '');
           
           return cleanAction;
         });
@@ -1443,7 +1612,7 @@ Start with: "${primarySymbol} vs ${comparisonSymbols.join(', ')}: "`;
           groupedText += priceActionParts.join(', ') + ' and ' + lastPart;
         }
         
-        groupedText += ' at the time of publication on Monday, according to Benzinga Pro data.';
+        groupedText += ' at the time of publication on Monday, according to Polygon data.';
         
         return NextResponse.json({ 
           priceActions: [{
@@ -1465,7 +1634,7 @@ Start with: "${primarySymbol} vs ${comparisonSymbols.join(', ')}: "`;
 }
 
 // Fallback function using the original bars endpoint approach
-async function fetchHistoricalDataFallback(symbol: string, quote?: BenzingaQuote): Promise<HistoricalData | null> {
+async function fetchHistoricalDataFallback(symbol: string, quote?: any): Promise<HistoricalData | null> {
   try {
     console.log(`=== FETCHING HISTORICAL DATA FALLBACK FOR ${symbol} ===`);
     
@@ -1493,7 +1662,7 @@ async function fetchHistoricalDataFallback(symbol: string, quote?: BenzingaQuote
       }
 
       // Find the data for our specific symbol
-      const symbolData = data.find((item: BenzingaBarsResponse) => item.symbol === symbol);
+      const symbolData = data.find((item: any) => item.symbol === symbol);
       if (!symbolData || !symbolData.candles || !Array.isArray(symbolData.candles) || symbolData.candles.length === 0) {
         console.log(`No candle data found for ${symbol} in ${description}`);
         return null;
@@ -1502,7 +1671,7 @@ async function fetchHistoricalDataFallback(symbol: string, quote?: BenzingaQuote
       const candles = symbolData.candles;
       
       // Sort candles by date (oldest first)
-      const sortedCandles = candles.sort((a: BenzingaCandle, b: BenzingaCandle) => 
+      const sortedCandles = candles.sort((a: any, b: any) => 
         new Date(a.dateTime).getTime() - new Date(b.dateTime).getTime()
       );
 
@@ -1567,7 +1736,7 @@ async function fetchHistoricalDataFallback(symbol: string, quote?: BenzingaQuote
           console.log('Previous month data received:', !!prevMonthData);
           
           if (prevMonthData && Array.isArray(prevMonthData) && prevMonthData.length > 0) {
-            const prevMonthSymbolData = prevMonthData.find((item: BenzingaBarsResponse) => item.symbol === symbol);
+            const prevMonthSymbolData = prevMonthData.find((item: any) => item.symbol === symbol);
             console.log('Previous month symbol data found:', !!prevMonthSymbolData);
             
             if (prevMonthSymbolData && prevMonthSymbolData.candles && prevMonthSymbolData.candles.length > 0) {
