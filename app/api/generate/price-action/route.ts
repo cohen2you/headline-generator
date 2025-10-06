@@ -8,7 +8,7 @@ import OpenAI from 'openai';
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 // Polygon API interfaces
-interface PolygonSnapshot {
+type PolygonSnapshot = {
   status: string;
   request_id: string;
   ticker?: {
@@ -42,7 +42,7 @@ interface PolygonSnapshot {
   };
 }
 
-interface PolygonTickerOverview {
+type PolygonTickerOverview = {
   count: number;
   request_id: string;
   results?: {
@@ -54,7 +54,7 @@ interface PolygonTickerOverview {
     primary_exchange?: string;
     currency_name: string;
     ticker: string;
-  type?: string;
+    type?: string;
     homepage_url?: string;
     phone_number?: string;
     address?: {
@@ -70,7 +70,7 @@ interface PolygonTickerOverview {
   };
 }
 
-interface PolygonHistoricalData {
+type PolygonHistoricalData = {
   status: string;
   request_id: string;
   results?: Array<{
@@ -369,7 +369,7 @@ async function fetchPolygonData(symbol: string): Promise<PolygonData> {
     let fiftyTwoWeekLow = Infinity;
     
     if (historical.results && historical.results.length > 0) {
-      historical.results.forEach((bar: any) => {
+      historical.results.forEach((bar: { h: number; l: number }) => {
         fiftyTwoWeekHigh = Math.max(fiftyTwoWeekHigh, bar.h);
         fiftyTwoWeekLow = Math.min(fiftyTwoWeekLow, bar.l);
       });
@@ -454,15 +454,17 @@ async function fetchPolygonData(symbol: string): Promise<PolygonData> {
 }
 
 // Removed - no longer needed with Polygon API
-async function generateTechnicalAnalysis(quote: any, sectorComparison?: any[]): Promise<string> {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+async function generateTechnicalAnalysis(quote: PolygonData, sectorComparison?: PolygonData[]): Promise<string> {
   try {
     let sectorComparisonText = '';
     if (sectorComparison && sectorComparison.length > 0) {
       // Patch sector peers to clarify P/E status
       const patchedSectorComparison = sectorComparison.map(stock => {
+        const stockAny = stock as PolygonData & { pe?: number };
         let patchedPE: string | number;
-        if (typeof stock.pe === 'number' && stock.pe > 0) {
-          patchedPE = stock.pe;
+        if (typeof stockAny.pe === 'number' && stockAny.pe > 0) {
+          patchedPE = stockAny.pe;
         } else {
           patchedPE = 'N/A (unprofitable)';
         }
@@ -493,11 +495,10 @@ Current Price: $${formatPrice(quote.lastTradePrice)}
 Daily Change: ${quote.changePercent}%
 
 Technical Indicators:
-- 50-day Moving Average: $${formatPrice(quote.fiftyDayAveragePrice)}
-- 100-day Moving Average: $${formatPrice(quote.hundredDayAveragePrice)}
-- 200-day Moving Average: $${formatPrice(quote.twoHundredDayAveragePrice)}
+- 50-day Moving Average: $${formatPrice(quote.sma50)}
+- 200-day Moving Average: $${formatPrice(quote.sma200)}
 - 52-week Range: $${formatPrice(quote.fiftyTwoWeekLow)} - $${formatPrice(quote.fiftyTwoWeekHigh)}
-- Volume: ${quote.volume?.toLocaleString()} (Avg: ${quote.averageVolume?.toLocaleString()})
+- Volume: ${quote.volume?.toLocaleString()}
 
 Intraday Data:
 - Open: $${formatPrice(quote.open)}
@@ -506,9 +507,7 @@ Intraday Data:
 - Close: $${formatPrice(quote.close)}
 
 Valuation Metrics:
-- Market Cap: $${quote.marketCap ? (quote.marketCap >= 1000000000000 ? (quote.marketCap / 1000000000000).toFixed(2) + 'T' : (quote.marketCap / 1000000000).toFixed(2) + 'B') : 'N/A'}
-- P/E Ratio: ${typeof quote.pe === 'number' && quote.pe > 0 ? quote.pe : 'N/A (unprofitable)'}
-- Forward P/E: ${quote.forwardPE || 'N/A'}${sectorComparisonText}
+- Market Cap: $${quote.marketCap ? (quote.marketCap >= 1000000000000 ? (quote.marketCap / 1000000000000).toFixed(2) + 'T' : (quote.marketCap / 1000000000).toFixed(2) + 'B') : 'N/A'}${sectorComparisonText}
 
 Note: If a company's P/E is listed as N/A (unprofitable), it means the company has negative earnings and should not be compared on this metric. Do not invent or estimate P/E values for such companies.
 
@@ -598,7 +597,7 @@ const sectorPeers: { [key: string]: string[] } = {
 // Universal sector peers for any stock not in predefined list
 const universalPeers = ['XLI', 'XLF', 'XLK', 'XLV', 'XLE', 'XLP', 'XLY']; // Sector ETFs: Industrial, Financial, Tech, Healthcare, Energy, Consumer Staples, Consumer Discretionary
 
-async function getSectorPeers(symbol: string): Promise<any[]> {
+async function getSectorPeers(symbol: string): Promise<PolygonData[]> {
   try {
     let peers = sectorPeers[symbol.toUpperCase()];
     
@@ -622,7 +621,7 @@ async function getSectorPeers(symbol: string): Promise<any[]> {
       return [];
     }
     
-    return Object.values(data) as any[];
+    return Object.values(data) as PolygonData[];
   } catch (error) {
     console.error('Error fetching sector peers:', error);
     return [];
@@ -630,7 +629,8 @@ async function getSectorPeers(symbol: string): Promise<any[]> {
 }
 
 // Function to fetch historical data using batchhistory endpoint for accurate period calculations
-async function fetchHistoricalData(symbol: string, quote?: any): Promise<HistoricalData | null> {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+async function fetchHistoricalData(symbol: string, quote?: PolygonData): Promise<HistoricalData | null> {
   try {
     console.log(`=== FETCHING HISTORICAL DATA FOR ${symbol} USING BATCHHISTORY ===`);
     
@@ -692,7 +692,7 @@ async function fetchHistoricalData(symbol: string, quote?: any): Promise<Histori
     }
     
     // Find the data for our specific symbol
-    const symbolData = data.find((item: any) => item.symbol === symbol);
+    const symbolData = data.find((item: { symbol: string; candles?: unknown[] }) => item.symbol === symbol);
     if (!symbolData || !symbolData.candles || !Array.isArray(symbolData.candles) || symbolData.candles.length === 0) {
       console.log(`No candle data found for ${symbol} in batch history`);
       return null;
@@ -770,7 +770,8 @@ async function fetchHistoricalData(symbol: string, quote?: any): Promise<Histori
 }
 
 // Fallback function to calculate approximate historical returns using available quote data
-function calculateApproximateReturns(quote: any): HistoricalData | null {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function calculateApproximateReturns(quote: PolygonData): HistoricalData | null {
   try {
     if (!quote.lastTradePrice || !quote.fiftyTwoWeekLow || !quote.fiftyTwoWeekHigh) {
       return null;
@@ -908,8 +909,7 @@ export async function POST(request: Request) {
       }
 
       // For Polygon data, we already have the current price and change data
-      // We can calculate historical returns from the 52-week range if needed
-      let historicalData = null;
+      // Historical data is not used in current implementation
 
       // Calculate separate changes for regular session and after-hours
       let regularSessionChange = 0;
@@ -1258,16 +1258,7 @@ Return only the enhanced text, no explanations.`;
           };
         }
         
-        // Build RSI comparison context
-        let rsiComparisonText = '';
-        if (primaryData.rsi !== undefined) {
-          rsiComparisonText = `\n\nRSI Analysis:\n${primarySymbol}: ${primaryData.rsi.toFixed(1)} (${primaryData.rsiSignal})`;
-          comparisonData.forEach(data => {
-            if (data.rsi !== undefined) {
-              rsiComparisonText += `\n${data.symbol}: ${data.rsi.toFixed(1)} (${data.rsiSignal})`;
-            }
-          });
-        }
+        // RSI comparison is included in the comparison prompt directly
         
         // Fetch comprehensive historical data for broader perspective
         const historicalData: Array<{
@@ -1459,7 +1450,6 @@ Start with: "${primarySymbol} vs ${comparisonSymbols.join(', ')}: "`;
         try {
           let briefPrompt = '';
           // Historical performance data is not available with current Polygon implementation
-          let historicalDataText = '';
 
           if (marketStatus === 'afterhours' || marketStatus === 'premarket') {
             briefPrompt = `You are a financial news analyst. Write a single, concise, insightful analysis (2-3 sentences, no more than 60% the length of a typical news paragraph) about the following stock's global and historical context. Do NOT mention premarket, after-hours, or current price action or volume. Do not mention current session trading activity. Only mention a data point if it is notably high, low, or unusual. Do not mention data points that are within normal or average ranges. Be specific: if referencing the 52-week range, state if the price is near the high or low, or if there is a notable long-term trend, not just 'within the range'. If nothing is notable, say so briefly. Focus only on global or historical data points (52-week range, sector, industry, market cap, P/E ratio, regular session close, previous close, dividend yield, long-term trends). Avoid generic statements and do NOT repeat the price action line. Do not include the ticker in the analysis line.\n\nCompany: ${companyName}\nSector: ${polygonData.industry || 'N/A'}\nIndustry: ${polygonData.industry || 'N/A'}\nMarket Cap: $${polygonData.marketCap ? (polygonData.marketCap >= 1e12 ? (polygonData.marketCap / 1e12).toFixed(2) + 'T' : (polygonData.marketCap / 1e9).toFixed(2) + 'B') : 'N/A'}\nP/E Ratio: N/A\nDividend Yield: N/A\nRegular Close: $${formatPrice(polygonData.close)}\nPrevious Close: $${formatPrice(polygonData.previousClose)}\n52-week Range: $${formatPrice(polygonData.fiftyTwoWeekLow)} - $${formatPrice(polygonData.fiftyTwoWeekHigh)}`;
@@ -1634,7 +1624,8 @@ Start with: "${primarySymbol} vs ${comparisonSymbols.join(', ')}: "`;
 }
 
 // Fallback function using the original bars endpoint approach
-async function fetchHistoricalDataFallback(symbol: string, quote?: any): Promise<HistoricalData | null> {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+async function fetchHistoricalDataFallback(symbol: string, quote?: PolygonData): Promise<HistoricalData | null> {
   try {
     console.log(`=== FETCHING HISTORICAL DATA FALLBACK FOR ${symbol} ===`);
     
@@ -1662,7 +1653,7 @@ async function fetchHistoricalDataFallback(symbol: string, quote?: any): Promise
       }
 
       // Find the data for our specific symbol
-      const symbolData = data.find((item: any) => item.symbol === symbol);
+      const symbolData = data.find((item: { symbol: string; candles?: unknown[] }) => item.symbol === symbol);
       if (!symbolData || !symbolData.candles || !Array.isArray(symbolData.candles) || symbolData.candles.length === 0) {
         console.log(`No candle data found for ${symbol} in ${description}`);
         return null;
@@ -1671,7 +1662,7 @@ async function fetchHistoricalDataFallback(symbol: string, quote?: any): Promise
       const candles = symbolData.candles;
       
       // Sort candles by date (oldest first)
-      const sortedCandles = candles.sort((a: any, b: any) => 
+      const sortedCandles = candles.sort((a: { dateTime: string }, b: { dateTime: string }) => 
         new Date(a.dateTime).getTime() - new Date(b.dateTime).getTime()
       );
 
@@ -1736,7 +1727,7 @@ async function fetchHistoricalDataFallback(symbol: string, quote?: any): Promise
           console.log('Previous month data received:', !!prevMonthData);
           
           if (prevMonthData && Array.isArray(prevMonthData) && prevMonthData.length > 0) {
-            const prevMonthSymbolData = prevMonthData.find((item: any) => item.symbol === symbol);
+            const prevMonthSymbolData = prevMonthData.find((item: { symbol: string; candles?: unknown[] }) => item.symbol === symbol);
             console.log('Previous month symbol data found:', !!prevMonthSymbolData);
             
             if (prevMonthSymbolData && prevMonthSymbolData.candles && prevMonthSymbolData.candles.length > 0) {
@@ -1752,7 +1743,7 @@ async function fetchHistoricalDataFallback(symbol: string, quote?: any): Promise
                 trueMonthlyReturn = calculateReturn(prevMonthClose, currentClose);
                 console.log(`True monthly calculation (month-to-month): (${currentClose} - ${prevMonthClose}) / ${prevMonthClose} * 100 = ${trueMonthlyReturn}%`);
                 console.log(`Previous month end: ${prevMonthCandle.dateTime} ($${prevMonthClose})`);
-                console.log(`Current month end: ${quote.closeDate} ($${currentClose})`);
+                console.log(`Current month end: ${getToday()} ($${currentClose})`);
               } else {
                 console.log('Missing price data for true monthly calculation');
               }
