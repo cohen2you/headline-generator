@@ -631,6 +631,7 @@ async function getSectorPeers(symbol: string): Promise<PolygonData[]> {
 }
 
 // Function to fetch historical data using batchhistory endpoint for accurate period calculations
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function fetchHistoricalData(symbol: string, quote?: PolygonData): Promise<HistoricalData | null> {
   try {
     console.log(`=== FETCHING HISTORICAL DATA FOR ${symbol} USING BATCHHISTORY ===`);
@@ -771,6 +772,7 @@ async function fetchHistoricalData(symbol: string, quote?: PolygonData): Promise
 }
 
 // Fallback function to calculate approximate historical returns using available quote data
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function calculateApproximateReturns(quote: PolygonData): HistoricalData | null {
   try {
     if (!quote.lastTradePrice || !quote.fiftyTwoWeekLow || !quote.fiftyTwoWeekHigh) {
