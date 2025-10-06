@@ -403,11 +403,6 @@ const PriceActionGenerator = forwardRef<PriceActionGeneratorRef>((props, ref) =>
               // Smart Analysis mode
               return (
                 <li key={i} className="flex flex-col items-start border-b border-green-200 pb-2 mb-2">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
-                      🧠 {action.narrativeType?.toUpperCase() || 'SMART'} ANALYSIS
-                    </span>
-                  </div>
                   {renderPriceActionWithBoldLabel(action.priceAction, i)}
                   <button
                     onClick={() => copyPriceActionHTML(i)}
@@ -420,16 +415,20 @@ const PriceActionGenerator = forwardRef<PriceActionGeneratorRef>((props, ref) =>
             } else if (action && typeof action === 'object' && 'vsAnalysis' in action) {
               // Vs. Analysis mode - render like brief analysis with two paragraphs
               console.log('VS Analysis action data:', action);
+              
+              // Remove ** markdown formatting
+              const cleanPriceAction = action.priceAction.replace(/\*\*/g, '');
+              const cleanBriefAnalysis = action.briefAnalysis?.replace(/\*\*/g, '') || '';
+              
               return (
                 <li key={i} className="flex flex-col items-start border-b border-blue-200 pb-2 mb-2">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
-                      ⚔️ VS ANALYSIS
-                    </span>
-                  </div>
-                  {renderPriceActionWithBoldLabel(action.priceAction, i)}
-                  {action.briefAnalysis && (
-                    <span className="block text-gray-900 dark:text-gray-100 mt-2 mb-2">{action.briefAnalysis}</span>
+                  {renderPriceActionWithBoldLabel(cleanPriceAction, i)}
+                  {cleanBriefAnalysis && (
+                    <div className="text-gray-900 dark:text-gray-100 mt-2 mb-2">
+                      {cleanBriefAnalysis.split('\n').filter((p: string) => p.trim()).map((paragraph: string, pIndex: number) => (
+                        <p key={pIndex} className="mb-2">{paragraph.trim()}</p>
+                      ))}
+                    </div>
                   )}
                   <button
                     onClick={() => copyPriceActionHTML(i)}
