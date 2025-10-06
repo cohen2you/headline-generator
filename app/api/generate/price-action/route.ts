@@ -56,7 +56,7 @@ type PolygonTickerOverview = {
     primary_exchange?: string;
     currency_name: string;
     ticker: string;
-    type?: string;
+  type?: string;
     homepage_url?: string;
     phone_number?: string;
     address?: {
@@ -1337,11 +1337,31 @@ Return only the enhanced text, no explanations.`;
         const primaryHistorical = historicalData.find(h => h.symbol === primarySymbol);
         const comparisonHistorical = historicalData.filter(h => h.symbol !== primarySymbol);
 
-        const comparisonPrompt = `You are a financial analyst writing a comprehensive comparative price action analysis. Compare the primary ticker against the comparison tickers with both daily and broader historical perspective.
+        // No forced transition phrases - let AI choose natural flow
+        
+        // Get day of week for timing context
+        const date = new Date();
+        const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        const dayOfWeek = dayNames[date.getDay()];
+        
+        // Create timing phrase based on market status
+        let timingPhrase = '';
+        if (marketStatus === 'premarket') {
+          timingPhrase = 'in premarket trading on ' + dayOfWeek;
+        } else if (marketStatus === 'afterhours') {
+          timingPhrase = 'in after-hours trading on ' + dayOfWeek;
+        } else if (marketStatus === 'open') {
+          timingPhrase = 'at the time of publication on ' + dayOfWeek;
+        } else {
+          timingPhrase = 'on ' + dayOfWeek;
+        }
+
+        const comparisonPrompt = `You are a financial analyst writing a comprehensive comparative price action analysis. Today is ${dayOfWeek}, ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}. Compare the primary ticker against the comparison tickers with both daily and broader historical perspective.
 
 PRIMARY TICKER: ${primarySymbol} (${primaryData.companyName})
 - Current Price: $${primaryData.lastTradePrice.toFixed(2)}
 - Daily Change: ${primaryData.changePercent.toFixed(2)}%
+- Market Status: ${timingPhrase}
 - 52-week range: $${primaryData.fiftyTwoWeekLow.toFixed(2)} - $${primaryData.fiftyTwoWeekHigh.toFixed(2)}
 ${primaryData.sma50 && primaryData.sma200 ? `- 50-day SMA: $${primaryData.sma50.toFixed(2)}, 200-day SMA: $${primaryData.sma200.toFixed(2)}` : ''}
 ${primaryData.rsi !== undefined ? `- RSI: ${primaryData.rsi.toFixed(1)} (${primaryData.rsiSignal})` : ''}
@@ -1357,25 +1377,33 @@ ${comparisonData.map(t => {
   return `${t.symbol} (${t.companyName}): $${t.lastTradePrice.toFixed(2)}${hist ? `, YTD: ${hist.ytdReturn.toFixed(1)}%, 6-month: ${hist.sixMonthReturn.toFixed(1)}%, 1-year: ${hist.oneYearReturn.toFixed(1)}%` : ''}${smaText}${rsiText}`;
 }).join('\n')}
 
-Write a comprehensive comparative analysis in EXACTLY this format:
-
-FORMAT TEMPLATE:
-[Primary Ticker] vs [Comparison Tickers]: [First paragraph about daily price action of primary ticker only, 2-3 sentences, end with period and attribution]
-
-Now, let's zoom out and see how [Primary Ticker]'s stacking up against [Comparison Tickers] over the longer haul. [Second paragraph with comprehensive historical analysis, no attribution at end]
+Write a comprehensive comparative analysis in a natural, flowing style with multiple paragraphs.
 
 REQUIREMENTS:
+- Start with: "${primarySymbol} Vs. ${comparisonSymbols.join(', ')}: " followed IMMEDIATELY by the first sentence (no line break)
+- First paragraph: MUST include the day and timing (e.g., "${timingPhrase}") when mentioning the price
 - First paragraph: Focus ONLY on primary ticker's daily performance (current price, daily change, 52-week range context, mention MA/RSI if notable)
+- Do NOT use the full company name with ticker format like "Apple Inc. (AAPL)" - just use either the company name OR ticker symbol
+- Alternate between company name and ticker throughout the text for variety (e.g., "Apple" in one sentence, "AAPL" in another)
 - Format ALL prices with exactly 2 decimal places (e.g., $257.24, not $257.235)
-- End first paragraph with: ", according to Polygon data."
-- Second paragraph: Start with "Now, let's zoom out and see how [primary ticker]'s stacking up against [comparison tickers] over the longer haul."
-- Second paragraph: Compare YTD, 6-month, and 1-year performance trends, mention technical indicators (MA positions, RSI levels) if they add insight
-- Second paragraph: Be analytical and strategic, focus on relative positioning and trend strength
+- For moving averages: Only mention the RELATIONSHIP to price (above/below), NEVER include the actual MA price values
+  GOOD: "trading above its 50-day and 200-day moving averages"
+  BAD: "with a 50-day SMA of $233.57 and a 200-day SMA of $222.21"
+- CRITICAL: Break the analysis into 3-4 separate paragraphs with line breaks (\n) between each paragraph
+- Second paragraph: Compare YTD performance - be concise and direct, just state the numbers
+- Third paragraph: Compare 6-month and 1-year performance - keep it brief, no need to repeat observations
+- Fourth paragraph (optional): Compare technical indicators (MA relationships, RSI levels) ONLY if they reveal meaningful insights
+- Each paragraph should be 2-3 sentences max - BE CONCISE
 - Use casual, conversational tone (avoid words like "notable", "remarkable", "impressive")
-- Keep total under 300 words
-- Sound like you're explaining to a friend
-
-Start with: "${primarySymbol} vs ${comparisonSymbols.join(', ')}: "`;
+- Avoid clichéd transition phrases like "over the longer haul", "zooming out", "taking a step back", "looking at the bigger picture"
+- Do NOT reference specific years (like "in 2023" or "in 2024") - just say "this year" for YTD
+- Do NOT speculate about reasons for performance (no "maybe it's AI initiatives" or similar speculation)
+- Do NOT use filler phrases like "which isn't too shabby", "seems like", "it appears"
+- Just state the facts directly and let them speak for themselves
+- Avoid repetitive comparisons - if you've said one is ahead, don't keep repeating it
+- Keep total under 300 words - be tight and focused
+- Sound like you're explaining to a friend, but be direct and efficient
+- Do NOT include any "according to Polygon data" attribution anywhere`;
 
         const completion = await openai.chat.completions.create({
           model: "gpt-4o",
@@ -1389,45 +1417,35 @@ Start with: "${primarySymbol} vs ${comparisonSymbols.join(', ')}: "`;
               content: comparisonPrompt
             }
           ],
-          max_tokens: 350,
+          max_tokens: 500,
           temperature: 0.7,
         });
 
         let vsAnalysisText = completion.choices[0]?.message?.content?.trim() || 
           `${primarySymbol} is trading at $${primaryData.lastTradePrice.toFixed(2)} (${primaryData.changePercent.toFixed(2)}%) compared to ${comparisonSymbols.join(', ')}.`;
         
-        // The AI should now generate the correct format with proper paragraph breaks
-        // Just ensure we don't have duplicate attributions
+        // Clean up any attribution that might have been added
         vsAnalysisText = vsAnalysisText.replace(/, according to Polygon data\.?/g, '');
         
-        // If the AI didn't follow the format, add attribution after first paragraph
-        if (vsAnalysisText.includes('Now, let\'s zoom out')) {
-          const parts = vsAnalysisText.split('Now, let\'s zoom out');
-          if (parts.length === 2 && !parts[0].includes('according to Polygon data')) {
-            const firstParagraph = parts[0].trim() + ', according to Polygon data.';
-            const secondParagraph = 'Now, let\'s zoom out' + parts[1].trim();
-            vsAnalysisText = firstParagraph + '\n\n' + secondParagraph;
-          }
-        } else {
-          vsAnalysisText += ', according to Polygon data.';
-        }
-
-        // Split the text into two parts for proper paragraph rendering
+        // Split the text for proper paragraph rendering
+        // The AI should generate text with line breaks between paragraphs
+        // Split on double newlines to separate first paragraph from the rest
         let priceActionText = '';
         let briefAnalysisText = '';
         
-        if (vsAnalysisText.includes('Now, let\'s zoom out')) {
-          const parts = vsAnalysisText.split('Now, let\'s zoom out');
-          if (parts.length === 2) {
-            priceActionText = parts[0].trim();
-            briefAnalysisText = 'Now, let\'s zoom out' + parts[1].trim();
-            console.log('VS Analysis split:', { priceActionText, briefAnalysisText });
-          } else {
-            priceActionText = vsAnalysisText;
-          }
+        // Look for paragraph breaks (double newlines or single newlines work)
+        const paragraphs = vsAnalysisText.split('\n').filter(p => p.trim());
+        
+        if (paragraphs.length > 1) {
+          // First paragraph goes to priceAction
+          priceActionText = paragraphs[0].trim();
+          // Rest goes to briefAnalysis
+          briefAnalysisText = paragraphs.slice(1).join('\n\n').trim();
+          console.log('VS Analysis split into', paragraphs.length, 'paragraphs');
         } else {
+          // If no paragraph breaks, use the whole text as price action
           priceActionText = vsAnalysisText;
-          console.log('VS Analysis no split found, using full text:', vsAnalysisText);
+          console.log('VS Analysis no paragraph breaks found, using full text');
         }
 
         const result = {
