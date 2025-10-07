@@ -1214,53 +1214,50 @@ export async function POST(request: Request) {
         
         let smartPriceActionText = `${symbol} Price Action: ${shortCompanyName} shares were ${currentUpDown === 'up' ? 'up' : currentUpDown === 'down' ? 'down' : 'unchanged'} ${currentAbsChange}% at $${currentPrice.toFixed(2)}${timePhrase} on ${dayOfWeek}`;
 
-        // Add technical indicator context
+        // Build technical context - choose EITHER MA or RSI, not both
         let technicalContext = '';
         
-        // Build SMA/EMA context - show actual API values
-        let maContext = '';
+        // First check for significant MA signals
         if (polygonData.sma50 && polygonData.sma200) {
           const distanceFrom50 = ((currentPrice - polygonData.sma50) / polygonData.sma50) * 100;
           const distanceFrom200 = ((currentPrice - polygonData.sma200) / polygonData.sma200) * 100;
           
-          // Check for golden cross or death cross
+          // Check for golden cross or death cross (priority)
           if (polygonData.sma50 > polygonData.sma200 && Math.abs(polygonData.sma50 - polygonData.sma200) / polygonData.sma200 < 0.02) {
-            maContext = ` as the 50-day moving average crosses above the 200-day`;
+            technicalContext = ` as the 50-day moving average crosses above the 200-day`;
           } else if (polygonData.sma50 < polygonData.sma200 && Math.abs(polygonData.sma50 - polygonData.sma200) / polygonData.sma200 < 0.02) {
-            maContext = ` while the 50-day moving average tests the 200-day from below`;
-          } else if (distanceFrom50 > 5) {
-            maContext = `. The 50-day moving average is at $${formatPrice(polygonData.sma50)}`;
-          } else if (distanceFrom50 < -5) {
-            maContext = `. The 50-day moving average is at $${formatPrice(polygonData.sma50)}`;
-          } else if (distanceFrom200 > 10) {
-            maContext = `. The 200-day moving average is at $${formatPrice(polygonData.sma200)}`;
-          } else if (distanceFrom200 < -10) {
-            maContext = `. The 200-day moving average is at $${formatPrice(polygonData.sma200)}`;
+            technicalContext = ` while the 50-day moving average tests the 200-day from below`;
+          } 
+          // Otherwise show percentage distance from MA
+          else if (Math.abs(distanceFrom50) > 3) {
+            // Use 50-day if distance is significant
+            if (distanceFrom50 > 0) {
+              technicalContext = `. The stock is trading ${distanceFrom50.toFixed(1)}% above its 50-day moving average`;
+            } else {
+              technicalContext = `. The stock is trading ${Math.abs(distanceFrom50).toFixed(1)}% below its 50-day moving average`;
+            }
+          } else if (Math.abs(distanceFrom200) > 5) {
+            // Use 200-day if distance is significant
+            if (distanceFrom200 > 0) {
+              technicalContext = `. The stock is trading ${distanceFrom200.toFixed(1)}% above its 200-day moving average`;
+            } else {
+              technicalContext = `. The stock is trading ${Math.abs(distanceFrom200).toFixed(1)}% below its 200-day moving average`;
+            }
           }
         }
         
-        // Build RSI context
-        let rsiContext = '';
-        if (polygonData.rsi !== undefined) {
+        // If no MA context, use RSI
+        if (!technicalContext && polygonData.rsi !== undefined) {
           const rsiValue = polygonData.rsi.toFixed(1);
           if (polygonData.rsiSignal === 'overbought') {
-            rsiContext = ` with an RSI of ${rsiValue} suggesting overbought conditions`;
+            technicalContext = ` with an RSI of ${rsiValue} suggesting overbought conditions`;
           } else if (polygonData.rsiSignal === 'oversold') {
-            rsiContext = ` with an RSI of ${rsiValue} suggesting oversold conditions`;
+            technicalContext = ` with an RSI of ${rsiValue} suggesting oversold conditions`;
           } else if (polygonData.rsi > 60) {
-            rsiContext = ` with an RSI of ${rsiValue} indicating strong momentum`;
+            technicalContext = ` with an RSI of ${rsiValue} indicating strong momentum`;
           } else if (polygonData.rsi < 40) {
-            rsiContext = ` with an RSI of ${rsiValue} showing weak momentum`;
+            technicalContext = ` with an RSI of ${rsiValue} showing weak momentum`;
           }
-        }
-        
-        // Combine technical contexts (prioritize MA context, add RSI if both exist)
-        if (maContext && rsiContext) {
-          technicalContext = `${maContext}${rsiContext}`;
-        } else if (maContext) {
-          technicalContext = maContext;
-        } else if (rsiContext) {
-          technicalContext = rsiContext;
         }
 
         // Determine narrative type using Polygon data
@@ -1271,7 +1268,8 @@ export async function POST(request: Request) {
           if (Math.abs(distanceFromHigh) < 5) {
           // Near 52-week high
           narrativeType = 'momentum';
-          smartPriceActionText += ` and approaching its 52-week high of $${formatPrice(polygonData.fiftyTwoWeekHigh)}`;
+          const distanceFromHighPct = Math.abs(distanceFromHigh).toFixed(1);
+          smartPriceActionText += `, trading ${distanceFromHighPct}% below its 52-week high`;
           if (technicalContext) smartPriceActionText += `${technicalContext}`;
         } else if (Math.abs(dailyChange) > 4 || intradayRange > 6) {
           // High volatility move
@@ -1290,11 +1288,17 @@ export async function POST(request: Request) {
           }
 
           if (polygonData.fiftyTwoWeekLow && polygonData.fiftyTwoWeekHigh && polygonClose) {
-            const rangePosition = ((polygonClose - polygonData.fiftyTwoWeekLow) / (polygonData.fiftyTwoWeekHigh - polygonData.fiftyTwoWeekLow)) * 100;
-            if (rangePosition > 80) {
-              smartPriceActionText += ` as it pushes toward its 52-week high`;
-            } else if (rangePosition < 20) {
-              smartPriceActionText += ` as it tests support near its 52-week low`;
+            // Calculate distance from both high and low
+            const distFromHigh = ((polygonData.fiftyTwoWeekHigh - polygonClose) / polygonData.fiftyTwoWeekHigh) * 100;
+            const distFromLow = ((polygonClose - polygonData.fiftyTwoWeekLow) / polygonData.fiftyTwoWeekLow) * 100;
+            
+            // Show distance from whichever is closer
+            if (distFromHigh < distFromLow) {
+              // Closer to high
+              smartPriceActionText += `. The stock is ${distFromHigh.toFixed(1)}% below its 52-week high`;
+            } else {
+              // Closer to low
+              smartPriceActionText += `. The stock is ${distFromLow.toFixed(1)}% above its 52-week low`;
             }
           }
           if (technicalContext) smartPriceActionText += `${technicalContext}`;
@@ -1303,13 +1307,17 @@ export async function POST(request: Request) {
           narrativeType = 'range';
 
           if (polygonData.fiftyTwoWeekLow && polygonData.fiftyTwoWeekHigh && polygonClose) {
-            const rangePosition = ((polygonClose - polygonData.fiftyTwoWeekLow) / (polygonData.fiftyTwoWeekHigh - polygonData.fiftyTwoWeekLow)) * 100;
-            if (rangePosition > 75) {
-              smartPriceActionText += `, trading in the upper end of its 52-week range between $${formatPrice(polygonData.fiftyTwoWeekLow)} and $${formatPrice(polygonData.fiftyTwoWeekHigh)}`;
-            } else if (rangePosition < 25) {
-              smartPriceActionText += `, trading in the lower end of its 52-week range between $${formatPrice(polygonData.fiftyTwoWeekLow)} and $${formatPrice(polygonData.fiftyTwoWeekHigh)}`;
+            // Calculate distance from both high and low
+            const distFromHigh = ((polygonData.fiftyTwoWeekHigh - polygonClose) / polygonData.fiftyTwoWeekHigh) * 100;
+            const distFromLow = ((polygonClose - polygonData.fiftyTwoWeekLow) / polygonData.fiftyTwoWeekLow) * 100;
+            
+            // Show distance from whichever is closer
+            if (distFromHigh < distFromLow) {
+              // Closer to high
+              smartPriceActionText += `, trading ${distFromHigh.toFixed(1)}% below its 52-week high`;
             } else {
-              smartPriceActionText += `, trading within its 52-week range of $${formatPrice(polygonData.fiftyTwoWeekLow)} to $${formatPrice(polygonData.fiftyTwoWeekHigh)}`;
+              // Closer to low
+              smartPriceActionText += `, trading ${distFromLow.toFixed(1)}% above its 52-week low`;
             }
           }
 
@@ -1333,7 +1341,8 @@ Original text: "${smartPriceActionText}"
 Requirements:
 - Keep the header format exactly: "${symbol} Price Action: " at the beginning
 - Keep ALL factual data EXACTLY as provided: percentages, prices, timeframes, RSI values, moving average relationships, 52-week range info
-- CRITICAL: If the text says "upper end" or "lower end" of the 52-week range, keep that exact phrasing - it provides important context
+- CRITICAL: If the text says "X% below its 52-week high" or "X% above its 52-week low", keep those EXACT percentages and phrasing
+- CRITICAL: If the text says "X% above/below its 50-day moving average" or "X% above/below its 200-day moving average", keep those EXACT percentages
 - CRITICAL: DO NOT round, adjust, or modify ANY numbers - copy them character-for-character (e.g., if it says "8.1%" keep it as "8.1%" not "8.8%")
 - CRITICAL: If the text mentions technical indicators (RSI, moving averages, intraday range), you MUST preserve these details with exact numbers
 - IMPORTANT: If the text includes "at the time of publication on [Day]" or "in premarket trading" or "in after-hours trading", you MUST keep this phrase intact
@@ -1530,53 +1539,67 @@ Return only the enhanced text, no explanations.`;
           timingPhrase = 'on ' + dayOfWeek;
         }
 
-        const comparisonPrompt = `You are a financial analyst writing a comprehensive comparative price action analysis. Today is ${dayOfWeek}, ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}. Compare the primary ticker against the comparison tickers with both daily and broader historical perspective.
+        // Helper function to format percentages (remove .0 for whole numbers)
+        const formatPct = (num: number) => {
+          const rounded = parseFloat(num.toFixed(1));
+          return rounded % 1 === 0 ? rounded.toFixed(0) : rounded.toFixed(1);
+        };
+        
+        // Calculate percentage distances for primary ticker
+        const primaryDistFromHigh = primaryData.fiftyTwoWeekHigh ? ((primaryData.fiftyTwoWeekHigh - primaryData.lastTradePrice) / primaryData.fiftyTwoWeekHigh) * 100 : 0;
+        const primaryDistFromLow = primaryData.fiftyTwoWeekLow ? ((primaryData.lastTradePrice - primaryData.fiftyTwoWeekLow) / primaryData.fiftyTwoWeekLow) * 100 : 0;
+        const primary52WeekContext = primaryDistFromHigh < primaryDistFromLow 
+          ? `${formatPct(primaryDistFromHigh)}% below its 52-week high`
+          : `${formatPct(primaryDistFromLow)}% above its 52-week low`;
+        
+        // Calculate MA percentage for primary ticker (choose one)
+        let primaryMAContext = '';
+        if (primaryData.sma50 && primaryData.sma200) {
+          const distFrom50 = ((primaryData.lastTradePrice - primaryData.sma50) / primaryData.sma50) * 100;
+          const distFrom200 = ((primaryData.lastTradePrice - primaryData.sma200) / primaryData.sma200) * 100;
+          
+          if (Math.abs(distFrom50) > 3) {
+            primaryMAContext = distFrom50 > 0 
+              ? `${formatPct(distFrom50)}% above its 50-day MA` 
+              : `${formatPct(Math.abs(distFrom50))}% below its 50-day MA`;
+          } else if (Math.abs(distFrom200) > 5) {
+            primaryMAContext = distFrom200 > 0 
+              ? `${formatPct(distFrom200)}% above its 200-day MA` 
+              : `${formatPct(Math.abs(distFrom200))}% below its 200-day MA`;
+          }
+        }
 
-PRIMARY TICKER: ${primarySymbol} (${primaryData.companyName})
+        const comparisonPrompt = `You are a financial analyst writing a concise comparative price action analysis. Today is ${dayOfWeek}, ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}. Compare the primary ticker against the comparison tickers.
+
+PRIMARY TICKER: ${primarySymbol}
 - Current Price: $${primaryData.lastTradePrice.toFixed(2)}
-- Daily Change: ${primaryData.changePercent.toFixed(2)}%
+- Daily Change: ${formatPct(primaryData.changePercent)}%
 - Market Status: ${timingPhrase}
-- 52-week range: $${primaryData.fiftyTwoWeekLow.toFixed(2)} - $${primaryData.fiftyTwoWeekHigh.toFixed(2)}
-${primaryData.sma50 && primaryData.sma200 ? `- 50-day SMA: $${primaryData.sma50.toFixed(2)}, 200-day SMA: $${primaryData.sma200.toFixed(2)}` : ''}
-${primaryData.rsi !== undefined ? `- RSI: ${primaryData.rsi.toFixed(1)} (${primaryData.rsiSignal})` : ''}
-${primaryHistorical ? `- YTD performance: ${primaryHistorical.ytdReturn.toFixed(1)}%
-- 6-month performance: ${primaryHistorical.sixMonthReturn.toFixed(1)}%
-- 1-year performance: ${primaryHistorical.oneYearReturn.toFixed(1)}%` : ''}
+- 52-week position: ${primary52WeekContext}
+${primaryMAContext ? `- Moving Average: ${primaryMAContext}` : ''}
+${primaryData.rsi !== undefined ? `- RSI: ${formatPct(primaryData.rsi)}` : ''}
+${primaryHistorical ? `- YTD: ${formatPct(primaryHistorical.ytdReturn)}%, 6-month: ${formatPct(primaryHistorical.sixMonthReturn)}%, 1-year: ${formatPct(primaryHistorical.oneYearReturn)}%` : ''}
 
 COMPARISON TICKERS:
 ${comparisonData.map(t => {
   const hist = comparisonHistorical.find(h => h.symbol === t.symbol);
-  const smaText = t.sma50 && t.sma200 ? `, 50-SMA: $${t.sma50.toFixed(2)}, 200-SMA: $${t.sma200.toFixed(2)}` : '';
-  const rsiText = t.rsi !== undefined ? `, RSI: ${t.rsi.toFixed(1)} (${t.rsiSignal})` : '';
-  return `${t.symbol} (${t.companyName}): $${t.lastTradePrice.toFixed(2)}${hist ? `, YTD: ${hist.ytdReturn.toFixed(1)}%, 6-month: ${hist.sixMonthReturn.toFixed(1)}%, 1-year: ${hist.oneYearReturn.toFixed(1)}%` : ''}${smaText}${rsiText}`;
+  return `${t.symbol}: $${t.lastTradePrice.toFixed(2)}${hist ? `, YTD: ${formatPct(hist.ytdReturn)}%, 6M: ${formatPct(hist.sixMonthReturn)}%, 1Y: ${formatPct(hist.oneYearReturn)}%` : ''}`;
 }).join('\n')}
 
-Write a comprehensive comparative analysis in a natural, flowing style with multiple paragraphs.
+Write a concise comparative analysis in 3 short paragraphs with natural, conversational flow.
 
 REQUIREMENTS:
 - Start with: "${primarySymbol} Vs. ${comparisonSymbols.join(', ')}: " followed IMMEDIATELY by the first sentence (no line break)
-- First paragraph: MUST include the day and timing (e.g., "${timingPhrase}") when mentioning the price
-- First paragraph: Focus ONLY on primary ticker's daily performance (current price, daily change, 52-week range context, mention MA/RSI if notable)
-- Do NOT use the full company name with ticker format like "Apple Inc. (AAPL)" - just use either the company name OR ticker symbol
-- Alternate between company name and ticker throughout the text for variety (e.g., "Apple" in one sentence, "AAPL" in another)
-- Format ALL prices with exactly 2 decimal places (e.g., $257.24, not $257.235)
-- For moving averages: Only mention the RELATIONSHIP to price (above/below), NEVER include the actual MA price values
-  GOOD: "trading above its 50-day and 200-day moving averages"
-  BAD: "with a 50-day SMA of $233.57 and a 200-day SMA of $222.21"
-- CRITICAL: Break the analysis into 3-4 separate paragraphs with line breaks (\n) between each paragraph
-- Second paragraph: Compare YTD performance - be concise and direct, just state the numbers
-- Third paragraph: Compare 6-month and 1-year performance - keep it brief, no need to repeat observations
-- Fourth paragraph (optional): Compare technical indicators (MA relationships, RSI levels) ONLY if they reveal meaningful insights
-- Each paragraph should be 2-3 sentences max - BE CONCISE
-- Use casual, conversational tone (avoid words like "notable", "remarkable", "impressive")
-- Avoid clichéd transition phrases like "over the longer haul", "zooming out", "taking a step back", "looking at the bigger picture"
-- Do NOT reference specific years (like "in 2023" or "in 2024") - just say "this year" for YTD
-- Do NOT speculate about reasons for performance (no "maybe it's AI initiatives" or similar speculation)
-- Do NOT use filler phrases like "which isn't too shabby", "seems like", "it appears"
-- Just state the facts directly and let them speak for themselves
-- Avoid repetitive comparisons - if you've said one is ahead, don't keep repeating it
-- Keep total under 300 words - be tight and focused
-- Sound like you're explaining to a friend, but be direct and efficient
+- First paragraph: Include timing (${timingPhrase}), price, daily change, 52-week position (use exact data provided). Add EITHER the MA percentage OR RSI if provided. Use natural transitions between facts.
+- Second paragraph: Compare YTD returns - keep it simple and conversational
+- Third paragraph: Compare 6-month and 1-year returns briefly
+- Each paragraph: 2-3 sentences - concise but with natural flow
+- Write like you're talking to someone, not writing a data sheet
+- Avoid obvious filler: "comfortable", "robust", "impressive", "showcasing", "teetering", "warranted", "solid"
+- Avoid redundancy: Don't say the same thing twice ("slipped...settling", "declined...down")
+- Use natural transitions: "Over the past year", "Looking back", "On the technical side" - but don't overuse them
+- Keep it factual but conversational
+- Keep total under 180 words
 - Do NOT include any "according to Polygon data" attribution anywhere`;
 
         const completion = await openai.chat.completions.create({
@@ -1584,15 +1607,15 @@ REQUIREMENTS:
           messages: [
             {
               role: "system",
-              content: "You are a financial analyst who writes engaging, conversational market comparisons."
+              content: "You are a financial analyst who writes concise market comparisons with natural, conversational flow. Keep it brief but readable."
             },
             {
               role: "user", 
               content: comparisonPrompt
             }
           ],
-          max_tokens: 500,
-          temperature: 0.7,
+          max_tokens: 350,
+          temperature: 0.6,
         });
 
         let vsAnalysisText = completion.choices[0]?.message?.content?.trim() || 
