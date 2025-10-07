@@ -198,6 +198,53 @@ interface PolygonData {
   sector?: string;
 }
 
+interface BenzingaQuote {
+  symbol?: string;
+  name?: string;
+  changePercent?: number;
+  lastTradePrice?: number;
+  closeDate?: string;
+  fiftyTwoWeekLow?: number;
+  fiftyTwoWeekHigh?: number;
+  fiftyDayAveragePrice?: number;
+  hundredDayAveragePrice?: number;
+  twoHundredDayAveragePrice?: number;
+  previousClosePrice?: number;
+  volume?: number;
+  averageVolume?: number;
+  open?: number;
+  high?: number;
+  low?: number;
+  close?: number;
+  marketCap?: number;
+  pe?: number;
+  forwardPE?: number;
+  sharesOutstanding?: number;
+  sharesFloat?: number;
+  ethPrice?: number;
+  ethVolume?: number;
+  ethTime?: number;
+  change?: number;
+  previousCloseDate?: string;
+  lastTradeTime?: number;
+  bidPrice?: number;
+  askPrice?: number;
+  bidSize?: number;
+  askSize?: number;
+  size?: number;
+  bidTime?: number;
+  askTime?: number;
+  exchange?: string;
+  isoExchange?: string;
+  bzExchange?: string;
+  type?: string;
+  sector?: string;
+  industry?: string;
+  currency?: string;
+  dividendYield?: number;
+  dividend?: number;
+}
+
 interface HistoricalData {
   symbol: string;
   monthlyReturn?: number;
@@ -233,8 +280,12 @@ async function fetchRSI(symbol: string): Promise<{ rsi: number | undefined; sign
   try {
     console.log(`=== FETCHING RSI DATA FOR ${symbol} ===`);
     
-    const today = new Date().toISOString().split('T')[0];
-    const rsiUrl = `https://api.polygon.io/v1/indicators/rsi/${symbol}?timestamp=${today}&timespan=day&adjusted=true&window=14&series_type=close&order=desc&limit=1&apikey=${process.env.POLYGON_API_KEY}`;
+    // Use previous trading day's data since end-of-day indicators aren't available for current day
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = yesterday.toISOString().split('T')[0];
+    
+    const rsiUrl = `https://api.polygon.io/v1/indicators/rsi/${symbol}?timestamp=${yesterdayStr}&timespan=day&adjusted=true&window=14&series_type=close&order=desc&limit=1&apikey=${process.env.POLYGON_API_KEY}`;
     
     const response = await fetch(rsiUrl);
     
@@ -272,8 +323,12 @@ async function fetchRSI(symbol: string): Promise<{ rsi: number | undefined; sign
 // Function to fetch SMA (Simple Moving Average) data
 async function fetchSMA(symbol: string, window: number): Promise<number | undefined> {
   try {
-    const today = new Date().toISOString().split('T')[0];
-    const smaUrl = `https://api.polygon.io/v1/indicators/sma/${symbol}?timestamp=${today}&timespan=day&adjusted=true&window=${window}&series_type=close&order=desc&limit=1&apikey=${process.env.POLYGON_API_KEY}`;
+    // Use previous trading day's data since end-of-day indicators aren't available for current day
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = yesterday.toISOString().split('T')[0];
+    
+    const smaUrl = `https://api.polygon.io/v1/indicators/sma/${symbol}?timestamp=${yesterdayStr}&timespan=day&adjusted=true&window=${window}&series_type=close&order=desc&limit=1&apikey=${process.env.POLYGON_API_KEY}`;
     
     const response = await fetch(smaUrl);
     
@@ -301,8 +356,12 @@ async function fetchSMA(symbol: string, window: number): Promise<number | undefi
 // Function to fetch EMA (Exponential Moving Average) data
 async function fetchEMA(symbol: string, window: number): Promise<number | undefined> {
   try {
-    const today = new Date().toISOString().split('T')[0];
-    const emaUrl = `https://api.polygon.io/v1/indicators/ema/${symbol}?timestamp=${today}&timespan=day&adjusted=true&window=${window}&series_type=close&order=desc&limit=1&apikey=${process.env.POLYGON_API_KEY}`;
+    // Use previous trading day's data since end-of-day indicators aren't available for current day
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = yesterday.toISOString().split('T')[0];
+    
+    const emaUrl = `https://api.polygon.io/v1/indicators/ema/${symbol}?timestamp=${yesterdayStr}&timespan=day&adjusted=true&window=${window}&series_type=close&order=desc&limit=1&apikey=${process.env.POLYGON_API_KEY}`;
     
     const response = await fetch(emaUrl);
     
@@ -809,19 +868,8 @@ function calculateApproximateReturns(quote: PolygonData): HistoricalData | null 
   }
 }
 
-// Utility function to detect US market status using Polygon API
-async function getMarketStatus(): Promise<'open' | 'premarket' | 'afterhours' | 'closed'> {
-  try {
-    const response = await fetch(`https://api.polygon.io/v1/marketstatus/now?apikey=${process.env.POLYGON_API_KEY}`);
-    const data = await response.json();
-    
-    if (data.market === 'open') return 'open';
-    if (data.market === 'extended-hours') return 'afterhours';
-    return 'closed';
-  } catch (error) {
-    console.log('Polygon market status API failed, falling back to time-based logic:', error);
-    
-    // Fallback to time-based logic
+// Utility function to detect US market status using time-based logic (for Benzinga modes)
+function getMarketStatusTimeBased(): 'open' | 'premarket' | 'afterhours' | 'closed' {
   const now = new Date();
   // Convert to UTC, then to New York time (Eastern Time)
   const nowUtc = now.getTime() + (now.getTimezoneOffset() * 60000);
@@ -838,6 +886,40 @@ async function getMarketStatus(): Promise<'open' | 'premarket' | 'afterhours' | 
   if (time >= 930 && time < 1600) return 'open';
   if (time >= 1600 && time < 2000) return 'afterhours';
   return 'closed';
+}
+
+// Utility function to detect US market status using Polygon API (for Smart/Vs modes)
+async function getMarketStatus(): Promise<'open' | 'premarket' | 'afterhours' | 'closed'> {
+  try {
+    const response = await fetch(`https://api.polygon.io/v1/marketstatus/now?apikey=${process.env.POLYGON_API_KEY}`);
+    const data = await response.json();
+    
+    if (data.market === 'open') return 'open';
+    
+    // Polygon returns 'extended-hours' for both premarket and afterhours
+    // Use time-based logic to distinguish between them
+    if (data.market === 'extended-hours') {
+      const now = new Date();
+      const nowUtc = now.getTime() + (now.getTimezoneOffset() * 60000);
+      const nyOffset = -4; // EDT
+      const nyTime = new Date(nowUtc + (3600000 * nyOffset));
+      const hour = nyTime.getHours();
+      const minute = nyTime.getMinutes();
+      const time = hour * 100 + minute;
+      
+      // Before market open (4:00 AM - 9:30 AM ET) = premarket
+      if (time >= 400 && time < 930) return 'premarket';
+      // After market close (4:00 PM - 8:00 PM ET) = afterhours
+      if (time >= 1600 && time < 2000) return 'afterhours';
+      
+      // Default to afterhours if unclear
+      return 'afterhours';
+    }
+    
+    return 'closed';
+  } catch (error) {
+    console.log('Polygon market status API failed, falling back to time-based logic:', error);
+    return getMarketStatusTimeBased();
   }
 }
 
@@ -870,45 +952,47 @@ export async function POST(request: Request) {
       return NextResponse.json({ priceActions: [], error: 'No valid ticker symbols provided.' });
     }
 
-    // Detect market status and prepare a phrase for the summary line
-    const marketStatus = await getMarketStatus();
-    let marketStatusPhrase = '';
-    if (marketStatus === 'premarket') {
-      marketStatusPhrase = ' during premarket trading';
-    } else if (marketStatus === 'afterhours') {
-      marketStatusPhrase = ' during after-hours trading';
-    } else if (marketStatus === 'closed') {
-      marketStatusPhrase = ' while the market was closed';
-    } // if open, leave as empty string
-
     console.log('=== PRICE ACTION DEBUG ===');
     console.log('Original tickers:', tickers);
     console.log('Cleaned tickers:', cleanedTickers);
-    console.log('Market status:', marketStatus);
+    console.log('Mode:', { smartAnalysis, vsAnalysis, briefAnalysis, priceActionOnly, grouped });
 
-    // Fetch data from Polygon API
-    const tickerList = cleanedTickers.split(',');
-    const polygonDataPromises = tickerList.map(ticker => fetchPolygonData(ticker.trim()));
-    const polygonDataArray = await Promise.all(polygonDataPromises);
+    // Use different data sources based on mode
+    if (smartAnalysis || vsAnalysis) {
+      // Smart Price Action and Vs Analysis use Polygon API
+      // Detect market status using Polygon API
+      const marketStatus = await getMarketStatus();
+      let marketStatusPhrase = '';
+      if (marketStatus === 'premarket') {
+        marketStatusPhrase = ' during premarket trading';
+      } else if (marketStatus === 'afterhours') {
+        marketStatusPhrase = ' during after-hours trading';
+      } else if (marketStatus === 'closed') {
+        marketStatusPhrase = ' while the market was closed';
+      } // if open, leave as empty string
 
-    console.log('Polygon data fetched for tickers:', tickerList);
+      console.log('Market status (Polygon):', marketStatus);
+      const tickerList = cleanedTickers.split(',');
+      const polygonDataPromises = tickerList.map(ticker => fetchPolygonData(ticker.trim()));
+      const polygonDataArray = await Promise.all(polygonDataPromises);
 
-    const priceActions = await Promise.all(polygonDataArray.map(async (polygonData) => {
-      if (!polygonData) return null;
+      console.log('Polygon data fetched for Smart/Vs analysis:', tickerList);
 
-      // Log the parsed Polygon data for debugging
-      console.log('Parsed Polygon data:', JSON.stringify(polygonData, null, 2));
+      const priceActions = await Promise.all(polygonDataArray.map(async (polygonData) => {
+        if (!polygonData) return null;
 
-      const symbol = polygonData.symbol;
-      const companyName = polygonData.companyName;
-      const changePercent = polygonData.changePercent;
-      const lastPrice = formatPrice(polygonData.lastTradePrice);
+        console.log('Parsed Polygon data:', JSON.stringify(polygonData, null, 2));
 
-      // Skip processing if we don't have valid data
-      if (!symbol || !polygonData.lastTradePrice) {
-        console.log(`Skipping invalid data for symbol: ${symbol}, lastTradePrice: ${polygonData.lastTradePrice}`);
-        return null; // Return null instead of empty string to filter out invalid quotes
-      }
+        const symbol = polygonData.symbol;
+        const companyName = polygonData.companyName;
+        const shortCompanyName = companyName.split(' ')[0];
+        const changePercent = polygonData.changePercent;
+        const lastPrice = formatPrice(polygonData.lastTradePrice);
+
+        if (!symbol || !polygonData.lastTradePrice) {
+          console.log(`Skipping invalid data for symbol: ${symbol}`);
+          return null;
+        }
 
       // For Polygon data, we already have the current price and change data
       // Historical data is not used in current implementation
@@ -947,13 +1031,13 @@ export async function POST(request: Request) {
         const absRegularChange = Math.abs(regularSessionChange).toFixed(2);
         const absAfterHoursChange = Math.abs(afterHoursChange).toFixed(2);
         
-        priceActionText = `${symbol} Price Action: ${companyName} shares were ${regularUpDown} ${absRegularChange}% during regular trading and ${afterHoursUpDown} ${absAfterHoursChange}% in after-hours trading on ${dayOfWeek}`;
+        priceActionText = `${symbol} Price Action: ${shortCompanyName} shares were ${regularUpDown} ${absRegularChange}% during regular trading and ${afterHoursUpDown} ${absAfterHoursChange}% in after-hours trading on ${dayOfWeek}`;
       } else if (marketStatus === 'open') {
         // Regular trading hours: include 'at the time of publication'
-        priceActionText = `${symbol} Price Action: ${companyName} shares were ${upDown} ${absChange}% at $${lastPrice} at the time of publication on ${dayOfWeek}`;
+        priceActionText = `${symbol} Price Action: ${shortCompanyName} shares were ${upDown} ${absChange}% at $${lastPrice} at the time of publication on ${dayOfWeek}`;
       } else {
         // Use the original logic for other market statuses
-        priceActionText = `${symbol} Price Action: ${companyName} shares were ${upDown} ${absChange}% at $${lastPrice}${marketStatusPhrase} on ${dayOfWeek}`;
+        priceActionText = `${symbol} Price Action: ${shortCompanyName} shares were ${upDown} ${absChange}% at $${lastPrice}${marketStatusPhrase} on ${dayOfWeek}`;
       }
 
               // Historical performance data is not available with current Polygon implementation
@@ -1014,7 +1098,8 @@ export async function POST(request: Request) {
         const polygonHigh = polygonData.high;   // High
         const polygonLow = polygonData.low;    // Low
         const polygonOpen = polygonData.open;   // Open
-        const polygonClose = polygonData.close;  // Close
+        // During premarket/afterhours, use previous close if today's close is not available
+        const polygonClose = polygonData.close || polygonData.previousClose;  // Close
         
         console.log('Using Polygon data - Volume:', polygonVolume, 'High:', polygonHigh, 'Low:', polygonLow, 'Close:', polygonClose);
         
@@ -1023,7 +1108,8 @@ export async function POST(request: Request) {
         console.log('Using 52-week range for smart analysis:', {
           high: polygonData.fiftyTwoWeekHigh,
           low: polygonData.fiftyTwoWeekLow,
-          current: polygonClose
+          current: polygonClose,
+          currentPrice: polygonData.currentPrice
         });
         
         // Calculate distance from 52-week high/low using Polygon data
@@ -1053,7 +1139,7 @@ export async function POST(request: Request) {
           timePhrase = ' while the market was closed';
         }
         
-        let smartPriceActionText = `${symbol} Price Action: ${companyName} shares were ${currentUpDown === 'up' ? 'up' : currentUpDown === 'down' ? 'down' : 'unchanged'} ${currentAbsChange}% at $${currentPrice.toFixed(2)}${timePhrase} on ${dayOfWeek}`;
+        let smartPriceActionText = `${symbol} Price Action: ${shortCompanyName} shares were ${currentUpDown === 'up' ? 'up' : currentUpDown === 'down' ? 'down' : 'unchanged'} ${currentAbsChange}% at $${currentPrice.toFixed(2)}${timePhrase} on ${dayOfWeek}`;
 
         // Add technical indicator context
         let technicalContext = '';
@@ -1121,7 +1207,7 @@ export async function POST(request: Request) {
           smartPriceActionText += `, delivering one of the stock's ${moveSignificance > 1.5 ? 'bigger' : 'more notable'} single-day moves`;
 
           if (intradayRange > 3) {
-            smartPriceActionText += ` after a wild ${intradayRange.toFixed(1)}% intraday swing`;
+            smartPriceActionText += `, with an intraday range of ${intradayRange.toFixed(1)}% between the day's high and low`;
           }
 
           if (polygonData.fiftyTwoWeekLow && polygonData.fiftyTwoWeekHigh && polygonClose) {
@@ -1149,7 +1235,7 @@ export async function POST(request: Request) {
           }
 
           if (intradayRange > 3) {
-            smartPriceActionText += ` after a ${intradayRange.toFixed(1)}% intraday range`;
+            smartPriceActionText += `, with an intraday range of ${intradayRange.toFixed(1)}% between the day's high and low`;
           }
           
           if (technicalContext) smartPriceActionText += `${technicalContext}`;
@@ -1167,8 +1253,10 @@ Original text: "${smartPriceActionText}"
 
 Requirements:
 - Keep the header format exactly: "${symbol} Price Action: " at the beginning
-- Keep all factual data (percentages, prices, timeframes) exactly the same
-- IMPORTANT: If the text includes "at the time of publication on [Day]", you MUST keep this phrase intact
+- Keep ALL factual data exactly as provided: percentages, prices, timeframes, RSI values, moving average relationships, 52-week range info
+- CRITICAL: If the text mentions technical indicators (RSI, moving averages, intraday range), you MUST preserve these details
+- IMPORTANT: If the text includes "at the time of publication on [Day]" or "in premarket trading" or "in after-hours trading", you MUST keep this phrase intact
+- If the text mentions "intraday range", keep that phrase clear and descriptive
 - Use casual, conversational tone - avoid formal/AI words like "notable", "remarkable", "impressive", "significant"
 - Use simple, direct language that sounds like a real person talking
 - Avoid time phrases that sound like the day is over: "by Thursday", "as of Thursday"
@@ -1176,6 +1264,7 @@ Requirements:
 - Avoid repetitive phrases like "solid run", "quite a ride", etc.
 - Sound like you're explaining to a friend, not writing a formal report
 - Do NOT include any attribution like "according to Polygon data" at the end
+- Do NOT remove or simplify technical indicator data - keep RSI, MA, and all other metrics
 
 Return only the enhanced text, no explanations.`;
 
@@ -1442,9 +1531,9 @@ REQUIREMENTS:
           // Rest goes to briefAnalysis
           briefAnalysisText = paragraphs.slice(1).join('\n\n').trim();
           console.log('VS Analysis split into', paragraphs.length, 'paragraphs');
-        } else {
+          } else {
           // If no paragraph breaks, use the whole text as price action
-          priceActionText = vsAnalysisText;
+            priceActionText = vsAnalysisText;
           console.log('VS Analysis no paragraph breaks found, using full text');
         }
 
@@ -1567,19 +1656,176 @@ REQUIREMENTS:
       };
     }));
 
-    // Filter out null results and add error message for invalid tickers
-    const validPriceActions = priceActions.filter(action => action !== null);
-    
-    // Check if we have any valid results
-    if (validPriceActions.length === 0) {
-      return NextResponse.json({ 
-        priceActions: [], 
-        error: 'No valid ticker data found. Please check that all ticker symbols are correct and try again.' 
-      });
-    }
+      // Filter out null results
+      const validPriceActions = priceActions.filter(action => action !== null);
+      
+      // Return immediately if we have valid actions
+      if (validPriceActions.length === 0) {
+        return NextResponse.json({ 
+          priceActions: [], 
+          error: 'No valid ticker data found. Please check that all ticker symbols are correct and try again.' 
+        });
+      }
 
-    // If grouped is requested, handle single vs multiple tickers
-    if (grouped) {
+      return NextResponse.json({ priceActions: validPriceActions });
+    } else {
+      // Regular modes (Price Action Only, Brief Analysis, Grouped) use Benzinga API ONLY
+      // Use time-based market status (no Polygon API calls)
+      const marketStatus = getMarketStatusTimeBased();
+      let marketStatusPhrase = '';
+      if (marketStatus === 'premarket') {
+        marketStatusPhrase = ' during premarket trading';
+      } else if (marketStatus === 'afterhours') {
+        marketStatusPhrase = ' during after-hours trading';
+      } else if (marketStatus === 'closed') {
+        marketStatusPhrase = ' while the market was closed';
+      } // if open, leave as empty string
+
+      console.log('Market status (time-based for Benzinga):', marketStatus);
+
+      const url = `https://api.benzinga.com/api/v2/quoteDelayed?token=${process.env.BENZINGA_API_KEY}&symbols=${cleanedTickers}`;
+
+      console.log('Benzinga API URL:', url);
+
+      const res = await fetch(url);
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`Benzinga API error: ${text}`);
+      }
+      const data = await res.json();
+
+      console.log('Benzinga API raw response:', JSON.stringify(data, null, 2));
+
+      if (!data || typeof data !== 'object') {
+        return NextResponse.json({ priceActions: [], error: 'Invalid Benzinga response' });
+      }
+
+      const quotes = Object.values(data) as unknown[];
+
+      const priceActions = await Promise.all(quotes.map(async (quote) => {
+        if (typeof quote !== 'object' || quote === null) return null;
+
+        const q = quote as BenzingaQuote;
+
+        console.log('Parsed BenzingaQuote:', JSON.stringify(q, null, 2));
+
+        const symbol = q.symbol ?? 'UNKNOWN';
+        const companyName = q.name ?? symbol;
+        const changePercent = typeof q.changePercent === 'number' ? q.changePercent : 0;
+        const lastPrice = formatPrice(q.lastTradePrice);
+
+        if (symbol === 'UNKNOWN' || !q.lastTradePrice) {
+          console.log(`Skipping invalid quote for symbol: ${symbol}`);
+          return null;
+        }
+
+        const upDown = changePercent > 0 ? 'up' : changePercent < 0 ? 'down' : 'unchanged';
+        const absChange = Math.abs(changePercent).toFixed(2);
+
+        const date = q.closeDate ? new Date(q.closeDate) : new Date();
+        const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        const dayOfWeek = dayNames[date.getDay()];
+
+        let priceActionText = '';
+        
+        if (marketStatus === 'open') {
+          priceActionText = `${symbol} Price Action: ${companyName} shares were ${upDown} ${absChange}% at $${lastPrice} at the time of publication on ${dayOfWeek}`;
+        } else {
+          priceActionText = `${symbol} Price Action: ${companyName} shares were ${upDown} ${absChange}% at $${lastPrice}${marketStatusPhrase} on ${dayOfWeek}`;
+        }
+
+        // Add 52-week range context if available
+        if (q.fiftyTwoWeekLow && q.fiftyTwoWeekHigh && q.lastTradePrice) {
+          const currentPrice = q.lastTradePrice;
+          const yearLow = q.fiftyTwoWeekLow;
+          const yearHigh = q.fiftyTwoWeekHigh;
+          
+          let rangeText = '';
+          
+          if (currentPrice > yearHigh) {
+            rangeText = `. The stock is trading at a new 52-week high`;
+          } else {
+            const rangePosition = (currentPrice - yearLow) / (yearHigh - yearLow);
+            
+            if (rangePosition >= 0.95) {
+              rangeText = `. The stock is trading near its 52-week high of $${formatPrice(yearHigh)}`;
+            } else if (rangePosition <= 0.05) {
+              rangeText = `. The stock is trading near its 52-week low of $${formatPrice(yearLow)}`;
+            } else if (rangePosition >= 0.85) {
+              rangeText = `. The stock is approaching its 52-week high of $${formatPrice(yearHigh)}`;
+            } else if (rangePosition <= 0.15) {
+              rangeText = `. The stock is near its 52-week low of $${formatPrice(yearLow)}`;
+            }
+          }
+          
+          if (rangeText) {
+            priceActionText += rangeText;
+          }
+        }
+
+        priceActionText += ', according to Benzinga Pro data.';
+
+        if (briefAnalysis) {
+          // Brief analysis for Benzinga mode
+          let briefAnalysisText = '';
+          try {
+            let briefPrompt = '';
+            
+            if (marketStatus === 'afterhours' || marketStatus === 'premarket') {
+              briefPrompt = `You are a financial news analyst. Write a single, concise, insightful analysis (2-3 sentences, no more than 60% the length of a typical news paragraph) about the following stock's global and historical context. Do NOT mention premarket, after-hours, or current price action or volume. Do not mention current session trading activity. Only mention a data point if it is notably high, low, or unusual. Do not mention data points that are within normal or average ranges. Be specific: if referencing the 52-week range, state if the price is near the high or low, or if there is a notable long-term trend, not just 'within the range'. If nothing is notable, say so briefly. Focus only on global or historical data points (52-week range, sector, industry, market cap, P/E ratio, regular session close, previous close, dividend yield, long-term trends). Avoid generic statements and do NOT repeat the price action line. Do not include the ticker in the analysis line.\n\nCompany: ${companyName}\nSector: ${q.sector || 'N/A'}\nIndustry: ${q.industry || 'N/A'}\nMarket Cap: $${q.marketCap ? (q.marketCap >= 1e12 ? (q.marketCap / 1e12).toFixed(2) + 'T' : (q.marketCap / 1e9).toFixed(2) + 'B') : 'N/A'}\nP/E Ratio: ${typeof q.pe === 'number' && q.pe > 0 ? q.pe : 'N/A'}\nDividend Yield: ${q.dividendYield || 'N/A'}\nRegular Close: $${formatPrice(q.close)}\nPrevious Close: $${formatPrice(q.previousClosePrice)}\n52-week Range: $${formatPrice(q.fiftyTwoWeekLow)} - $${formatPrice(q.fiftyTwoWeekHigh)}`;
+            } else {
+              briefPrompt = `You are a financial news analyst. Write a single, concise, insightful analysis (2-3 sentences, no more than 60% the length of a typical news paragraph) about the following stock's global and historical context. Do NOT mention current price action or volume. Only mention a data point if it is notably high, low, or unusual. Do not mention data points that are within normal or average ranges. Be specific: if referencing the 52-week range, state if the price is near the high or low, or if there is a notable long-term trend, not just 'within the range'. If nothing is notable, say so briefly. Focus only on global or historical data points (52-week range, sector, industry, market cap, P/E ratio, regular session close, previous close, dividend yield, long-term trends). Avoid generic statements and do NOT repeat the price action line. Do not include the ticker in the analysis line.\n\nCompany: ${companyName}\nSector: ${q.sector || 'N/A'}\nIndustry: ${q.industry || 'N/A'}\nMarket Cap: $${q.marketCap ? (q.marketCap >= 1e12 ? (q.marketCap / 1e12).toFixed(2) + 'T' : (q.marketCap / 1e9).toFixed(2) + 'B') : 'N/A'}\nP/E Ratio: ${typeof q.pe === 'number' && q.pe > 0 ? q.pe : 'N/A'}\nDividend Yield: ${q.dividendYield || 'N/A'}\nRegular Close: $${formatPrice(q.close)}\nPrevious Close: $${formatPrice(q.previousClosePrice)}\n52-week Range: $${formatPrice(q.fiftyTwoWeekLow)} - $${formatPrice(q.fiftyTwoWeekHigh)}`;
+            }
+            
+            const completion = await openai.chat.completions.create({
+              model: 'gpt-4o-mini',
+              messages: [{ role: 'user', content: briefPrompt }],
+              max_tokens: 100,
+              temperature: 0.5,
+            });
+            briefAnalysisText = completion.choices[0].message?.content?.trim() || '';
+          } catch {
+            briefAnalysisText = 'Brief analysis unavailable due to an error.';
+          }
+          return {
+            ticker: symbol,
+            companyName: companyName,
+            priceAction: priceActionText,
+            briefAnalysis: briefAnalysisText
+          };
+        }
+
+        if (priceActionOnly) {
+          return {
+            ticker: symbol,
+            companyName: companyName,
+            priceAction: priceActionText
+          };
+        }
+
+        // For full analysis mode, return basic price action with technical analysis placeholder
+        return {
+          ticker: symbol,
+          companyName: companyName,
+          priceAction: priceActionText,
+          technicalAnalysis: 'Technical analysis not available in this mode.',
+          fiftyTwoWeekRangeLine: ''
+        };
+      }));
+
+      // Filter out null results and add error message for invalid tickers
+      const validPriceActions = priceActions.filter(action => action !== null);
+      
+      // Check if we have any valid results
+      if (validPriceActions.length === 0) {
+        return NextResponse.json({ 
+          priceActions: [], 
+          error: 'No valid ticker data found. Please check that all ticker symbols are correct and try again.' 
+        });
+      }
+
+      // If grouped is requested, handle single vs multiple tickers
+      if (grouped) {
       if (validPriceActions.length === 1) {
         // For single ticker, return the price action only format (no technical analysis)
         const singleAction = validPriceActions[0];
@@ -1594,17 +1840,17 @@ REQUIREMENTS:
         // For multiple tickers, create a grouped response
         // Extract just the company and price action parts (remove the ticker prefix, attribution, and time/date)
         const priceActionParts = validPriceActions.map(action => {
-          // Remove the ticker prefix, "according to Polygon" part, and time/date info
+          // Remove the ticker prefix, "according to Benzinga" part, and time/date info
           let cleanAction = action.priceAction
             .replace(/^[A-Z]{1,5}\s+Price Action:\s*/, '') // Remove ticker prefix
-            .replace(/,\s*according to Polygon data\.?$/, '') // Remove attribution
-            .replace(/,\s*according to Polygon\.?$/, '') // Remove attribution (alternative format)
+            .replace(/,\s*according to Benzinga Pro data\.?$/, '') // Remove attribution
+            .replace(/,\s*according to Benzinga Pro\.?$/, '') // Remove attribution (alternative format)
             .replace(/\s+at the time of publication on [A-Za-z]+\.?$/, '') // Remove time/date info
             .replace(/\.$/, ''); // Remove trailing period
           
           // Additional cleanup to remove any remaining time/date patterns
-          cleanAction = cleanAction.replace(/\s+at the time of publication on [A-Za-z]+,\s*according to Polygon data\.?$/, '');
-          cleanAction = cleanAction.replace(/\s+at the time of publication on [A-Za-z]+,\s*according to Polygon\.?$/, '');
+          cleanAction = cleanAction.replace(/\s+at the time of publication on [A-Za-z]+,\s*according to Benzinga Pro data\.?$/, '');
+          cleanAction = cleanAction.replace(/\s+at the time of publication on [A-Za-z]+,\s*according to Benzinga Pro\.?$/, '');
           
           return cleanAction;
         });
@@ -1622,7 +1868,7 @@ REQUIREMENTS:
           groupedText += priceActionParts.join(', ') + ' and ' + lastPart;
         }
         
-        groupedText += ' at the time of publication on Monday, according to Polygon data.';
+        groupedText += ' at the time of publication on Monday, according to Benzinga Pro data.';
         
         return NextResponse.json({ 
           priceActions: [{
@@ -1634,9 +1880,10 @@ REQUIREMENTS:
           }]
         });
       }
-    }
+      }
 
-    return NextResponse.json({ priceActions: validPriceActions });
+      return NextResponse.json({ priceActions: validPriceActions });
+    }
   } catch (error) {
     console.error('Error generating price actions:', error);
     return NextResponse.json({ priceActions: [], error: 'Failed to generate price actions.' });
