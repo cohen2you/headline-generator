@@ -1119,11 +1119,9 @@ export async function POST(request: Request) {
         // Build smart narrative using Polygon data
         let narrativeType = 'range'; // default
         
-        // Use the correct price based on market status
-        const currentPrice = marketStatus === 'premarket' || marketStatus === 'afterhours' ? 
-          polygonData.currentPrice : polygonClose;
-        const currentChange = marketStatus === 'premarket' || marketStatus === 'afterhours' ? 
-          changePercent : ((polygonClose - polygonOpen) / polygonOpen) * 100;
+        // Use API data directly - no manual calculations
+        const currentPrice = polygonData.currentPrice;
+        const currentChange = changePercent;
         const currentUpDown = currentChange > 0 ? 'up' : currentChange < 0 ? 'down' : 'unchanged';
         const currentAbsChange = Math.abs(currentChange).toFixed(2);
         
@@ -1144,7 +1142,7 @@ export async function POST(request: Request) {
         // Add technical indicator context
         let technicalContext = '';
         
-        // Build SMA/EMA context
+        // Build SMA/EMA context - use descriptive language only, no calculated percentages
         let maContext = '';
         if (polygonData.sma50 && polygonData.sma200) {
           const distanceFrom50 = ((currentPrice - polygonData.sma50) / polygonData.sma50) * 100;
@@ -1156,9 +1154,9 @@ export async function POST(request: Request) {
           } else if (polygonData.sma50 < polygonData.sma200 && Math.abs(polygonData.sma50 - polygonData.sma200) / polygonData.sma200 < 0.02) {
             maContext = ` while the 50-day moving average tests the 200-day from below`;
           } else if (distanceFrom50 > 5) {
-            maContext = ` trading ${Math.abs(distanceFrom50).toFixed(1)}% above its 50-day moving average`;
+            maContext = ` trading above its 50-day moving average`;
           } else if (distanceFrom50 < -5) {
-            maContext = ` trading ${Math.abs(distanceFrom50).toFixed(1)}% below its 50-day moving average`;
+            maContext = ` trading below its 50-day moving average`;
           } else if (distanceFrom200 > 10) {
             maContext = ` well above its 200-day moving average`;
           } else if (distanceFrom200 < -10) {
@@ -1198,7 +1196,7 @@ export async function POST(request: Request) {
           if (Math.abs(distanceFromHigh) < 5) {
           // Near 52-week high
           narrativeType = 'momentum';
-          smartPriceActionText += ` and sitting just ${Math.abs(distanceFromHigh).toFixed(1)}% below its 52-week high of $${formatPrice(polygonData.fiftyTwoWeekHigh)}`;
+          smartPriceActionText += ` and approaching its 52-week high of $${formatPrice(polygonData.fiftyTwoWeekHigh)}`;
           if (technicalContext) smartPriceActionText += `${technicalContext}`;
         } else if (Math.abs(dailyChange) > 4 || intradayRange > 6) {
           // High volatility move
@@ -1207,7 +1205,7 @@ export async function POST(request: Request) {
           smartPriceActionText += `, delivering one of the stock's ${moveSignificance > 1.5 ? 'bigger' : 'more notable'} single-day moves`;
 
           if (intradayRange > 3) {
-            smartPriceActionText += `, with an intraday range of ${intradayRange.toFixed(1)}% between the day's high and low`;
+            smartPriceActionText += ` with a wide intraday range`;
           }
 
           if (polygonData.fiftyTwoWeekLow && polygonData.fiftyTwoWeekHigh && polygonClose) {
@@ -1235,7 +1233,7 @@ export async function POST(request: Request) {
           }
 
           if (intradayRange > 3) {
-            smartPriceActionText += `, with an intraday range of ${intradayRange.toFixed(1)}% between the day's high and low`;
+            smartPriceActionText += ` with a notable intraday range`;
           }
           
           if (technicalContext) smartPriceActionText += `${technicalContext}`;
@@ -1253,8 +1251,9 @@ Original text: "${smartPriceActionText}"
 
 Requirements:
 - Keep the header format exactly: "${symbol} Price Action: " at the beginning
-- Keep ALL factual data exactly as provided: percentages, prices, timeframes, RSI values, moving average relationships, 52-week range info
-- CRITICAL: If the text mentions technical indicators (RSI, moving averages, intraday range), you MUST preserve these details
+- Keep ALL factual data EXACTLY as provided: percentages, prices, timeframes, RSI values, moving average relationships, 52-week range info
+- CRITICAL: DO NOT round, adjust, or modify ANY numbers - copy them character-for-character (e.g., if it says "8.1%" keep it as "8.1%" not "8.8%")
+- CRITICAL: If the text mentions technical indicators (RSI, moving averages, intraday range), you MUST preserve these details with exact numbers
 - IMPORTANT: If the text includes "at the time of publication on [Day]" or "in premarket trading" or "in after-hours trading", you MUST keep this phrase intact
 - If the text mentions "intraday range", keep that phrase clear and descriptive
 - Use casual, conversational tone - avoid formal/AI words like "notable", "remarkable", "impressive", "significant"
