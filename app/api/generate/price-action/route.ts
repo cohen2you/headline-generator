@@ -515,7 +515,82 @@ async function fetchPolygonData(symbol: string): Promise<PolygonData> {
   }
 }
 
-// Removed - no longer needed with Polygon API
+// Technical analysis for Benzinga API data
+async function generateTechnicalAnalysisBenzinga(quote: BenzingaQuote, sectorComparison?: BenzingaQuote[]): Promise<string> {
+  try {
+    let sectorComparisonText = '';
+    if (sectorComparison && sectorComparison.length > 0) {
+      const comparisonData = sectorComparison.map(stock => {
+        const formattedMarketCap = typeof stock.marketCap === 'number'
+          ? (stock.marketCap >= 1000000000000
+              ? (stock.marketCap / 1000000000000).toFixed(2) + 'T'
+              : (stock.marketCap / 1000000000).toFixed(2) + 'B')
+          : 'N/A';
+        const volume = typeof stock.volume === 'number' ? stock.volume.toLocaleString() : 'N/A';
+        const changePercent = typeof stock.changePercent === 'number' ? `${stock.changePercent.toFixed(2)}%` : 'N/A';
+        const pe = typeof stock.pe === 'number' && stock.pe > 0 ? stock.pe.toFixed(2) : 'N/A';
+        const symbol = typeof stock.symbol === 'string' ? stock.symbol : 'N/A';
+        return `${symbol}: Price $${formatPrice(stock.lastTradePrice)}, Change ${changePercent}, Volume ${volume}, Market Cap ${formattedMarketCap}, P/E: ${pe}`;
+      }).join('\n');
+      
+      const isSectorETF = sectorComparison.some(stock => ['XLI', 'XLF', 'XLK', 'XLV', 'XLE', 'XLP', 'XLY'].includes(stock.symbol || ''));
+      const comparisonType = isSectorETF ? 'Sector ETF Comparison' : 'Sector Comparison';
+      sectorComparisonText = `\n\n${comparisonType}:\n${comparisonData}`;
+    }
+
+    const prompt = `You are a technical analyst providing concise market insights. Analyze this stock data and provide technical analysis broken into separate paragraphs.
+
+Stock: ${quote.symbol} (${quote.name})
+Current Price: $${formatPrice(quote.lastTradePrice)}
+Daily Change: ${quote.changePercent}%
+
+Technical Indicators:
+- 50-day Moving Average: $${formatPrice(quote.fiftyDayAveragePrice)}
+- 200-day Moving Average: $${formatPrice(quote.twoHundredDayAveragePrice)}
+- 52-week Range: $${formatPrice(quote.fiftyTwoWeekLow)} - $${formatPrice(quote.fiftyTwoWeekHigh)}
+- Volume: ${quote.volume?.toLocaleString()}
+
+Intraday Data:
+- Open: $${formatPrice(quote.open)}
+- High: $${formatPrice(quote.high)}
+- Low: $${formatPrice(quote.low)}
+- Close: $${formatPrice(quote.close)}
+
+Valuation Metrics:
+- Market Cap: $${quote.marketCap ? (quote.marketCap >= 1000000000000 ? (quote.marketCap / 1000000000000).toFixed(2) + 'T' : (quote.marketCap / 1000000000).toFixed(2) + 'B') : 'N/A'}
+- P/E Ratio: ${typeof quote.pe === 'number' && quote.pe > 0 ? quote.pe.toFixed(2) : 'N/A'}${sectorComparisonText}
+
+Provide analysis in exactly this format with proper spacing:
+
+TECHNICAL MOMENTUM:
+[2-3 sentences about price momentum, moving averages, trend strength, support/resistance]
+
+VOLUME & INTRADAY:
+[2-3 sentences about volume patterns, intraday range, session momentum]
+
+VALUATION CONTEXT:
+[2-3 sentences about P/E ratios, market cap, valuation implications]${sectorComparison && sectorComparison.length > 0 ? `
+
+SECTOR COMPARISON:
+[2-3 sentences comparing valuation metrics to sector peers, focusing on P/E ratios and market positioning]` : ''}
+
+IMPORTANT: Use exactly the headers shown above (no bold formatting). Put each section on its own line with proper spacing. Do not add extra periods at the end. Do not end any paragraph with double periods (..). Keep each paragraph concise and professional for financial news.`;
+
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [{ role: 'user', content: prompt }],
+      max_tokens: 600,
+      temperature: 0.3,
+    });
+
+    return completion.choices[0].message?.content?.trim() || '';
+  } catch (error) {
+    console.error('Error generating technical analysis:', error);
+    return '';
+  }
+}
+
+// Technical analysis for Polygon API data
 async function generateTechnicalAnalysis(quote: PolygonData, sectorComparison?: PolygonData[]): Promise<string> {
   try {
     let sectorComparisonText = '';
@@ -1819,13 +1894,66 @@ REQUIREMENTS:
           };
         }
 
-        // For full analysis mode, return basic price action with technical analysis placeholder
+        // For full analysis mode, generate technical analysis using Benzinga data
+        let technicalAnalysis = '';
+        const hasAnyTechnicalField = q.open || q.high || q.low || q.close;
+        if (hasAnyTechnicalField) {
+          // Get sector peers for comparison
+          const sectorPeersData: BenzingaQuote[] = [];
+          let peers = sectorPeers[symbol.toUpperCase()];
+          if (!peers || peers.length === 0) {
+            peers = universalPeers;
+          }
+          
+          if (peers && peers.length > 0) {
+            const peerSymbols = peers.join(',');
+            const peerUrl = `https://api.benzinga.com/api/v2/quoteDelayed?token=${process.env.BENZINGA_API_KEY}&symbols=${peerSymbols}`;
+            
+            try {
+              const peerRes = await fetch(peerUrl);
+              if (peerRes.ok) {
+                const peerData = await peerRes.json();
+                if (peerData && typeof peerData === 'object') {
+                  sectorPeersData.push(...Object.values(peerData) as BenzingaQuote[]);
+                }
+              }
+            } catch (error) {
+              console.log('Error fetching sector peers:', error);
+            }
+          }
+          
+          technicalAnalysis = await generateTechnicalAnalysisBenzinga(q, sectorPeersData);
+        } else {
+          technicalAnalysis = 'Full technical analysis is unavailable due to limited data.';
+        }
+
+        // Add 52-week range context if available
+        let fiftyTwoWeekRangeLine = '';
+        if (q.fiftyTwoWeekLow && q.fiftyTwoWeekHigh && q.lastTradePrice) {
+          const currentPrice = q.lastTradePrice;
+          const low = q.fiftyTwoWeekLow;
+          const high = q.fiftyTwoWeekHigh;
+          const rangePosition = (currentPrice - low) / (high - low);
+          
+          if (rangePosition >= 0.95 || currentPrice > high) {
+            fiftyTwoWeekRangeLine = `The stock is trading near its 52-week high of $${formatPrice(high)}.`;
+          } else if (rangePosition <= 0.05) {
+            fiftyTwoWeekRangeLine = `The stock is trading near its 52-week low of $${formatPrice(low)}.`;
+          } else if (rangePosition >= 0.8) {
+            fiftyTwoWeekRangeLine = `The stock is trading in the upper end of its 52-week range of $${formatPrice(low)} to $${formatPrice(high)}.`;
+          } else if (rangePosition <= 0.2) {
+            fiftyTwoWeekRangeLine = `The stock is trading in the lower end of its 52-week range of $${formatPrice(low)} to $${formatPrice(high)}.`;
+          } else {
+            fiftyTwoWeekRangeLine = `The stock is trading within its 52-week range of $${formatPrice(low)} to $${formatPrice(high)}.`;
+          }
+        }
+        
         return {
           ticker: symbol,
           companyName: companyName,
           priceAction: priceActionText,
-          technicalAnalysis: 'Technical analysis not available in this mode.',
-          fiftyTwoWeekRangeLine: ''
+          technicalAnalysis: technicalAnalysis,
+          fiftyTwoWeekRangeLine: fiftyTwoWeekRangeLine
         };
       }));
 
