@@ -1333,16 +1333,19 @@ Original text: "${smartPriceActionText}"
 Requirements:
 - Keep the header format exactly: "${symbol} Price Action: " at the beginning
 - Keep ALL factual data EXACTLY as provided: percentages, prices, timeframes, RSI values, moving average relationships, 52-week range info
+- CRITICAL: If the text says "upper end" or "lower end" of the 52-week range, keep that exact phrasing - it provides important context
 - CRITICAL: DO NOT round, adjust, or modify ANY numbers - copy them character-for-character (e.g., if it says "8.1%" keep it as "8.1%" not "8.8%")
 - CRITICAL: If the text mentions technical indicators (RSI, moving averages, intraday range), you MUST preserve these details with exact numbers
 - IMPORTANT: If the text includes "at the time of publication on [Day]" or "in premarket trading" or "in after-hours trading", you MUST keep this phrase intact
 - If the text mentions "intraday range", keep that phrase clear and descriptive
 - Use casual, conversational tone - avoid formal/AI words like "notable", "remarkable", "impressive", "significant"
+- Avoid obvious filler phrases like "still moving", "still trading", "continues to trade" - just state facts directly
 - Use simple, direct language that sounds like a real person talking
 - CRITICAL: The market is still open or the day is ongoing - DO NOT use past-tense language that implies the day is over
 - Avoid phrases like: "took a dip", "landed at", "closed at", "finished", "ended", "by [Day]", "as of [Day]"
-- Use present/ongoing phrases like: "trading down", "currently at", "trading at", "[Day]'s session", "during [Day]'s trading"
-- When it says "at the time of publication on Tuesday", keep that exact timing phrase - it means RIGHT NOW, not end of day
+- Use present/ongoing phrases like: "trading down", "trading at", "[Day]'s session", "during [Day]'s trading"
+- When the text says "at the time of publication on Tuesday", keep that exact phrase and DO NOT add redundant time words like "currently", "right now", or "presently" - the timing phrase already covers it
+- NEVER say "currently trading... at the time of publication" - remove "currently" when "at the time of publication" is present
 - Avoid repetitive phrases like "solid run", "quite a ride", etc.
 - Sound like you're explaining to a friend, not writing a formal report
 - Do NOT include any attribution like "according to Polygon data" at the end
