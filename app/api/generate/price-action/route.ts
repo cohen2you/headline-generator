@@ -1142,7 +1142,7 @@ export async function POST(request: Request) {
         // Add technical indicator context
         let technicalContext = '';
         
-        // Build SMA/EMA context - use descriptive language only, no calculated percentages
+        // Build SMA/EMA context - show actual API values
         let maContext = '';
         if (polygonData.sma50 && polygonData.sma200) {
           const distanceFrom50 = ((currentPrice - polygonData.sma50) / polygonData.sma50) * 100;
@@ -1154,13 +1154,13 @@ export async function POST(request: Request) {
           } else if (polygonData.sma50 < polygonData.sma200 && Math.abs(polygonData.sma50 - polygonData.sma200) / polygonData.sma200 < 0.02) {
             maContext = ` while the 50-day moving average tests the 200-day from below`;
           } else if (distanceFrom50 > 5) {
-            maContext = ` trading above its 50-day moving average`;
+            maContext = `. The 50-day moving average is at $${formatPrice(polygonData.sma50)}`;
           } else if (distanceFrom50 < -5) {
-            maContext = ` trading below its 50-day moving average`;
+            maContext = `. The 50-day moving average is at $${formatPrice(polygonData.sma50)}`;
           } else if (distanceFrom200 > 10) {
-            maContext = ` well above its 200-day moving average`;
+            maContext = `. The 200-day moving average is at $${formatPrice(polygonData.sma200)}`;
           } else if (distanceFrom200 < -10) {
-            maContext = ` below its 200-day moving average`;
+            maContext = `. The 200-day moving average is at $${formatPrice(polygonData.sma200)}`;
           }
         }
         
@@ -1205,7 +1205,13 @@ export async function POST(request: Request) {
           smartPriceActionText += `, delivering one of the stock's ${moveSignificance > 1.5 ? 'bigger' : 'more notable'} single-day moves`;
 
           if (intradayRange > 3) {
-            smartPriceActionText += ` with a wide intraday range`;
+            smartPriceActionText += `. The stock reached a high of $${formatPrice(polygonHigh)} and a low of $${formatPrice(polygonLow)}`;
+          }
+          
+          // Add volume for significant moves
+          if (polygonVolume) {
+            const volumeInMillions = (polygonVolume / 1000000).toFixed(1);
+            smartPriceActionText += `. Volume was ${volumeInMillions} million shares`;
           }
 
           if (polygonData.fiftyTwoWeekLow && polygonData.fiftyTwoWeekHigh && polygonClose) {
@@ -1233,7 +1239,7 @@ export async function POST(request: Request) {
           }
 
           if (intradayRange > 3) {
-            smartPriceActionText += ` with a notable intraday range`;
+            smartPriceActionText += `. Today's range was from a low of $${formatPrice(polygonLow)} to a high of $${formatPrice(polygonHigh)}`;
           }
           
           if (technicalContext) smartPriceActionText += `${technicalContext}`;
@@ -1258,8 +1264,10 @@ Requirements:
 - If the text mentions "intraday range", keep that phrase clear and descriptive
 - Use casual, conversational tone - avoid formal/AI words like "notable", "remarkable", "impressive", "significant"
 - Use simple, direct language that sounds like a real person talking
-- Avoid time phrases that sound like the day is over: "by Thursday", "as of Thursday"
-- Instead use natural phrases like: "Thursday morning", "Thursday afternoon", "Thursday's session", "Thursday's trading"
+- CRITICAL: The market is still open or the day is ongoing - DO NOT use past-tense language that implies the day is over
+- Avoid phrases like: "took a dip", "landed at", "closed at", "finished", "ended", "by [Day]", "as of [Day]"
+- Use present/ongoing phrases like: "trading down", "currently at", "trading at", "[Day]'s session", "during [Day]'s trading"
+- When it says "at the time of publication on Tuesday", keep that exact timing phrase - it means RIGHT NOW, not end of day
 - Avoid repetitive phrases like "solid run", "quite a ride", etc.
 - Sound like you're explaining to a friend, not writing a formal report
 - Do NOT include any attribution like "according to Polygon data" at the end
