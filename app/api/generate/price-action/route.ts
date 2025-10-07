@@ -941,7 +941,7 @@ export async function POST(request: Request) {
       // For vs analysis, use primary ticker
       cleanedTickers = primaryTicker.trim().toUpperCase();
     } else {
-      cleanedTickers = tickers
+      cleanedTickers = (tickers || '')
       .split(',')
       .map((ticker: string) => ticker.trim().toUpperCase())
       .filter((ticker: string) => ticker.length > 0)
@@ -1700,7 +1700,16 @@ REQUIREMENTS:
         return NextResponse.json({ priceActions: [], error: 'Invalid Benzinga response' });
       }
 
+      // Check if Benzinga returned an empty array or object
+      if (Array.isArray(data) && data.length === 0) {
+        return NextResponse.json({ priceActions: [], error: 'Benzinga API returned no data. The ticker may not be available or markets may be closed.' });
+      }
+
       const quotes = Object.values(data) as unknown[];
+      
+      if (quotes.length === 0) {
+        return NextResponse.json({ priceActions: [], error: 'No ticker data found in Benzinga response.' });
+      }
 
       const priceActions = await Promise.all(quotes.map(async (quote) => {
         if (typeof quote !== 'object' || quote === null) return null;
