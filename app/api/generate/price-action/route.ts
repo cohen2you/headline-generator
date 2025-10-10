@@ -256,12 +256,31 @@ interface HistoricalData {
 
 // Utility function to truncate to two decimal places
 function truncateToTwoDecimals(num: number): number {
-  return Math.trunc(num * 100) / 100;
+  return Math.floor(num * 100) / 100;
 }
 
 // Helper to format price with truncation or N/A
-function formatPrice(val: number | undefined): string {
-  return typeof val === 'number' ? truncateToTwoDecimals(val).toFixed(2) : 'N/A';
+function formatPrice(val: number | string | undefined): string {
+  if (val === undefined || val === null) return 'N/A';
+  const num = typeof val === 'string' ? parseFloat(val) : val;
+  if (isNaN(num) || !isFinite(num)) return 'N/A';
+  // Ensure we truncate to exactly 2 decimal places
+  const truncated = Math.floor(num * 100) / 100;
+  return truncated.toFixed(2);
+}
+
+// Helper to normalize company name capitalization (e.g., "NVIDIA" -> "Nvidia")
+function normalizeCompanyName(name: string): string {
+  if (!name) return name;
+  
+  // If the entire name is uppercase (like "NVIDIA"), convert to title case
+  if (name === name.toUpperCase() && name.length > 1) {
+    // Convert to title case: first letter uppercase, rest lowercase
+    return name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
+  }
+  
+  // Otherwise return as-is (already has proper mixed case)
+  return name;
 }
 
 // Helper function to get date strings for API calls
@@ -1676,7 +1695,7 @@ REQUIREMENTS:
           const completion = await openai.chat.completions.create({
             model: 'gpt-4o-mini',
             messages: [{ role: 'user', content: briefPrompt }],
-            max_tokens: 100,
+            max_tokens: 200,
             temperature: 0.5,
           });
           briefAnalysisText = completion.choices[0].message?.content?.trim() || '';
@@ -1702,10 +1721,10 @@ REQUIREMENTS:
 
       // Generate technical analysis using OpenAI
       let technicalAnalysis = '';
-      // Use polygonData.close if available, otherwise polygonData.lastTradePrice
-      const closeValue = polygonData.close ?? polygonData.lastTradePrice;
-      // Check if at least one technical field is present
-      const hasAnyTechnicalField = polygonData.open || polygonData.high || polygonData.low || closeValue;
+      // Use polygonData.close if available, otherwise polygonData.lastTradePrice or previousClose
+      const closeValue = polygonData.close ?? polygonData.lastTradePrice ?? polygonData.previousClose;
+      // Check if at least one technical field is present (expanded to include previousClose)
+      const hasAnyTechnicalField = polygonData.open || polygonData.high || polygonData.low || closeValue || polygonData.previousClose;
       if (hasAnyTechnicalField) {
         // Patch the polygonData object to always have a close value
         const patchedQuote = { ...polygonData, close: closeValue };
@@ -1827,14 +1846,17 @@ REQUIREMENTS:
         console.log('Parsed BenzingaQuote:', JSON.stringify(q, null, 2));
 
         const symbol = q.symbol ?? 'UNKNOWN';
-        const companyName = q.name ?? symbol;
-        const changePercent = typeof q.changePercent === 'number' ? q.changePercent : 0;
-        const lastPrice = formatPrice(q.lastTradePrice);
-
+        const companyName = normalizeCompanyName(q.name ?? symbol);
+        
         if (symbol === 'UNKNOWN' || !q.lastTradePrice) {
           console.log(`Skipping invalid quote for symbol: ${symbol}`);
           return null;
         }
+
+        const changePercent = typeof q.changePercent === 'number' ? q.changePercent : 0;
+        // Format price to ensure exactly 2 decimal places - moved after validation
+        const lastPrice = formatPrice(q.lastTradePrice);
+        console.log(`[${symbol}] Raw lastTradePrice:`, q.lastTradePrice, `typeof:`, typeof q.lastTradePrice, `Formatted lastPrice:`, lastPrice, `typeof formatted:`, typeof lastPrice);
 
         const upDown = changePercent > 0 ? 'up' : changePercent < 0 ? 'down' : 'unchanged';
         const absChange = Math.abs(changePercent).toFixed(2);
@@ -1843,12 +1865,14 @@ REQUIREMENTS:
         const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
         const dayOfWeek = dayNames[date.getDay()];
 
+        // Build price action text with explicit string concatenation to ensure no floating point issues
         let priceActionText = '';
+        const priceString = String(lastPrice); // Ensure it's definitely a string
         
         if (marketStatus === 'open') {
-          priceActionText = `${symbol} Price Action: ${companyName} shares were ${upDown} ${absChange}% at $${lastPrice} at the time of publication on ${dayOfWeek}`;
+          priceActionText = `${symbol} Price Action: ${companyName} shares were ${upDown} ${absChange}% at $${priceString} at the time of publication on ${dayOfWeek}`;
         } else {
-          priceActionText = `${symbol} Price Action: ${companyName} shares were ${upDown} ${absChange}% at $${lastPrice}${marketStatusPhrase} on ${dayOfWeek}`;
+          priceActionText = `${symbol} Price Action: ${companyName} shares were ${upDown} ${absChange}% at $${priceString}${marketStatusPhrase} on ${dayOfWeek}`;
         }
 
         // Add 52-week range context if available
@@ -1881,6 +1905,7 @@ REQUIREMENTS:
         }
 
         priceActionText += ', according to Benzinga Pro data.';
+        console.log(`[${symbol}] Final priceActionText:`, priceActionText);
 
         if (briefAnalysis) {
           // Brief analysis for Benzinga mode
@@ -1897,7 +1922,7 @@ REQUIREMENTS:
             const completion = await openai.chat.completions.create({
               model: 'gpt-4o-mini',
               messages: [{ role: 'user', content: briefPrompt }],
-              max_tokens: 100,
+              max_tokens: 200,
               temperature: 0.5,
             });
             briefAnalysisText = completion.choices[0].message?.content?.trim() || '';
@@ -1922,7 +1947,10 @@ REQUIREMENTS:
 
         // For full analysis mode, generate technical analysis using Benzinga data
         let technicalAnalysis = '';
-        const hasAnyTechnicalField = q.open || q.high || q.low || q.close;
+        // Check for any useful technical data (not just today's OHLC, which may not be available during premarket)
+        const hasAnyTechnicalField = q.open || q.high || q.low || q.close || 
+                                      q.previousClosePrice || q.lastTradePrice ||
+                                      q.fiftyDayAveragePrice || q.hundredDayAveragePrice || q.twoHundredDayAveragePrice;
         if (hasAnyTechnicalField) {
           // Get sector peers for comparison
           const sectorPeersData: BenzingaQuote[] = [];
@@ -2008,21 +2036,44 @@ REQUIREMENTS:
         });
       } else if (validPriceActions.length > 1) {
         // For multiple tickers, create a grouped response
+        // First, extract timing information from the first ticker to use at the end
+        const firstAction = validPriceActions[0].priceAction;
+        let timingPhrase = '';
+        let dayOfWeek = '';
+        
+        // Extract timing phrase (premarket, afterhours, etc.)
+        const timingMatch = firstAction.match(/(during premarket trading|during after-hours trading|while the market was closed|at the time of publication) on ([A-Za-z]+)/);
+        if (timingMatch) {
+          timingPhrase = timingMatch[1];
+          dayOfWeek = timingMatch[2];
+        }
+        
         // Extract just the company and price action parts (remove the ticker prefix, attribution, and time/date)
-        const priceActionParts = validPriceActions.map(action => {
-          // Remove the ticker prefix, "according to Benzinga" part, and time/date info
-          let cleanAction = action.priceAction
-            .replace(/^[A-Z]{1,5}\s+Price Action:\s*/, '') // Remove ticker prefix
-            .replace(/,\s*according to Benzinga Pro data\.?$/, '') // Remove attribution
-            .replace(/,\s*according to Benzinga Pro\.?$/, '') // Remove attribution (alternative format)
-            .replace(/\s+at the time of publication on [A-Za-z]+\.?$/, '') // Remove time/date info
-            .replace(/\.$/, ''); // Remove trailing period
+        const priceActionParts = validPriceActions.map((action, index) => {
+          // Start with the full price action text
+          console.log(`[GROUPED ${index}] Original priceAction:`, action.priceAction);
+          let cleanAction = action.priceAction;
           
-          // Additional cleanup to remove any remaining time/date patterns
-          cleanAction = cleanAction.replace(/\s+at the time of publication on [A-Za-z]+,\s*according to Benzinga Pro data\.?$/, '');
-          cleanAction = cleanAction.replace(/\s+at the time of publication on [A-Za-z]+,\s*according to Benzinga Pro\.?$/, '');
+          // Remove ticker prefix (e.g., "TSLA Price Action: ")
+          cleanAction = cleanAction.replace(/^[A-Z]{1,5}\s+Price Action:\s*/, '');
           
-          return cleanAction;
+          // Remove attribution first (before removing 52-week range)
+          cleanAction = cleanAction.replace(/,\s*according to Benzinga Pro data\.?$/, '');
+          cleanAction = cleanAction.replace(/,\s*according to Benzinga Pro\.?$/, '');
+          
+          // Remove 52-week range sentences (e.g., ". The stock is trading near its 52-week high of $195.30")
+          // Match until comma or end of string, not until period (to avoid matching decimal points in prices)
+          cleanAction = cleanAction.replace(/\.\s*The stock is (trading|approaching|near)[^,]*52-week[^,]*(,|$)/g, '');
+          
+          // Remove timing phrases
+          cleanAction = cleanAction.replace(/\s+(during premarket trading|during after-hours trading|while the market was closed|at the time of publication) on [A-Za-z]+\.?/g, '');
+          
+          // Remove any trailing periods
+          cleanAction = cleanAction.replace(/\.$/, '');
+          
+          const trimmed = cleanAction.trim();
+          console.log(`[GROUPED ${index}] Cleaned priceAction:`, trimmed);
+          return trimmed;
         });
         
         // Create a natural flowing sentence
@@ -2038,7 +2089,12 @@ REQUIREMENTS:
           groupedText += priceActionParts.join(', ') + ' and ' + lastPart;
         }
         
-        groupedText += ' at the time of publication on Monday, according to Benzinga Pro data.';
+        // Add the timing phrase and attribution
+        if (timingPhrase && dayOfWeek) {
+          groupedText += ` ${timingPhrase} on ${dayOfWeek}, according to Benzinga Pro data.`;
+        } else {
+          groupedText += ', according to Benzinga Pro data.';
+        }
         
         return NextResponse.json({ 
           priceActions: [{
