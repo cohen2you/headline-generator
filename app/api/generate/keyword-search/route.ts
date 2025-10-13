@@ -61,10 +61,10 @@ export async function POST(request: Request) {
       searchTerm: keywords
     });
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error in keyword search:', error);
     return NextResponse.json({ 
-      error: error.message || 'Failed to search articles.' 
+      error: error instanceof Error ? error.message : 'Failed to search articles.' 
     }, { status: 500 });
   }
 }
@@ -122,7 +122,7 @@ async function fetchTargetedArticles(keywords: string): Promise<BenzingaArticle[
           console.log(`  ✓ Ticker ${ticker}: ${data.length} articles`);
           
           // Log date range of returned articles
-          const dates = data.map((a: any) => new Date(a.created).toISOString().slice(0, 10)).filter(Boolean);
+          const dates = data.map((a: BenzingaArticle) => new Date(a.created).toISOString().slice(0, 10)).filter(Boolean);
           if (dates.length > 0) {
             const sortedDates = [...dates].sort();
             const newest = sortedDates[sortedDates.length - 1];
@@ -131,7 +131,7 @@ async function fetchTargetedArticles(keywords: string): Promise<BenzingaArticle[
           }
           
           // Filter articles by date range ourselves
-          const filteredData = data.filter((article: any) => {
+          const filteredData = data.filter((article: BenzingaArticle) => {
             if (!article.created) return false;
             const articleDate = new Date(article.created);
             const fromDate = new Date(dateFromStr);
@@ -346,7 +346,7 @@ Return up to 20 numbers.`;
         
         return selectedArticles.slice(0, 20);
       }
-    } catch (parseError) {
+    } catch {
       console.error('Failed to parse AI response:', response);
       // Fallback: return first 20 articles
       return articles.slice(0, 20);
