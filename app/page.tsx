@@ -6,6 +6,7 @@ import HeadlineTools, { HeadlineToolsRef } from './components/HeadlineTools';
 import HeadlineWorkshop, { HeadlineWorkshopRef } from './components/HeadlineWorkshop';
 import CTALineGenerator, { CTALineGeneratorRef } from './components/CTALineGenerator';
 import PriceActionGenerator, { PriceActionGeneratorRef } from './components/PriceActionGenerator';
+import KeywordSearchGenerator, { KeywordSearchGeneratorRef } from './components/KeywordSearchGenerator';
 import EdgeRankingsGenerator, { EdgeRankingsGeneratorRef } from './components/EdgeRankingsGenerator';
 import AnalystRatingsGenerator, { AnalystRatingsGeneratorRef } from './components/AnalystRatingsGenerator';
 import LeadGenerator, { LeadGeneratorRef } from './components/LeadGenerator';
@@ -21,6 +22,7 @@ export default function Page() {
   const headlineWorkshopRef = useRef<HeadlineWorkshopRef>(null);
   const ctaLineGeneratorRef = useRef<CTALineGeneratorRef>(null);
   const priceActionGeneratorRef = useRef<PriceActionGeneratorRef>(null);
+  const keywordSearchGeneratorRef = useRef<KeywordSearchGeneratorRef>(null);
   const edgeRankingsGeneratorRef = useRef<EdgeRankingsGeneratorRef>(null);
   const analystRatingsGeneratorRef = useRef<AnalystRatingsGeneratorRef>(null);
   const leadGeneratorRef = useRef<LeadGeneratorRef>(null);
@@ -46,6 +48,9 @@ export default function Page() {
     }
     if (priceActionGeneratorRef.current?.clearData) {
       priceActionGeneratorRef.current.clearData();
+    }
+    if (keywordSearchGeneratorRef.current?.clearData) {
+      keywordSearchGeneratorRef.current.clearData();
     }
     if (edgeRankingsGeneratorRef.current?.clearData) {
       edgeRankingsGeneratorRef.current.clearData();
@@ -84,7 +89,12 @@ export default function Page() {
           <PriceActionGenerator ref={priceActionGeneratorRef} />
         </div>
 
-        {/* CTA Line Generator - Second */}
+        {/* Keyword Search Generator - Second */}
+        <div className="mb-6">
+          <KeywordSearchGenerator ref={keywordSearchGeneratorRef} />
+        </div>
+
+        {/* CTA Line Generator - Third */}
         <div className="mb-6">
           <CTALineGenerator ref={ctaLineGeneratorRef} />
         </div>

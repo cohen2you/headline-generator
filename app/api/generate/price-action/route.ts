@@ -299,21 +299,43 @@ async function fetchRSI(symbol: string): Promise<{ rsi: number | undefined; sign
   try {
     console.log(`=== FETCHING RSI DATA FOR ${symbol} ===`);
     
-    // Use previous trading day's data since end-of-day indicators aren't available for current day
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    const yesterdayStr = yesterday.toISOString().split('T')[0];
+    // Get the last trading day (skip weekends)
+    const date = new Date();
+    const dayOfWeek = date.getDay();
+    
+    // If today is Monday (1), go back to Friday (subtract 3 days)
+    if (dayOfWeek === 1) {
+      date.setDate(date.getDate() - 3);
+    }
+    // If today is Sunday (0), go back to Friday (subtract 2 days)
+    else if (dayOfWeek === 0) {
+      date.setDate(date.getDate() - 2);
+    }
+    // If today is Saturday (6), go back to Friday (subtract 1 day)
+    else if (dayOfWeek === 6) {
+      date.setDate(date.getDate() - 1);
+    }
+    // Otherwise, use yesterday
+    else {
+      date.setDate(date.getDate() - 1);
+    }
+    
+    const yesterdayStr = date.toISOString().split('T')[0];
+    console.log(`Using date: ${yesterdayStr} (${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.getDay()]})`);
     
     const rsiUrl = `https://api.polygon.io/v1/indicators/rsi/${symbol}?timestamp=${yesterdayStr}&timespan=day&adjusted=true&window=14&series_type=close&order=desc&limit=1&apikey=${process.env.POLYGON_API_KEY}`;
     
     const response = await fetch(rsiUrl);
     
     if (!response.ok) {
+      const errorText = await response.text();
       console.log(`RSI API returned status ${response.status} for ${symbol}`);
+      console.log(`RSI API error response:`, errorText.substring(0, 200));
       return { rsi: undefined, signal: 'neutral' };
     }
     
     const data: PolygonRSI = await response.json();
+    console.log(`RSI API response for ${symbol}:`, JSON.stringify(data).substring(0, 300));
     
     if (data.results?.values && data.results.values.length > 0) {
       const rsiValue = data.results.values[0].value;
@@ -342,21 +364,30 @@ async function fetchRSI(symbol: string): Promise<{ rsi: number | undefined; sign
 // Function to fetch SMA (Simple Moving Average) data
 async function fetchSMA(symbol: string, window: number): Promise<number | undefined> {
   try {
-    // Use previous trading day's data since end-of-day indicators aren't available for current day
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    const yesterdayStr = yesterday.toISOString().split('T')[0];
+    // Get the last trading day (skip weekends)
+    const date = new Date();
+    const dayOfWeek = date.getDay();
+    
+    if (dayOfWeek === 1) date.setDate(date.getDate() - 3); // Monday → Friday
+    else if (dayOfWeek === 0) date.setDate(date.getDate() - 2); // Sunday → Friday
+    else if (dayOfWeek === 6) date.setDate(date.getDate() - 1); // Saturday → Friday
+    else date.setDate(date.getDate() - 1); // Otherwise yesterday
+    
+    const yesterdayStr = date.toISOString().split('T')[0];
     
     const smaUrl = `https://api.polygon.io/v1/indicators/sma/${symbol}?timestamp=${yesterdayStr}&timespan=day&adjusted=true&window=${window}&series_type=close&order=desc&limit=1&apikey=${process.env.POLYGON_API_KEY}`;
     
     const response = await fetch(smaUrl);
     
     if (!response.ok) {
+      const errorText = await response.text();
       console.log(`SMA-${window} API returned status ${response.status} for ${symbol}`);
+      console.log(`SMA-${window} API error:`, errorText.substring(0, 200));
       return undefined;
     }
     
     const data: PolygonSMA = await response.json();
+    console.log(`SMA-${window} response:`, JSON.stringify(data).substring(0, 200));
     
     if (data.results?.values && data.results.values.length > 0) {
       const smaValue = data.results.values[0].value;
@@ -375,21 +406,30 @@ async function fetchSMA(symbol: string, window: number): Promise<number | undefi
 // Function to fetch EMA (Exponential Moving Average) data
 async function fetchEMA(symbol: string, window: number): Promise<number | undefined> {
   try {
-    // Use previous trading day's data since end-of-day indicators aren't available for current day
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    const yesterdayStr = yesterday.toISOString().split('T')[0];
+    // Get the last trading day (skip weekends)
+    const date = new Date();
+    const dayOfWeek = date.getDay();
+    
+    if (dayOfWeek === 1) date.setDate(date.getDate() - 3); // Monday → Friday
+    else if (dayOfWeek === 0) date.setDate(date.getDate() - 2); // Sunday → Friday
+    else if (dayOfWeek === 6) date.setDate(date.getDate() - 1); // Saturday → Friday
+    else date.setDate(date.getDate() - 1); // Otherwise yesterday
+    
+    const yesterdayStr = date.toISOString().split('T')[0];
     
     const emaUrl = `https://api.polygon.io/v1/indicators/ema/${symbol}?timestamp=${yesterdayStr}&timespan=day&adjusted=true&window=${window}&series_type=close&order=desc&limit=1&apikey=${process.env.POLYGON_API_KEY}`;
     
     const response = await fetch(emaUrl);
     
     if (!response.ok) {
+      const errorText = await response.text();
       console.log(`EMA-${window} API returned status ${response.status} for ${symbol}`);
+      console.log(`EMA-${window} API error:`, errorText.substring(0, 200));
       return undefined;
     }
     
     const data: PolygonEMA = await response.json();
+    console.log(`EMA-${window} response:`, JSON.stringify(data).substring(0, 200));
     
     if (data.results?.values && data.results.values.length > 0) {
       const emaValue = data.results.values[0].value;
