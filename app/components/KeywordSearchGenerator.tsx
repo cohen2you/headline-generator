@@ -173,7 +173,7 @@ const KeywordSearchGenerator = forwardRef<KeywordSearchGeneratorRef>((props, ref
                 <span>{formatDate(article.created)}</span>
                 {article.author && <span>• {article.author}</span>}
                 {article.stocks && article.stocks.length > 0 && (
-                  <span>• {article.stocks.map((s: any) => typeof s === 'string' ? s : s.name).filter(Boolean).join(', ')}</span>
+                  <span>• {article.stocks.map((s: { name?: string } | string) => typeof s === 'string' ? s : s.name).filter(Boolean).join(', ')}</span>
                 )}
               </div>
 
@@ -200,7 +200,7 @@ const KeywordSearchGenerator = forwardRef<KeywordSearchGeneratorRef>((props, ref
 
               {article.tags && article.tags.length > 0 && (
                 <div className="mt-3 flex flex-wrap gap-1">
-                  {article.tags.slice(0, 5).map((tag: any, idx: number) => (
+                  {article.tags.slice(0, 5).map((tag: { name?: string } | string, idx: number) => (
                     <span
                       key={idx}
                       className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded"

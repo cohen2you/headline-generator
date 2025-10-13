@@ -42,7 +42,7 @@ export async function POST(request: Request) {
 
     // STEP 2: Use AI to select the 20 most relevant articles
     console.log('🤖 Using AI to select most relevant articles...');
-    const selectedArticles = await selectMostRelevantWithAI(candidateArticles, keywords);
+    const selectedArticles = await selectMostRelevantWithAI(candidateArticles as FormattedArticle[], keywords);
     console.log(`✅ Selected ${selectedArticles.length} most relevant articles`);
     
     // Log date range of selected articles
@@ -69,21 +69,34 @@ export async function POST(request: Request) {
   }
 }
 
+interface BenzingaArticle {
+  id: string;
+  title?: string;
+  headline?: string;
+  url: string;
+  created: string;
+  teaser?: string;
+  body?: string;
+  author?: string;
+  channels?: Array<{ name?: string }>;
+  stocks?: Array<{ name?: string } | string>;
+  tags?: Array<{ name?: string } | string>;
+}
+
 // STEP 1: Fetch targeted articles using multiple Benzinga search strategies
-async function fetchTargetedArticles(keywords: string): Promise<any[]> {
-  const allArticles: any[] = [];
+async function fetchTargetedArticles(keywords: string): Promise<BenzingaArticle[]> {
+  const allArticles: BenzingaArticle[] = [];
   const seenUrls = new Set<string>();
   
   // Get date range (last 30 days)
   const dateFrom = new Date();
   dateFrom.setDate(dateFrom.getDate() - 30);
   const dateFromStr = dateFrom.toISOString().slice(0, 10);
-  const dateToStr = new Date().toISOString().slice(0, 10);
 
   // Helper to add articles without duplicates
-  const addArticles = (articles: any[]) => {
+  const addArticles = (articles: BenzingaArticle[]) => {
     if (!Array.isArray(articles)) return;
-    articles.forEach(article => {
+    articles.forEach((article: BenzingaArticle) => {
       if (article.url && !seenUrls.has(article.url)) {
         seenUrls.add(article.url);
         allArticles.push(article);
@@ -152,7 +165,7 @@ async function fetchTargetedArticles(keywords: string): Promise<any[]> {
           const data = await res.json();
           if (Array.isArray(data) && data.length > 0) {
             // Filter for keyword matches AND date range
-            const matching = data.filter((article: any) => {
+            const matching = data.filter((article: BenzingaArticle) => {
               // Check date first
               if (article.created) {
                 const articleDate = new Date(article.created);
@@ -194,15 +207,15 @@ async function fetchTargetedArticles(keywords: string): Promise<any[]> {
       // Exclude press releases and insights
       if (article.url && article.url.includes('/insights/')) return false;
       if (Array.isArray(article.channels) && 
-          article.channels.some((ch: any) => 
-            ['press-releases', 'insights'].includes(ch.name?.toLowerCase()))) {
+          article.channels.some(ch => 
+            ['press-releases', 'insights'].includes(ch.name?.toLowerCase() || ''))) {
         return false;
       }
       return article.title && article.url && article.created;
     })
     .map(article => ({
       id: article.id,
-      title: article.title || article.headline,
+      title: article.title || article.headline || '',
       url: article.url,
       created: article.created,
       teaser: article.teaser || '',
@@ -210,6 +223,7 @@ async function fetchTargetedArticles(keywords: string): Promise<any[]> {
       stocks: article.stocks || [],
       tags: article.tags || []
     }))
+    .filter((article): article is FormattedArticle => article.title !== '')
     .slice(0, 100); // Keep top 100 for AI ranking
 }
 
@@ -250,8 +264,19 @@ function getTickerForSearch(searchTerm: string): string[] {
   return [...new Set(tickers)];
 }
 
+interface FormattedArticle {
+  id: string;
+  title: string;
+  url: string;
+  created: string;
+  teaser: string;
+  author: string;
+  stocks: Array<{ name?: string } | string>;
+  tags: Array<{ name?: string } | string>;
+}
+
 // STEP 2: Use AI to rank and select the most relevant articles
-async function selectMostRelevantWithAI(articles: any[], searchQuery: string): Promise<any[]> {
+async function selectMostRelevantWithAI(articles: FormattedArticle[], searchQuery: string): Promise<FormattedArticle[]> {
   try {
     if (articles.length === 0) return [];
     

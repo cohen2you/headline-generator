@@ -255,6 +255,7 @@ interface HistoricalData {
 }
 
 // Utility function to truncate to two decimal places
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function truncateToTwoDecimals(num: number): number {
   return Math.floor(num * 100) / 100;
 }
