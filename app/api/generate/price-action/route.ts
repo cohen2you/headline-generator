@@ -580,8 +580,6 @@ async function generateUnifiedFullAnalysisBenzinga(priceActionText: string, quot
   try {
     // Sector comparison is available but not currently used in the prompt
     // Keeping the logic for future enhancement
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    let sectorComparisonText = '';
     if (sectorComparison && sectorComparison.length > 0) {
       const comparisonData = sectorComparison.map(stock => {
         const formattedMarketCap = typeof stock.marketCap === 'number'
@@ -598,7 +596,8 @@ async function generateUnifiedFullAnalysisBenzinga(priceActionText: string, quot
       
       const isSectorETF = sectorComparison.some(stock => ['XLI', 'XLF', 'XLK', 'XLV', 'XLE', 'XLP', 'XLY'].includes(stock.symbol || ''));
       const comparisonType = isSectorETF ? 'Sector ETF Comparison' : 'Sector Comparison';
-      sectorComparisonText = `\n\n${comparisonType}:\n${comparisonData}`;
+      // Sector comparison text prepared but not currently used in prompt
+      console.log(`${comparisonType}:\n${comparisonData}`);
     }
 
     // Get day of week for context
@@ -673,8 +672,6 @@ async function generateUnifiedFullAnalysis(priceActionText: string, quote: Polyg
   try {
     // Sector comparison is available but not currently used in the prompt
     // Keeping the logic for future enhancement
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    let sectorComparisonText = '';
     if (sectorComparison && sectorComparison.length > 0) {
       // Patch sector peers to clarify P/E status
       const patchedSectorComparison = sectorComparison.map(stock => {
@@ -702,7 +699,8 @@ async function generateUnifiedFullAnalysis(priceActionText: string, quote: Polyg
       // Determine if we're comparing against sector peers or sector ETFs
       const isSectorETF = patchedSectorComparison.some(stock => ['XLI', 'XLF', 'XLK', 'XLV', 'XLE', 'XLP', 'XLY'].includes(stock.symbol || ''));
       const comparisonType = isSectorETF ? 'Sector ETF Comparison' : 'Sector Comparison';
-      sectorComparisonText = `\n\n${comparisonType}:\n${comparisonData}`;
+      // Sector comparison text prepared but not currently used in prompt
+      console.log(`${comparisonType}:\n${comparisonData}`);
     }
 
     // Get day of week for context
