@@ -760,6 +760,9 @@ CRITICAL RULES:
 - Include support/resistance levels and overall technical outlook
 - Break content into SHORT paragraphs - MAXIMUM 2 sentences per paragraph
 - DO NOT use summary phrases like "In summary", "In conclusion", "Overall", "To summarize"
+- DO NOT repeat information or restate points already made
+- End with actionable technical insight, NOT with generic concluding statements
+- Keep total length to 4-5 short paragraphs maximum
 - Use plain text only - no special formatting or markup
 - Write as one continuous, professional analysis with natural paragraph breaks`;
 
