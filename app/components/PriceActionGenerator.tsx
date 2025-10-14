@@ -271,50 +271,72 @@ const PriceActionGenerator = forwardRef<PriceActionGeneratorRef>((props, ref) =>
         copyButton.remove();
       }
       
-      // Extract text from all content elements
-      const textParts: string[] = [];
+      // Check if there are any links in the content
+      const hasLinks = clone.querySelectorAll('a').length > 0;
       
-      // Get all spans (for Price Action Only and other simple modes)
-      const spans = clone.querySelectorAll('span');
-      spans.forEach((span) => {
-        const text = span.textContent?.trim();
-        if (text && text !== '' && !text.includes('Copy')) {
-          textParts.push(text);
-        }
-      });
-      
-      // Get all div text (for Full Analysis mode)
-      const divs = clone.querySelectorAll('div');
-      divs.forEach((div) => {
-        // Only get direct text, not nested content
-        const text = div.textContent?.trim();
-        if (text && text !== '' && !text.includes('Copy') && !textParts.includes(text)) {
-          textParts.push(text);
-        }
-      });
-      
-      // Get all paragraph text (for Full Analysis and Vs. Analysis modes)
-      const paragraphs = clone.querySelectorAll('p');
-      paragraphs.forEach((p) => {
-        const text = p.textContent?.trim();
-        if (text && text !== '' && !text.includes('Copy')) {
-          textParts.push(text);
-        }
-      });
-      
-      // If we got content from divs/paragraphs, use that; otherwise use the textContent
-      let plainText = '';
-      if (textParts.length > 0) {
-        // Remove duplicates while preserving order
-        const uniqueParts = textParts.filter((text, index) => textParts.indexOf(text) === index);
-        plainText = uniqueParts.join('\n\n').trim();
+      if (hasLinks) {
+        // Copy as HTML to preserve links
+        const htmlContent = clone.innerHTML.trim();
+        
+        // Create a blob with HTML content
+        const blob = new Blob([htmlContent], { type: 'text/html' });
+        const plainText = clone.textContent?.trim() || '';
+        const textBlob = new Blob([plainText], { type: 'text/plain' });
+        
+        // Copy both HTML and plain text to clipboard
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            'text/html': blob,
+            'text/plain': textBlob
+          })
+        ]);
       } else {
-        // Fallback to entire text content
-        plainText = clone.textContent?.trim() || '';
+        // No links - copy as plain text
+        const textParts: string[] = [];
+        
+        // Get all spans (for Price Action Only and other simple modes)
+        const spans = clone.querySelectorAll('span');
+        spans.forEach((span) => {
+          const text = span.textContent?.trim();
+          if (text && text !== '' && !text.includes('Copy')) {
+            textParts.push(text);
+          }
+        });
+        
+        // Get all div text (for Full Analysis mode)
+        const divs = clone.querySelectorAll('div');
+        divs.forEach((div) => {
+          // Only get direct text, not nested content
+          const text = div.textContent?.trim();
+          if (text && text !== '' && !text.includes('Copy') && !textParts.includes(text)) {
+            textParts.push(text);
+          }
+        });
+        
+        // Get all paragraph text (for Full Analysis and Vs. Analysis modes)
+        const paragraphs = clone.querySelectorAll('p');
+        paragraphs.forEach((p) => {
+          const text = p.textContent?.trim();
+          if (text && text !== '' && !text.includes('Copy')) {
+            textParts.push(text);
+          }
+        });
+        
+        // If we got content from divs/paragraphs, use that; otherwise use the textContent
+        let plainText = '';
+        if (textParts.length > 0) {
+          // Remove duplicates while preserving order
+          const uniqueParts = textParts.filter((text, index) => textParts.indexOf(text) === index);
+          plainText = uniqueParts.join('\n\n').trim();
+        } else {
+          // Fallback to entire text content
+          plainText = clone.textContent?.trim() || '';
+        }
+        
+        // Copy as plain text
+        await navigator.clipboard.writeText(plainText);
       }
       
-      // Copy as plain text (WordPress will auto-format)
-      await navigator.clipboard.writeText(plainText);
       setCopiedPriceActionIndex(index);
       setTimeout(() => setCopiedPriceActionIndex(null), 2000);
     } catch (error) {
