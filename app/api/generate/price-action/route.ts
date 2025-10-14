@@ -578,6 +578,9 @@ async function fetchPolygonData(symbol: string): Promise<PolygonData> {
 // Unified Full Analysis for Benzinga API data - generates one complete text block
 async function generateUnifiedFullAnalysisBenzinga(priceActionText: string, quote: BenzingaQuote, sectorComparison?: BenzingaQuote[]): Promise<string> {
   try {
+    // Sector comparison is available but not currently used in the prompt
+    // Keeping the logic for future enhancement
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     let sectorComparisonText = '';
     if (sectorComparison && sectorComparison.length > 0) {
       const comparisonData = sectorComparison.map(stock => {
@@ -668,6 +671,9 @@ CRITICAL RULES:
 // Unified Full Analysis for Polygon API data - generates one complete text block
 async function generateUnifiedFullAnalysis(priceActionText: string, quote: PolygonData, sectorComparison?: PolygonData[]): Promise<string> {
   try {
+    // Sector comparison is available but not currently used in the prompt
+    // Keeping the logic for future enhancement
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     let sectorComparisonText = '';
     if (sectorComparison && sectorComparison.length > 0) {
       // Patch sector peers to clarify P/E status
@@ -1987,7 +1993,6 @@ REQUIREMENTS:
         }
 
         // For full analysis mode, generate technical analysis using Benzinga data
-        let technicalAnalysis = '';
         // Check for any useful technical data (not just today's OHLC, which may not be available during premarket)
         const hasAnyTechnicalField = q.open || q.high || q.low || q.close || 
                                       q.previousClosePrice || q.lastTradePrice ||
