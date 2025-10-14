@@ -343,86 +343,55 @@ const PriceActionGenerator = forwardRef<PriceActionGeneratorRef>((props, ref) =>
         className="w-full p-2 border border-yellow-400 rounded mb-4"
       />
       
-      {/* Vs. Smart Price Action Fields */}
-      <div className="border-t border-gray-300 pt-4 mb-4">
-        <h3 className="text-lg font-semibold mb-3 text-gray-900 dark:text-gray-100">Vs. Smart Price Action</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Primary Ticker
-            </label>
-            <input
-              type="text"
-              placeholder="e.g., AAPL"
-              value={primaryTicker}
-              onChange={(e) => setPrimaryTicker(e.target.value.toUpperCase())}
-              className="w-full p-2 border border-blue-400 rounded"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Comparison Ticker(s)
-            </label>
-            <input
-              type="text"
-              placeholder="e.g., MSFT, GOOGL, TSLA"
-              value={comparisonTickers}
-              onChange={(e) => setComparisonTickers(e.target.value.toUpperCase())}
-              className="w-full p-2 border border-blue-400 rounded"
-            />
-          </div>
-        </div>
-      </div>
-      
-      <div className="flex flex-wrap gap-2 mb-4">
+      <div className="flex flex-wrap gap-2 mb-6">
         <button
           onClick={() => generateSmartPriceAction()}
           disabled={loadingPriceAction || !tickers.trim()}
-          className="bg-green-600 text-white px-4 py-2 rounded disabled:bg-green-300 mb-4 font-semibold"
+          className="bg-green-600 text-white px-4 py-2 rounded disabled:bg-green-300 font-semibold"
         >
           {loadingPriceAction ? 'Analyzing...' : '🧠 Smart Price Action'}
         </button>
         <button
-          onClick={() => generateVsSmartPriceAction()}
-          disabled={loadingPriceAction || !primaryTicker.trim() || !comparisonTickers.trim()}
-          className="bg-blue-600 text-white px-4 py-2 rounded disabled:bg-blue-300 mb-4 font-semibold"
-        >
-          {loadingPriceAction ? 'Comparing...' : '⚔️ Vs. Smart Price Action'}
-        </button>
-        <button
           onClick={() => generatePriceActionOnly()}
           disabled={loadingPriceAction || !tickers.trim()}
-          className="bg-yellow-500 text-white px-4 py-2 rounded disabled:bg-yellow-300 mb-4"
+          className="bg-yellow-500 text-white px-4 py-2 rounded disabled:bg-yellow-300"
         >
           {loadingPriceAction ? 'Generating...' : 'Price Action Only'}
         </button>
         <button
           onClick={() => generateBriefAnalysis()}
           disabled={loadingPriceAction || !tickers.trim()}
-          className="bg-yellow-400 text-white px-4 py-2 rounded disabled:bg-yellow-300 mb-4"
+          className="bg-yellow-400 text-white px-4 py-2 rounded disabled:bg-yellow-300"
         >
           {loadingPriceAction ? 'Generating...' : 'Brief Analysis'}
         </button>
         <button
           onClick={generatePriceAction}
           disabled={loadingPriceAction || !tickers.trim()}
-          className="bg-yellow-600 text-white px-4 py-2 rounded disabled:bg-yellow-300 mb-4"
+          className="bg-yellow-600 text-white px-4 py-2 rounded disabled:bg-yellow-300"
         >
           {loadingPriceAction ? 'Generating Price Action...' : 'Full Analysis'}
         </button>
         <button
           onClick={generateGroupedPriceAction}
           disabled={loadingPriceAction || !tickers.trim()}
-          className="bg-yellow-700 text-white px-4 py-2 rounded disabled:bg-yellow-300 mb-4"
+          className="bg-yellow-700 text-white px-4 py-2 rounded disabled:bg-yellow-300"
         >
           {loadingPriceAction ? 'Generating...' : 'Grouped Price Action'}
         </button>
       </div>
+
       {priceActionError && <p className="text-red-600 mb-4">{priceActionError}</p>}
 
-      {priceActions.length > 0 && (
-        <ul className="space-y-2 font-mono text-sm">
+      {/* Main Section Results - Above Vs. Smart Price Action */}
+      {priceActions.length > 0 && priceActions.some(action => !(action && typeof action === 'object' && 'vsAnalysis' in action)) && (
+        <ul className="space-y-2 font-mono text-sm mb-6">
           {priceActions.map((action, i) => {
+            // Skip Vs. Analysis results - they'll be shown below
+            if (action && typeof action === 'object' && 'vsAnalysis' in action) {
+              return null;
+            }
+            
             if (action && typeof action === 'object' && 'grouped' in action) {
               // Grouped mode
               return (
@@ -446,32 +415,6 @@ const PriceActionGenerator = forwardRef<PriceActionGeneratorRef>((props, ref) =>
                   <button
                     onClick={() => copyPriceActionHTML(i)}
                     className="mt-2 bg-green-200 hover:bg-green-300 text-green-800 px-2 py-1 rounded text-xs"
-                  >
-                    {copiedPriceActionIndex === i ? 'Copied!' : 'Copy'}
-                  </button>
-                </li>
-              );
-            } else if (action && typeof action === 'object' && 'vsAnalysis' in action) {
-              // Vs. Analysis mode - render like brief analysis with two paragraphs
-              console.log('VS Analysis action data:', action);
-              
-              // Remove ** markdown formatting
-              const cleanPriceAction = action.priceAction.replace(/\*\*/g, '');
-              const cleanBriefAnalysis = action.briefAnalysis?.replace(/\*\*/g, '') || '';
-              
-              return (
-                <li key={i} className="flex flex-col items-start border-b border-blue-200 pb-2 mb-2">
-                  {renderPriceActionWithBoldLabel(cleanPriceAction, i)}
-                  {cleanBriefAnalysis && (
-                    <div className="text-gray-900 dark:text-gray-100 mt-2 mb-2">
-                      {cleanBriefAnalysis.split('\n').filter((p: string) => p.trim()).map((paragraph: string, pIndex: number) => (
-                        <p key={pIndex} className="mb-2">{paragraph.trim()}</p>
-                      ))}
-                    </div>
-                  )}
-                  <button
-                    onClick={() => copyPriceActionHTML(i)}
-                    className="mt-2 bg-blue-200 hover:bg-blue-300 text-blue-800 px-2 py-1 rounded text-xs"
                   >
                     {copiedPriceActionIndex === i ? 'Copied!' : 'Copy'}
                   </button>
@@ -544,6 +487,80 @@ const PriceActionGenerator = forwardRef<PriceActionGeneratorRef>((props, ref) =>
           })}
         </ul>
       )}
+      
+      {/* Vs. Smart Price Action - Separate Section Below */}
+      <div className="border-t-2 border-yellow-600 pt-6 mt-6">
+        <h3 className="text-lg font-semibold mb-3 text-blue-700">Vs. Smart Price Action</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Primary Ticker
+            </label>
+            <input
+              type="text"
+              placeholder="e.g., AAPL"
+              value={primaryTicker}
+              onChange={(e) => setPrimaryTicker(e.target.value.toUpperCase())}
+              className="w-full p-2 border border-blue-400 rounded"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Comparison Ticker(s)
+            </label>
+            <input
+              type="text"
+              placeholder="e.g., MSFT, GOOGL, TSLA"
+              value={comparisonTickers}
+              onChange={(e) => setComparisonTickers(e.target.value.toUpperCase())}
+              className="w-full p-2 border border-blue-400 rounded"
+            />
+          </div>
+        </div>
+        <button
+          onClick={() => generateVsSmartPriceAction()}
+          disabled={loadingPriceAction || !primaryTicker.trim() || !comparisonTickers.trim()}
+          className="bg-blue-600 text-white px-4 py-2 rounded disabled:bg-blue-300 font-semibold w-full md:w-auto mb-4"
+        >
+          {loadingPriceAction ? 'Comparing...' : '⚔️ Generate Vs. Smart Price Action'}
+        </button>
+        
+        {/* Vs. Analysis Results - Below Vs. Section */}
+        {priceActions.length > 0 && priceActions.some(action => action && typeof action === 'object' && 'vsAnalysis' in action) && (
+          <ul className="space-y-2 font-mono text-sm mt-4">
+            {priceActions.map((action, i) => {
+              // Only show Vs. Analysis results here
+              if (action && typeof action === 'object' && 'vsAnalysis' in action) {
+                console.log('VS Analysis action data:', action);
+                
+                // Remove ** markdown formatting
+                const cleanPriceAction = action.priceAction.replace(/\*\*/g, '');
+                const cleanBriefAnalysis = action.briefAnalysis?.replace(/\*\*/g, '') || '';
+                
+                return (
+                  <li key={i} className="flex flex-col items-start border-b border-blue-200 pb-2 mb-2">
+                    {renderPriceActionWithBoldLabel(cleanPriceAction, i)}
+                    {cleanBriefAnalysis && (
+                      <div className="text-gray-900 dark:text-gray-100 mt-2 mb-2">
+                        {cleanBriefAnalysis.split('\n').filter((p: string) => p.trim()).map((paragraph: string, pIndex: number) => (
+                          <p key={pIndex} className="mb-2">{paragraph.trim()}</p>
+                        ))}
+                      </div>
+                    )}
+                    <button
+                      onClick={() => copyPriceActionHTML(i)}
+                      className="mt-2 bg-blue-200 hover:bg-blue-300 text-blue-800 px-2 py-1 rounded text-xs"
+                    >
+                      {copiedPriceActionIndex === i ? 'Copied!' : 'Copy'}
+                    </button>
+                  </li>
+                );
+              }
+              return null;
+            })}
+          </ul>
+        )}
+      </div>
     </section>
   );
 });

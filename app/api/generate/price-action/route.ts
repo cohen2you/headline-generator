@@ -164,6 +164,7 @@ interface PolygonData {
   todaysChangePerc: number;
   previousClose: number;
   volume: number;
+  averageVolume?: number;
   open: number;
   high: number;
   low: number;
@@ -176,10 +177,14 @@ interface PolygonData {
   description: string;
   primaryExchange: string;
   currency: string;
+  pe?: number | null;
   
   // Calculated from historical data
   fiftyTwoWeekHigh: number;
   fiftyTwoWeekLow: number;
+  supportLevel?: number | null;
+  resistanceLevel?: number | null;
+  ytdReturn?: number | null;
   
   // Technical indicators
   rsi?: number;
@@ -446,19 +451,169 @@ async function fetchEMA(symbol: string, window: number): Promise<number | undefi
   }
 }
 
+// Function to fetch financial ratios from Polygon
+async function fetchFinancialRatios(symbol: string): Promise<{
+  averageVolume?: number;
+  pe?: number;
+  priceToBook?: number;
+  priceToSales?: number;
+  dividendYield?: number;
+} | null> {
+  try {
+    const url = `https://api.polygon.io/stocks/financials/v1/ratios?ticker=${symbol}&apikey=${process.env.POLYGON_API_KEY}`;
+    const res = await fetch(url);
+    
+    if (!res.ok) {
+      console.log(`Ratios endpoint not available for ${symbol}`);
+      return null;
+    }
+    
+    const data = await res.json();
+    if (!data?.results || data.results.length === 0) {
+      return null;
+    }
+    
+    const ratios = data.results[0];
+    console.log(`Financial ratios for ${symbol}:`, {
+      avgVolume: ratios.average_volume ? (ratios.average_volume / 1000000).toFixed(1) + 'M' : 'N/A',
+      pe: ratios.price_to_earnings?.toFixed(2) || 'N/A',
+      pb: ratios.price_to_book?.toFixed(2) || 'N/A',
+      ps: ratios.price_to_sales?.toFixed(2) || 'N/A'
+    });
+    
+    return {
+      averageVolume: ratios.average_volume,
+      pe: ratios.price_to_earnings,
+      priceToBook: ratios.price_to_book,
+      priceToSales: ratios.price_to_sales,
+      dividendYield: ratios.dividend_yield
+    };
+  } catch (error) {
+    console.error(`Error fetching ratios for ${symbol}:`, error);
+    return null;
+  }
+}
+
+// Function to calculate support and resistance levels from historical data
+function calculateSupportResistance(historicalData: { h: number; l: number; c: number }[], currentPrice: number, symbol: string) {
+  console.log(`=== CALCULATING SUPPORT/RESISTANCE FOR ${symbol} ===`);
+  console.log(`Current price: $${currentPrice.toFixed(2)}`);
+  console.log(`Historical data bars: ${historicalData?.length || 0}`);
+  
+  if (!historicalData || historicalData.length < 20) {
+    console.log('Insufficient historical data for support/resistance calculation');
+    return { support: null, resistance: null };
+  }
+
+  // Prioritize last 20 days for most recent levels, but keep 60 days for backup
+  const last20Days = historicalData.slice(-20);
+  const last60Days = historicalData.slice(-60);
+  
+  console.log(`Analyzing last 20 days (priority) and last 60 days (backup)`);
+  
+  // Find swing highs and lows with dates
+  const findSwings = (data: typeof historicalData) => {
+    const swingHighs: Array<{price: number; timestamp: number; index: number}> = [];
+    const swingLows: Array<{price: number; timestamp: number; index: number}> = [];
+    
+    for (let i = 2; i < data.length - 2; i++) {
+      const current = data[i];
+      const prev2 = data[i - 2];
+      const prev1 = data[i - 1];
+      const next1 = data[i + 1];
+      const next2 = data[i + 2];
+      
+      // Swing high: higher than 2 bars before and 2 bars after
+      if (current.h > prev2.h && current.h > prev1.h && current.h > next1.h && current.h > next2.h) {
+        swingHighs.push({price: current.h, timestamp: (current as { t?: number }).t || 0, index: i});
+      }
+      
+      // Swing low: lower than 2 bars before and 2 bars after
+      if (current.l < prev2.l && current.l < prev1.l && current.l < next1.l && current.l < next2.l) {
+        swingLows.push({price: current.l, timestamp: (current as { t?: number }).t || 0, index: i});
+      }
+    }
+    return { swingHighs, swingLows };
+  };
+  
+  // Get swings from both timeframes
+  const recent = findSwings(last20Days);
+  const extended = findSwings(last60Days);
+  
+  console.log(`Recent (20d): ${recent.swingHighs.length} highs, ${recent.swingLows.length} lows`);
+  console.log(`Extended (60d): ${extended.swingHighs.length} highs, ${extended.swingLows.length} lows`);
+  
+  // Combine and prioritize recent swings
+  const allSwingHighs = [...recent.swingHighs, ...extended.swingHighs];
+  const allSwingLows = [...recent.swingLows, ...extended.swingLows];
+  
+  // Remove duplicates (same price within $0.50)
+  const uniqueHighs = allSwingHighs.filter((swing, index, arr) => 
+    arr.findIndex(s => Math.abs(s.price - swing.price) < 0.5) === index
+  );
+  const uniqueLows = allSwingLows.filter((swing, index, arr) => 
+    arr.findIndex(s => Math.abs(s.price - swing.price) < 0.5) === index
+  );
+  
+  console.log(`Unique swing highs:`, uniqueHighs.slice(0, 5).map(s => `$${s.price.toFixed(2)} (${new Date(s.timestamp).toISOString().slice(0, 10)})`));
+  console.log(`Unique swing lows:`, uniqueLows.slice(0, 5).map(s => `$${s.price.toFixed(2)} (${new Date(s.timestamp).toISOString().slice(0, 10)})`));
+  
+  // Filter resistance candidates: above current price AND within 15% (tighter range)
+  // Prioritize swings from last 20 days, only use older if none found
+  const now = Date.now();
+  const twentyDaysAgo = now - (20 * 24 * 60 * 60 * 1000);
+  
+  let resistanceCandidates = uniqueHighs
+    .filter(s => s.price > currentPrice && s.price < currentPrice * 1.15 && s.timestamp > twentyDaysAgo)
+    .sort((a, b) => a.price - b.price); // Sort by price (lowest first)
+  
+  // If no recent resistance found, look in extended range but still within 15%
+  if (resistanceCandidates.length === 0) {
+    resistanceCandidates = uniqueHighs
+      .filter(s => s.price > currentPrice && s.price < currentPrice * 1.15)
+      .sort((a, b) => a.price - b.price);
+  }
+  
+  // Filter support candidates: below current price AND within 15% (tighter range)
+  let supportCandidates = uniqueLows
+    .filter(s => s.price < currentPrice && s.price > currentPrice * 0.85 && s.timestamp > twentyDaysAgo)
+    .sort((a, b) => b.price - a.price); // Sort by price (highest first)
+  
+  // If no recent support found, look in extended range but still within 15%
+  if (supportCandidates.length === 0) {
+    supportCandidates = uniqueLows
+      .filter(s => s.price < currentPrice && s.price > currentPrice * 0.85)
+      .sort((a, b) => b.price - a.price);
+  }
+  
+  // Select the nearest meaningful levels
+  const resistance = resistanceCandidates.length > 0 ? resistanceCandidates[0].price : null;
+  const resistanceDate = resistanceCandidates.length > 0 ? new Date(resistanceCandidates[0].timestamp).toISOString().slice(0, 10) : null;
+  const resistanceRecent = resistanceCandidates.length > 0 && resistanceCandidates[0].timestamp > twentyDaysAgo;
+  
+  const support = supportCandidates.length > 0 ? supportCandidates[0].price : null;
+  const supportDate = supportCandidates.length > 0 ? new Date(supportCandidates[0].timestamp).toISOString().slice(0, 10) : null;
+  const supportRecent = supportCandidates.length > 0 && supportCandidates[0].timestamp > twentyDaysAgo;
+  
+  console.log(`Selected support: ${support ? '$' + support.toFixed(2) + ' (' + supportDate + ')' + (supportRecent ? ' [RECENT]' : ' [OLDER]') : 'N/A'} (highest swing low below current, within 15%)`);
+  console.log(`Selected resistance: ${resistance ? '$' + resistance.toFixed(2) + ' (' + resistanceDate + ')' + (resistanceRecent ? ' [RECENT]' : ' [OLDER]') : 'N/A'} (lowest swing high above current, within 15%)`);
+  
+  return { support, resistance };
+}
+
 // Main function to fetch all Polygon data for a ticker
 async function fetchPolygonData(symbol: string): Promise<PolygonData> {
   try {
     console.log(`=== FETCHING POLYGON DATA FOR ${symbol} ===`);
     
-    const [snapshotRes, overviewRes, historicalRes, rsiData, sma50, sma200, ema50, ema200] = await Promise.all([
+    const [snapshotRes, overviewRes, historicalRes, rsiData, sma50, sma200, ema50, ema200, ratios] = await Promise.all([
       // Get real-time data
       fetch(`https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers/${symbol}?apikey=${process.env.POLYGON_API_KEY}`),
       
       // Get company information
       fetch(`https://api.polygon.io/v3/reference/tickers/${symbol}?apikey=${process.env.POLYGON_API_KEY}`),
       
-      // Get 1-year historical data for 52-week range
+      // Get 1-year historical data for 52-week range and support/resistance
       fetch(`https://api.polygon.io/v2/aggs/ticker/${symbol}/range/1/day/${getOneYearAgo()}/${getToday()}?adjusted=true&apikey=${process.env.POLYGON_API_KEY}`),
       
       // Get technical indicators
@@ -466,7 +621,10 @@ async function fetchPolygonData(symbol: string): Promise<PolygonData> {
       fetchSMA(symbol, 50),
       fetchSMA(symbol, 200),
       fetchEMA(symbol, 50),
-      fetchEMA(symbol, 200)
+      fetchEMA(symbol, 200),
+      
+      // Get financial ratios (includes average volume and P/E)
+      fetchFinancialRatios(symbol)
     ]);
 
     const [snapshot, overview, historical] = await Promise.all([
@@ -517,6 +675,29 @@ async function fetchPolygonData(symbol: string): Promise<PolygonData> {
     const description = overviewData?.description || '';
     const primaryExchange = overviewData?.primary_exchange || 'N/A';
     const currency = overviewData?.currency_name || 'USD';
+    
+    // Get financial ratios data (P/E, average volume, etc.)
+    const averageVolume = ratios?.averageVolume || null;
+    const peRatio = ratios?.pe || null;
+    const priceToBook = ratios?.priceToBook || null;
+    const dividendYield = ratios?.dividendYield || null;
+
+    // Calculate support and resistance levels from historical data
+    const { support, resistance } = calculateSupportResistance(historical.results || [], currentPrice, symbol);
+
+    // Calculate YTD performance
+    let ytdReturn = null;
+    if (historical.results && historical.results.length > 0) {
+      const currentYear = new Date().getFullYear();
+      const ytdStart = new Date(currentYear, 0, 1).getTime(); // January 1st
+      
+      // Find the first trading day of the year
+      const ytdBar = historical.results.find((bar: { t: number }) => bar.t >= ytdStart);
+      if (ytdBar && ytdBar.c && currentPrice) {
+        ytdReturn = ((currentPrice - ytdBar.c) / ytdBar.c) * 100;
+        console.log(`YTD Performance: ${ytdReturn.toFixed(1)}% (from $${ytdBar.c.toFixed(2)} on ${new Date(ytdBar.t).toISOString().slice(0, 10)})`);
+      }
+    }
 
     const polygonData: PolygonData = {
       // Snapshot data
@@ -525,6 +706,7 @@ async function fetchPolygonData(symbol: string): Promise<PolygonData> {
       todaysChangePerc,
       previousClose,
       volume,
+      averageVolume: averageVolume || undefined,
       open,
       high,
       low,
@@ -537,10 +719,14 @@ async function fetchPolygonData(symbol: string): Promise<PolygonData> {
       description,
       primaryExchange,
       currency,
+      pe: peRatio,
       
       // Calculated data
       fiftyTwoWeekHigh,
       fiftyTwoWeekLow: fiftyTwoWeekLow === Infinity ? 0 : fiftyTwoWeekLow,
+      supportLevel: support,
+      resistanceLevel: resistance,
+      ytdReturn,
       
       // Technical indicators
       rsi: rsiData.rsi,
@@ -671,37 +857,30 @@ CRITICAL RULES:
 // Unified Full Analysis for Polygon API data - generates one complete text block
 async function generateUnifiedFullAnalysis(priceActionText: string, quote: PolygonData, sectorComparison?: PolygonData[]): Promise<string> {
   try {
-    // Sector comparison is available but not currently used in the prompt
-    // Keeping the logic for future enhancement
+    // Calculate Market Cap comparisons with sector peers (P/E often not available from Polygon)
+    let sectorComparisonText = '';
     if (sectorComparison && sectorComparison.length > 0) {
-      // Patch sector peers to clarify P/E status
-      const patchedSectorComparison = sectorComparison.map(stock => {
-        const stockAny = stock as PolygonData & { pe?: number };
-        let patchedPE: string | number;
-        if (typeof stockAny.pe === 'number' && stockAny.pe > 0) {
-          patchedPE = stockAny.pe;
-        } else {
-          patchedPE = 'N/A (unprofitable)';
-        }
-        return { ...stock, pe: patchedPE };
-      });
-      const comparisonData = patchedSectorComparison.map(stock => {
-        const formattedMarketCap = typeof stock.marketCap === 'number'
+      // Format peer comparison data - focus on Market Cap which is always available
+      const peerData = sectorComparison.map(stock => {
+        const formattedMarketCap = typeof stock.marketCap === 'number' && stock.marketCap > 0
           ? (stock.marketCap >= 1000000000000
               ? (stock.marketCap / 1000000000000).toFixed(2) + 'T'
               : (stock.marketCap / 1000000000).toFixed(2) + 'B')
           : 'N/A';
-        const volume = typeof stock.volume === 'number' ? `${(stock.volume / 1000000).toFixed(1)} million` : 'N/A';
-        const changePercent = typeof stock.changePercent === 'number' ? `${stock.changePercent.toFixed(2)}%` : 'N/A';
-        const pe = typeof stock.pe === 'number' ? stock.pe.toString() : (typeof stock.pe === 'string' ? stock.pe : 'N/A');
         const symbol = typeof stock.symbol === 'string' ? stock.symbol : 'N/A';
-        return `${symbol}: Price $${formatPrice(stock.lastTradePrice)}, Change ${changePercent}, Volume ${volume}, Market Cap ${formattedMarketCap}, P/E: ${pe}`;
+        return `${symbol}: Market Cap ${formattedMarketCap}`;
       }).join('\n');
-      // Determine if we're comparing against sector peers or sector ETFs
-      const isSectorETF = patchedSectorComparison.some(stock => ['XLI', 'XLF', 'XLK', 'XLV', 'XLE', 'XLP', 'XLY'].includes(stock.symbol || ''));
-      const comparisonType = isSectorETF ? 'Sector ETF Comparison' : 'Sector Comparison';
-      // Sector comparison text prepared but not currently used in prompt
-      console.log(`${comparisonType}:\n${comparisonData}`);
+      
+      const comparisonType = 'Related Companies';
+      
+      // Calculate main stock's market cap for context
+      const mainMarketCap = typeof quote.marketCap === 'number' && quote.marketCap > 0
+        ? (quote.marketCap >= 1000000000000
+            ? (quote.marketCap / 1000000000000).toFixed(2) + 'T'
+            : (quote.marketCap / 1000000000).toFixed(2) + 'B')
+        : 'N/A';
+      
+      sectorComparisonText = `\n\n${comparisonType}:\n${peerData}\n${quote.symbol}: Market Cap ${mainMarketCap}`;
     }
 
     // Get day of week for context
@@ -718,8 +897,10 @@ async function generateUnifiedFullAnalysis(priceActionText: string, quote: Polyg
       : null;
     
     // Check if volume data is available and meaningful
-    // Skip volume if it's too low (less than 5 million shares) as this indicates market just opened or very light trading
-    const hasVolume = quote.volume && quote.volume > 5000000;
+    // During market hours, volume is incomplete and misleading - skip it
+    // Only analyze volume when market is closed (comparing full day to average)
+    const marketStatus = await getMarketStatus();
+    const hasVolume = marketStatus === 'closed' && quote.volume && quote.volume > 0;
     
     const prompt = `You are a financial analyst writing a complete market analysis. Create a unified, flowing analysis that seamlessly continues from the provided price action information.
 
@@ -730,20 +911,23 @@ STOCK DATA:
 Stock: ${quote.symbol} (${quote.name})
 Current Price: $${formatPrice(quote.lastTradePrice)}
 Daily Change: ${quote.changePercent}%
+YTD Performance: ${quote.ytdReturn ? quote.ytdReturn.toFixed(1) + '%' : 'N/A'}
+Market Cap: ${quote.marketCap ? (quote.marketCap >= 1000000000000 ? (quote.marketCap / 1000000000000).toFixed(2) + 'T' : (quote.marketCap / 1000000000).toFixed(2) + 'B') : 'N/A'}
 RSI: ${quote.rsi ? quote.rsi.toFixed(2) : 'N/A'}
 RSI Signal: ${quote.rsiSignal || 'neutral'}
 
 Technical Indicators:
-- 50-day Moving Average: ${sma50Pct ? `${Math.abs(parseFloat(sma50Pct))}% ${parseFloat(sma50Pct) >= 0 ? 'above' : 'below'}` : 'N/A'}
-- 200-day Moving Average: ${sma200Pct ? `${Math.abs(parseFloat(sma200Pct))}% ${parseFloat(sma200Pct) >= 0 ? 'above' : 'below'}` : 'N/A'}
+- 50-day Moving Average: $${formatPrice(quote.sma50)} (${sma50Pct ? `${Math.abs(parseFloat(sma50Pct))}% ${parseFloat(sma50Pct) >= 0 ? 'above' : 'below'}` : 'N/A'})
+- 200-day Moving Average: $${formatPrice(quote.sma200)} (${sma200Pct ? `${Math.abs(parseFloat(sma200Pct))}% ${parseFloat(sma200Pct) >= 0 ? 'above' : 'below'}` : 'N/A'})
 - 52-week Range: $${formatPrice(quote.fiftyTwoWeekLow)} - $${formatPrice(quote.fiftyTwoWeekHigh)}
-- Volume: ${hasVolume ? (quote.volume / 1000000).toFixed(1) + ' million' : 'N/A (premarket/afterhours)'}
+- Previous Close: $${formatPrice(quote.previousClosePrice)}
+- Current Volume: ${hasVolume ? (quote.volume / 1000000).toFixed(1) + ' million' : 'N/A (too early in session)'}
+- Average Volume (30-day): ${quote.averageVolume ? (quote.averageVolume / 1000000).toFixed(1) + ' million' : 'N/A'}
 
-Intraday Data:
-- Open: $${formatPrice(quote.open)}
-- High: $${formatPrice(quote.high)}
-- Low: $${formatPrice(quote.low)}
-- Close: $${formatPrice(quote.close)}
+Support/Resistance Levels (calculated from recent price action):
+- Support: ${quote.supportLevel ? '$' + formatPrice(quote.supportLevel) : 'N/A'}
+- Resistance: ${quote.resistanceLevel ? '$' + formatPrice(quote.resistanceLevel) : 'N/A'}
+${sectorComparisonText}
 
 Day of Week: ${dayOfWeek}
 
@@ -756,14 +940,21 @@ CRITICAL RULES:
 - Write the COMPLETE unified analysis - include the price action context naturally
 - DO NOT use separate headers or labels
 - DO NOT repeat the price action information - build upon it
-- Use PERCENTAGES for moving averages (e.g., "4.4% above its 50-day moving average")
-- ${hasVolume ? `Use ${dayOfWeek} when mentioning volume timing` : 'DO NOT mention volume or volume analysis at all - volume data is not available (premarket/afterhours)'}
-- Include support/resistance levels and overall technical outlook
+- Use PERCENTAGES for moving averages - VERIFY THE DIRECTION (e.g., if price is $710 and MA is $670, the price is ABOVE the MA, not below)
+- ${hasVolume ? `When mentioning volume, ALWAYS compare to the 30-day average volume provided (e.g., "above average at X million vs Y million average" or "below average")` : 'DO NOT mention volume or volume analysis at all - market is still open and volume is incomplete/misleading'}
+- For support/resistance levels, use the CALCULATED support/resistance levels provided (based on recent swing highs/lows from chart data)
+- If calculated support is N/A (common for high-momentum stocks), use the 50-day MA as the primary support level instead
+- If calculated resistance is N/A, use the 52-week high or psychological round numbers as resistance
+- You can also reference the 50-day MA, 200-day MA, 52-week high/low, or psychological round numbers as additional levels
+- DO NOT use intraday highs/lows for support/resistance - these are temporary and not meaningful
+- If YTD performance is provided, weave it naturally into the analysis to provide year-long context (e.g., "up 45% year-to-date despite today's pullback")
+- If related companies comparison data is provided, briefly mention the market cap positioning relative to peers in ONE sentence (e.g., "among the largest", "mid-sized player", etc.)
+- DO NOT focus heavily on peer comparison - it should be contextual, not a main point
 - Break content into SHORT paragraphs - MAXIMUM 2 sentences per paragraph
-- DO NOT use summary phrases like "In summary", "In conclusion", "Overall", "To summarize"
+- DO NOT use summary phrases like "In summary", "In conclusion", "Overall", "To summarize", "As the market continues", "monitoring these levels will be crucial"
 - DO NOT repeat information or restate points already made
-- End with actionable technical insight, NOT with generic concluding statements
-- Keep total length to 4-5 short paragraphs maximum
+- End with a SPECIFIC technical insight about the current setup, NOT with generic statements about "staying attuned" or "monitoring" 
+- Keep total length to 4-5 short paragraphs maximum (NOT 6+)
 - Use plain text only - no special formatting or markup
 - Write as one continuous, professional analysis with natural paragraph breaks`;
 
@@ -836,29 +1027,42 @@ const universalPeers = ['XLI', 'XLF', 'XLK', 'XLV', 'XLE', 'XLP', 'XLY']; // Sec
 
 async function getSectorPeers(symbol: string): Promise<PolygonData[]> {
   try {
-    let peers = sectorPeers[symbol.toUpperCase()];
+    // Use Polygon's Related Companies endpoint to get dynamic peers
+    const relatedUrl = `https://api.polygon.io/v1/related-companies/${symbol}?apikey=${process.env.POLYGON_API_KEY}`;
     
-    // If no predefined peers, use universal market benchmarks
-    if (!peers || peers.length === 0) {
-      peers = universalPeers;
-    }
-    
-    // Fetch data for sector peers
-    const peerSymbols = peers.join(',');
-    const url = `https://api.benzinga.com/api/v2/quoteDelayed?token=${process.env.BENZINGA_API_KEY}&symbols=${peerSymbols}`;
-    
-    const res = await fetch(url);
-    if (!res.ok) {
-      console.error('Failed to fetch sector peers:', res.statusText);
+    const relatedRes = await fetch(relatedUrl);
+    if (!relatedRes.ok) {
+      console.error('Failed to fetch related companies from Polygon:', relatedRes.statusText);
       return [];
     }
     
-    const data = await res.json();
-    if (!data || typeof data !== 'object') {
+    const relatedData = await relatedRes.json();
+    if (!relatedData?.results || !Array.isArray(relatedData.results)) {
+      console.log('No related companies found for', symbol);
       return [];
     }
     
-    return Object.values(data) as PolygonData[];
+    // Get top 3 related tickers
+    const relatedTickers = relatedData.results.slice(0, 3).map((item: { ticker: string }) => item.ticker);
+    
+    if (relatedTickers.length === 0) {
+      return [];
+    }
+    
+    console.log(`Found related companies for ${symbol}:`, relatedTickers);
+    
+    // Fetch Polygon data for each related ticker
+    const peerDataPromises = relatedTickers.map((ticker: string) => 
+      fetchPolygonData(ticker).catch(err => {
+        console.error(`Failed to fetch data for peer ${ticker}:`, err);
+        return null;
+      })
+    );
+    
+    const peerDataArray = await Promise.all(peerDataPromises);
+    
+    // Filter out any failed fetches
+    return peerDataArray.filter((data): data is PolygonData => data !== null);
   } catch (error) {
     console.error('Error fetching sector peers:', error);
     return [];
