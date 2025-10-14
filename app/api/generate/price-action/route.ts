@@ -717,8 +717,9 @@ async function generateUnifiedFullAnalysis(priceActionText: string, quote: Polyg
       ? (((quote.lastTradePrice - quote.sma200) / quote.sma200) * 100).toFixed(1)
       : null;
     
-    // Check if volume data is available
-    const hasVolume = quote.volume && quote.volume > 0;
+    // Check if volume data is available and meaningful
+    // Skip volume if it's too low (less than 5 million shares) as this indicates market just opened or very light trading
+    const hasVolume = quote.volume && quote.volume > 5000000;
     
     const prompt = `You are a financial analyst writing a complete market analysis. Create a unified, flowing analysis that seamlessly continues from the provided price action information.
 
