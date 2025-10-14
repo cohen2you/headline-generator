@@ -270,18 +270,38 @@ const PriceActionGenerator = forwardRef<PriceActionGeneratorRef>((props, ref) =>
         copyButton.remove();
       }
       
-      // Copy the modified content as HTML
-      const htmlContent = clone.innerHTML;
-      await navigator.clipboard.write([
-        new window.ClipboardItem({ 'text/html': new Blob([htmlContent], { type: 'text/html' }) })
-      ]);
+      // Extract text from all paragraphs and spans
+      const textParts: string[] = [];
+      
+      // Get price action text (from span with ref)
+      const priceActionSpan = clone.querySelector('span[ref]');
+      if (priceActionSpan) {
+        const text = priceActionSpan.textContent?.trim();
+        if (text && text !== '' && !text.includes('Copy')) {
+          textParts.push(text);
+        }
+      }
+      
+      // Get all paragraph text
+      const paragraphs = clone.querySelectorAll('p');
+      paragraphs.forEach((p) => {
+        const text = p.textContent?.trim();
+        if (text && text !== '' && !text.includes('Copy')) {
+          textParts.push(text);
+        }
+      });
+      
+      // Join with double line breaks for paragraph separation
+      const plainText = textParts.join('\n\n').trim();
+      
+      // Copy as plain text (WordPress will auto-format)
+      await navigator.clipboard.writeText(plainText);
       setCopiedPriceActionIndex(index);
       setTimeout(() => setCopiedPriceActionIndex(null), 2000);
     } catch (error) {
       console.error('Failed to copy HTML:', error);
       // Fallback to plain text
       try {
-        // Remove the button text from plain text copy as well
         const textContent = targetLi.textContent || '';
         const cleanText = textContent.replace(/Copy|Copied!/g, '').trim();
         await navigator.clipboard.writeText(cleanText);
@@ -467,7 +487,7 @@ const PriceActionGenerator = forwardRef<PriceActionGeneratorRef>((props, ref) =>
                   </button>
                 </li>
               );
-            } else if (action && !('technicalAnalysis' in action)) {
+            } else if (action && !('technicalAnalysis' in action) && !('fullAnalysis' in action)) {
               // Price Action Only mode (object)
               return (
                 <li key={i} className="flex justify-between items-start">
@@ -483,16 +503,16 @@ const PriceActionGenerator = forwardRef<PriceActionGeneratorRef>((props, ref) =>
                 </li>
               );
             } else {
-              // Full Analysis mode
+              // Full Analysis mode - use unified analysis text
+              const fullAnalysisText = action.fullAnalysis || action.priceAction;
+              
               return (
                 <li key={i} className="flex flex-col items-start border-b border-yellow-200 pb-2 mb-2">
-                  {renderPriceActionWithBoldLabel(action.priceAction, i)}
-                  {/* Always display the 52-week range line if present, with a space above */}
-                  {action.fiftyTwoWeekRangeLine && <span className="block text-gray-900 dark:text-gray-100 mb-2 mt-2">{action.fiftyTwoWeekRangeLine}</span>}
-                  <span className="block h-4" />
-                  <pre className="whitespace-pre-wrap text-gray-900 dark:text-gray-100" style={{ fontFamily: 'inherit', marginTop: 0 }}>
-                    {action.technicalAnalysis}
-                  </pre>
+                  <div className="text-gray-900 dark:text-gray-100 mb-2">
+                    {fullAnalysisText.split('\n\n').filter((p: string) => p.trim()).map((paragraph: string, pIndex: number) => (
+                      <p key={pIndex} className="mb-2">{paragraph.trim()}</p>
+                    ))}
+                  </div>
                   <button
                     onClick={() => copyPriceActionHTML(i)}
                     className="mt-2 bg-yellow-200 hover:bg-yellow-300 text-yellow-800 px-2 py-1 rounded text-xs"

@@ -552,16 +552,16 @@ const ContentGenerator = forwardRef<ContentGeneratorRef, ContentGeneratorProps>(
                     </li>
                   );
                 } else {
-                  // Full Analysis mode
+                  // Full Analysis mode - use unified analysis text
+                  const fullAnalysisText = action.fullAnalysis || action.priceAction;
+                  
                   return (
                     <li key={i} className="flex flex-col items-start border-b border-yellow-200 pb-2 mb-2">
-                      {renderPriceActionWithBoldLabel(action.priceAction, i)}
-                      {/* Always display the 52-week range line if present, with a space above */}
-                      {action.fiftyTwoWeekRangeLine && <span className="block text-black mb-2 mt-2">{action.fiftyTwoWeekRangeLine}</span>}
-                      <span className="block h-4" />
-                      <pre className="whitespace-pre-wrap text-black" style={{ fontFamily: 'inherit', marginTop: 0 }}>
-                        {action.technicalAnalysis}
-                      </pre>
+                      <div className="text-gray-900 dark:text-gray-100 mb-2">
+                        {fullAnalysisText.split('\n\n').filter((p: string) => p.trim()).map((paragraph: string, pIndex: number) => (
+                          <p key={pIndex} className="mb-2">{paragraph.trim()}</p>
+                        ))}
+                      </div>
                       <button
                         onClick={copyPriceActionHTML}
                         className="mt-2 bg-yellow-200 hover:bg-yellow-300 text-yellow-800 px-2 py-1 rounded text-xs"

@@ -575,8 +575,8 @@ async function fetchPolygonData(symbol: string): Promise<PolygonData> {
   }
 }
 
-// Technical analysis for Benzinga API data
-async function generateTechnicalAnalysisBenzinga(quote: BenzingaQuote, sectorComparison?: BenzingaQuote[]): Promise<string> {
+// Unified Full Analysis for Benzinga API data - generates one complete text block
+async function generateUnifiedFullAnalysisBenzinga(priceActionText: string, quote: BenzingaQuote, sectorComparison?: BenzingaQuote[]): Promise<string> {
   try {
     let sectorComparisonText = '';
     if (sectorComparison && sectorComparison.length > 0) {
@@ -586,7 +586,7 @@ async function generateTechnicalAnalysisBenzinga(quote: BenzingaQuote, sectorCom
               ? (stock.marketCap / 1000000000000).toFixed(2) + 'T'
               : (stock.marketCap / 1000000000).toFixed(2) + 'B')
           : 'N/A';
-        const volume = typeof stock.volume === 'number' ? stock.volume.toLocaleString() : 'N/A';
+        const volume = typeof stock.volume === 'number' ? `${(stock.volume / 1000000).toFixed(1)} million` : 'N/A';
         const changePercent = typeof stock.changePercent === 'number' ? `${stock.changePercent.toFixed(2)}%` : 'N/A';
         const pe = typeof stock.pe === 'number' && stock.pe > 0 ? stock.pe.toFixed(2) : 'N/A';
         const symbol = typeof stock.symbol === 'string' ? stock.symbol : 'N/A';
@@ -598,17 +598,34 @@ async function generateTechnicalAnalysisBenzinga(quote: BenzingaQuote, sectorCom
       sectorComparisonText = `\n\n${comparisonType}:\n${comparisonData}`;
     }
 
-    const prompt = `You are a technical analyst providing concise market insights. Analyze this stock data and provide technical analysis broken into separate paragraphs.
+    // Get day of week for context
+    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const today = new Date();
+    const dayOfWeek = dayNames[today.getDay()];
+    
+    // Calculate percentage distances from moving averages
+    const sma50Pct = quote.fiftyDayAveragePrice && quote.lastTradePrice 
+      ? (((quote.lastTradePrice - quote.fiftyDayAveragePrice) / quote.fiftyDayAveragePrice) * 100).toFixed(1)
+      : null;
+    const sma200Pct = quote.twoHundredDayAveragePrice && quote.lastTradePrice
+      ? (((quote.lastTradePrice - quote.twoHundredDayAveragePrice) / quote.twoHundredDayAveragePrice) * 100).toFixed(1)
+      : null;
+    
+    const prompt = `You are a financial analyst writing a complete market analysis. Create a unified, flowing analysis that seamlessly continues from the provided price action information.
 
+PRICE ACTION CONTEXT:
+${priceActionText}
+
+STOCK DATA:
 Stock: ${quote.symbol} (${quote.name})
 Current Price: $${formatPrice(quote.lastTradePrice)}
 Daily Change: ${quote.changePercent}%
 
 Technical Indicators:
-- 50-day Moving Average: $${formatPrice(quote.fiftyDayAveragePrice)}
-- 200-day Moving Average: $${formatPrice(quote.twoHundredDayAveragePrice)}
+- 50-day Moving Average: ${sma50Pct ? `${Math.abs(parseFloat(sma50Pct))}% ${parseFloat(sma50Pct) >= 0 ? 'above' : 'below'}` : 'N/A'}
+- 200-day Moving Average: ${sma200Pct ? `${Math.abs(parseFloat(sma200Pct))}% ${parseFloat(sma200Pct) >= 0 ? 'above' : 'below'}` : 'N/A'}
 - 52-week Range: $${formatPrice(quote.fiftyTwoWeekLow)} - $${formatPrice(quote.fiftyTwoWeekHigh)}
-- Volume: ${quote.volume?.toLocaleString()}
+- Volume: ${quote.volume ? (quote.volume / 1000000).toFixed(1) + ' million' : 'N/A'}
 
 Intraday Data:
 - Open: $${formatPrice(quote.open)}
@@ -616,25 +633,23 @@ Intraday Data:
 - Low: $${formatPrice(quote.low)}
 - Close: $${formatPrice(quote.close)}
 
-Valuation Metrics:
-- Market Cap: $${quote.marketCap ? (quote.marketCap >= 1000000000000 ? (quote.marketCap / 1000000000000).toFixed(2) + 'T' : (quote.marketCap / 1000000000).toFixed(2) + 'B') : 'N/A'}
-- P/E Ratio: ${typeof quote.pe === 'number' && quote.pe > 0 ? quote.pe.toFixed(2) : 'N/A'}${sectorComparisonText}
+Day of Week: ${dayOfWeek}
 
-Provide analysis in exactly this format with proper spacing:
+TASK: Write a complete unified analysis that flows naturally from the price action context. Your response should be the ENTIRE analysis from start to finish, including the price action information seamlessly integrated with technical analysis.
 
-TECHNICAL MOMENTUM:
-[2-3 sentences about price momentum, moving averages, trend strength, support/resistance]
+FORMAT YOUR RESPONSE AS:
+${priceActionText} [Continue seamlessly with technical analysis, moving averages, volume analysis, support/resistance levels, and overall market outlook in 3-4 flowing paragraphs.]
 
-VOLUME & INTRADAY:
-[2-3 sentences about volume patterns, intraday range, session momentum]
-
-VALUATION CONTEXT:
-[2-3 sentences about P/E ratios, market cap, valuation implications]${sectorComparison && sectorComparison.length > 0 ? `
-
-SECTOR COMPARISON:
-[2-3 sentences comparing valuation metrics to sector peers, focusing on P/E ratios and market positioning]` : ''}
-
-IMPORTANT: Use exactly the headers shown above (no bold formatting). Put each section on its own line with proper spacing. Do not add extra periods at the end. Do not end any paragraph with double periods (..). Keep each paragraph concise and professional for financial news.`;
+CRITICAL RULES:
+- Write the COMPLETE unified analysis - include the price action context naturally
+- DO NOT use separate headers or labels
+- DO NOT repeat the price action information - build upon it
+- Use PERCENTAGES for moving averages (e.g., "4.4% above its 50-day moving average")
+- Use ${dayOfWeek} when mentioning volume timing
+- Include support/resistance levels and overall technical outlook
+- 3-4 paragraphs total, flowing naturally
+- Use plain text only - no special formatting or markup
+- Write as one continuous, professional analysis`;
 
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
@@ -650,8 +665,8 @@ IMPORTANT: Use exactly the headers shown above (no bold formatting). Put each se
   }
 }
 
-// Technical analysis for Polygon API data
-async function generateTechnicalAnalysis(quote: PolygonData, sectorComparison?: PolygonData[]): Promise<string> {
+// Unified Full Analysis for Polygon API data - generates one complete text block
+async function generateUnifiedFullAnalysis(priceActionText: string, quote: PolygonData, sectorComparison?: PolygonData[]): Promise<string> {
   try {
     let sectorComparisonText = '';
     if (sectorComparison && sectorComparison.length > 0) {
@@ -672,7 +687,7 @@ async function generateTechnicalAnalysis(quote: PolygonData, sectorComparison?: 
               ? (stock.marketCap / 1000000000000).toFixed(2) + 'T'
               : (stock.marketCap / 1000000000).toFixed(2) + 'B')
           : 'N/A';
-        const volume = typeof stock.volume === 'number' ? stock.volume.toLocaleString() : 'N/A';
+        const volume = typeof stock.volume === 'number' ? `${(stock.volume / 1000000).toFixed(1)} million` : 'N/A';
         const changePercent = typeof stock.changePercent === 'number' ? `${stock.changePercent.toFixed(2)}%` : 'N/A';
         const pe = typeof stock.pe === 'number' ? stock.pe.toString() : (typeof stock.pe === 'string' ? stock.pe : 'N/A');
         const symbol = typeof stock.symbol === 'string' ? stock.symbol : 'N/A';
@@ -684,17 +699,39 @@ async function generateTechnicalAnalysis(quote: PolygonData, sectorComparison?: 
       sectorComparisonText = `\n\n${comparisonType}:\n${comparisonData}`;
     }
 
-    const prompt = `You are a technical analyst providing concise market insights. Analyze this stock data and provide technical analysis broken into separate paragraphs.
+    // Get day of week for context
+    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const today = new Date();
+    const dayOfWeek = dayNames[today.getDay()];
+    
+    // Calculate percentage distances from moving averages
+    const sma50Pct = quote.sma50 && quote.lastTradePrice 
+      ? (((quote.lastTradePrice - quote.sma50) / quote.sma50) * 100).toFixed(1)
+      : null;
+    const sma200Pct = quote.sma200 && quote.lastTradePrice
+      ? (((quote.lastTradePrice - quote.sma200) / quote.sma200) * 100).toFixed(1)
+      : null;
+    
+    // Check if volume data is available
+    const hasVolume = quote.volume && quote.volume > 0;
+    
+    const prompt = `You are a financial analyst writing a complete market analysis. Create a unified, flowing analysis that seamlessly continues from the provided price action information.
 
+PRICE ACTION CONTEXT:
+${priceActionText}
+
+STOCK DATA:
 Stock: ${quote.symbol} (${quote.name})
 Current Price: $${formatPrice(quote.lastTradePrice)}
 Daily Change: ${quote.changePercent}%
+RSI: ${quote.rsi ? quote.rsi.toFixed(2) : 'N/A'}
+RSI Signal: ${quote.rsiSignal || 'neutral'}
 
 Technical Indicators:
-- 50-day Moving Average: $${formatPrice(quote.sma50)}
-- 200-day Moving Average: $${formatPrice(quote.sma200)}
+- 50-day Moving Average: ${sma50Pct ? `${Math.abs(parseFloat(sma50Pct))}% ${parseFloat(sma50Pct) >= 0 ? 'above' : 'below'}` : 'N/A'}
+- 200-day Moving Average: ${sma200Pct ? `${Math.abs(parseFloat(sma200Pct))}% ${parseFloat(sma200Pct) >= 0 ? 'above' : 'below'}` : 'N/A'}
 - 52-week Range: $${formatPrice(quote.fiftyTwoWeekLow)} - $${formatPrice(quote.fiftyTwoWeekHigh)}
-- Volume: ${quote.volume?.toLocaleString()}
+- Volume: ${hasVolume ? (quote.volume / 1000000).toFixed(1) + ' million' : 'N/A (premarket/afterhours)'}
 
 Intraday Data:
 - Open: $${formatPrice(quote.open)}
@@ -702,29 +739,23 @@ Intraday Data:
 - Low: $${formatPrice(quote.low)}
 - Close: $${formatPrice(quote.close)}
 
-Valuation Metrics:
-- Market Cap: $${quote.marketCap ? (quote.marketCap >= 1000000000000 ? (quote.marketCap / 1000000000000).toFixed(2) + 'T' : (quote.marketCap / 1000000000).toFixed(2) + 'B') : 'N/A'}${sectorComparisonText}
+Day of Week: ${dayOfWeek}
 
-Note: If a company's P/E is listed as N/A (unprofitable), it means the company has negative earnings and should not be compared on this metric. Do not invent or estimate P/E values for such companies.
+TASK: Write a complete unified analysis that flows naturally from the price action context. Your response should be the ENTIRE analysis from start to finish, including the price action information seamlessly integrated with technical analysis.
 
-Provide analysis in exactly this format with proper spacing:
+FORMAT YOUR RESPONSE AS:
+${priceActionText} [Continue seamlessly with technical analysis, moving averages, ${hasVolume ? 'volume analysis,' : ''} support/resistance levels, and overall market outlook in 3-4 flowing paragraphs.]
 
-TECHNICAL MOMENTUM:
-[2-3 sentences about price momentum, moving averages, trend strength, support/resistance]
-
-VOLUME & INTRADAY:
-[2-3 sentences about volume patterns, intraday range, session momentum]
-
-VALUATION CONTEXT:
-[2-3 sentences about P/E ratios, market cap, valuation implications]${sectorComparison && sectorComparison.length > 0 ? `
-
-SECTOR COMPARISON:
-[2-3 sentences comparing valuation metrics to sector peers, focusing on P/E ratios and market positioning]` : ''}${sectorComparison && sectorComparison.some(stock => ['XLI', 'XLF', 'XLK', 'XLV', 'XLE', 'XLP', 'XLY'].includes(stock.symbol || '')) ? `
-
-SECTOR ETF COMPARISON:
-[2-3 sentences comparing price performance, volume, and market positioning to relevant sector ETFs, focusing on relative strength and sector momentum]` : ''}
-
-IMPORTANT: Use exactly the headers shown above (no bold formatting). Put each section on its own line with proper spacing. Do not add extra periods at the end. Do not end any paragraph with double periods (..). Keep each paragraph concise and professional for financial news. Focus on specific metrics and avoid generic commentary like "suggests a mix of optimism and caution" or similar vague statements.`;
+CRITICAL RULES:
+- Write the COMPLETE unified analysis - include the price action context naturally
+- DO NOT use separate headers or labels
+- DO NOT repeat the price action information - build upon it
+- Use PERCENTAGES for moving averages (e.g., "4.4% above its 50-day moving average")
+- ${hasVolume ? `Use ${dayOfWeek} when mentioning volume timing` : 'DO NOT mention volume or volume analysis at all - volume data is not available (premarket/afterhours)'}
+- Include support/resistance levels and overall technical outlook
+- 3-4 paragraphs total, flowing naturally
+- Use plain text only - no special formatting or markup
+- Write as one continuous, professional analysis`;
 
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
@@ -1093,8 +1124,8 @@ export async function POST(request: Request) {
     console.log('Mode:', { smartAnalysis, vsAnalysis, briefAnalysis, priceActionOnly, grouped });
 
     // Use different data sources based on mode
-    if (smartAnalysis || vsAnalysis) {
-      // Smart Price Action and Vs Analysis use Polygon API
+    if (smartAnalysis || vsAnalysis || (!priceActionOnly && !briefAnalysis && !grouped)) {
+      // Smart Price Action, Vs Analysis, and Full Analysis use Polygon API
       // Detect market status using Polygon API
       const marketStatus = await getMarketStatus();
       let marketStatusPhrase = '';
@@ -1349,8 +1380,10 @@ export async function POST(request: Request) {
 
           if (polygonData.fiftyTwoWeekLow && polygonData.fiftyTwoWeekHigh && polygonClose) {
             // Calculate distance from both high and low
+            console.log(`${symbol} 52-week range: High=$${polygonData.fiftyTwoWeekHigh}, Low=$${polygonData.fiftyTwoWeekLow}, Current=$${polygonClose}`);
             const distFromHigh = ((polygonData.fiftyTwoWeekHigh - polygonClose) / polygonData.fiftyTwoWeekHigh) * 100;
             const distFromLow = ((polygonClose - polygonData.fiftyTwoWeekLow) / polygonData.fiftyTwoWeekLow) * 100;
+            console.log(`${symbol} distances: ${distFromHigh.toFixed(1)}% from high, ${distFromLow.toFixed(1)}% from low`);
             
             // Show distance from whichever is closer
             if (distFromHigh < distFromLow) {
@@ -1716,8 +1749,7 @@ REQUIREMENTS:
         console.log('VS Analysis API response:', result);
         return result;
       } else {
-        // Add attribution for non-smart analysis
-      priceActionText += ', according to Polygon data.';
+        // No attribution needed for Full Analysis
       }
 
       // Move briefAnalysis check before priceActionOnly
@@ -1760,8 +1792,8 @@ REQUIREMENTS:
         };
       }
 
-      // Generate technical analysis using OpenAI
-      let technicalAnalysis = '';
+      // Generate unified Full Analysis using OpenAI - one complete text block
+      let fullAnalysisText = '';
       // Use polygonData.close if available, otherwise polygonData.lastTradePrice or previousClose
       const closeValue = polygonData.close ?? polygonData.lastTradePrice ?? polygonData.previousClose;
       // Check if at least one technical field is present (expanded to include previousClose)
@@ -1771,56 +1803,24 @@ REQUIREMENTS:
         const patchedQuote = { ...polygonData, close: closeValue };
         // Get sector peers for comparison
         const sectorPeers = await getSectorPeers(symbol);
-        technicalAnalysis = await generateTechnicalAnalysis(patchedQuote, sectorPeers);
+        fullAnalysisText = await generateUnifiedFullAnalysis(priceActionText, patchedQuote, sectorPeers);
       } else {
-        technicalAnalysis = 'Full technical analysis is unavailable due to limited data.';
+        fullAnalysisText = priceActionText + ' Full technical analysis is unavailable due to limited data.';
       }
 
-      // Add historical context using available Benzinga data
-      let historicalContext = '';
+      // Clean the unified text to remove any special characters that WordPress might interpret as code
+      const cleanedFullAnalysis = fullAnalysisText
+        .replace(/[\u200B-\u200D\uFEFF]/g, '') // Remove zero-width spaces
+        .replace(/\u00A0/g, ' ') // Replace non-breaking spaces with regular spaces
+        .replace(/\r\n/g, '\n') // Normalize line endings
+        .trim();
       
-      if (polygonData.fiftyTwoWeekLow && polygonData.fiftyTwoWeekHigh && polygonData.lastTradePrice) {
-        const currentPrice = polygonData.lastTradePrice;
-        const low = polygonData.fiftyTwoWeekLow;
-        const high = polygonData.fiftyTwoWeekHigh;
-        
-        // Determine position within 52-week range
-        const rangePosition = ((currentPrice - low) / (high - low)) * 100;
-        
-        // 52-week range context block - force overwrite to fix unterminated template literal
-        if (rangePosition > 80) {
-          historicalContext += `The stock is trading near its 52-week high of $${formatPrice(high)}. `;
-        } else if (rangePosition < 20) {
-          historicalContext += `The stock is trading near its 52-week low of $${formatPrice(low)}. `;
-        } else {
-          historicalContext += `The stock is trading within its 52-week range of $${formatPrice(low)} to $${formatPrice(high)}. `;
-        }
-      }
-
-      // Extract 52-week range line from historicalContext if present
-      let fiftyTwoWeekRangeLine = '';
-      if (historicalContext) {
-        const lines = historicalContext.split('\n');
-        const rangeLineIndex = lines.findIndex(line => line.includes('52-week range') || line.includes('52-week high') || line.includes('52-week low') || line.match(/\$\d+\.\d{2} to \$\d+\.\d{2}/));
-        if (rangeLineIndex !== -1) {
-          fiftyTwoWeekRangeLine = lines[rangeLineIndex];
-          lines.splice(rangeLineIndex, 1);
-          historicalContext = lines.join('\n');
-        }
-      }
-      // Append remaining historicalContext to technicalAnalysis if present
-      if (technicalAnalysis && historicalContext) {
-        technicalAnalysis = technicalAnalysis + '\n' + historicalContext.trim();
-      } else if (historicalContext) {
-        technicalAnalysis = historicalContext.trim();
-      }
-      // Return the 52-week range line as a separate field
+      // Return unified Full Analysis
       return {
         ticker: symbol,
         companyName: companyName,
         priceAction: priceActionText,
-        technicalAnalysis: technicalAnalysis,
-        fiftyTwoWeekRangeLine: fiftyTwoWeekRangeLine
+        fullAnalysis: cleanedFullAnalysis
       };
     }));
 
@@ -2017,39 +2017,30 @@ REQUIREMENTS:
             }
           }
           
-          technicalAnalysis = await generateTechnicalAnalysisBenzinga(q, sectorPeersData);
-        } else {
-          technicalAnalysis = 'Full technical analysis is unavailable due to limited data.';
-        }
-
-        // Add 52-week range context if available
-        let fiftyTwoWeekRangeLine = '';
-        if (q.fiftyTwoWeekLow && q.fiftyTwoWeekHigh && q.lastTradePrice) {
-          const currentPrice = q.lastTradePrice;
-          const low = q.fiftyTwoWeekLow;
-          const high = q.fiftyTwoWeekHigh;
-          const rangePosition = (currentPrice - low) / (high - low);
+          // Generate unified Full Analysis using OpenAI - one complete text block
+          const fullAnalysisText = await generateUnifiedFullAnalysisBenzinga(priceActionText, q, sectorPeersData);
           
-          if (rangePosition >= 0.95 || currentPrice > high) {
-            fiftyTwoWeekRangeLine = `The stock is trading near its 52-week high of $${formatPrice(high)}.`;
-          } else if (rangePosition <= 0.05) {
-            fiftyTwoWeekRangeLine = `The stock is trading near its 52-week low of $${formatPrice(low)}.`;
-          } else if (rangePosition >= 0.8) {
-            fiftyTwoWeekRangeLine = `The stock is trading in the upper end of its 52-week range of $${formatPrice(low)} to $${formatPrice(high)}.`;
-          } else if (rangePosition <= 0.2) {
-            fiftyTwoWeekRangeLine = `The stock is trading in the lower end of its 52-week range of $${formatPrice(low)} to $${formatPrice(high)}.`;
-          } else {
-            fiftyTwoWeekRangeLine = `The stock is trading within its 52-week range of $${formatPrice(low)} to $${formatPrice(high)}.`;
-          }
+          // Clean the unified text to remove any special characters that WordPress might interpret as code
+          const cleanedFullAnalysis = fullAnalysisText
+            .replace(/[\u200B-\u200D\uFEFF]/g, '') // Remove zero-width spaces
+            .replace(/\u00A0/g, ' ') // Replace non-breaking spaces with regular spaces
+            .replace(/\r\n/g, '\n') // Normalize line endings
+            .trim();
+
+          return {
+            ticker: symbol,
+            companyName: companyName,
+            priceAction: priceActionText,
+            fullAnalysis: cleanedFullAnalysis
+          };
+        } else {
+          return {
+            ticker: symbol,
+            companyName: companyName,
+            priceAction: priceActionText,
+            fullAnalysis: priceActionText + ' Full technical analysis is unavailable due to limited data.'
+          };
         }
-        
-        return {
-          ticker: symbol,
-          companyName: companyName,
-          priceAction: priceActionText,
-          technicalAnalysis: technicalAnalysis,
-          fiftyTwoWeekRangeLine: fiftyTwoWeekRangeLine
-        };
       }));
 
       // Filter out null results and add error message for invalid tickers
