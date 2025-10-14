@@ -44,4 +44,5 @@ export interface PriceActionObj {
   priceAction: string;
   narrativeType?: string;
   smartAnalysis?: boolean;
+  fullAnalysis?: string;
 } 
