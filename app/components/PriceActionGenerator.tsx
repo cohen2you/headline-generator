@@ -24,6 +24,7 @@ const PriceActionGenerator = forwardRef<PriceActionGeneratorRef>((props, ref) =>
     smartAnalysis?: boolean;
     vsAnalysis?: boolean;
     briefAnalysis?: string;
+    fullAnalysis?: string;
   };
   const [priceActions, setPriceActions] = useState<(string | PriceActionObj)[]>([]);
   const [loadingPriceAction, setLoadingPriceAction] = useState(false);

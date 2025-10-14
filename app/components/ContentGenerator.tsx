@@ -46,6 +46,7 @@ const ContentGenerator = forwardRef<ContentGeneratorRef, ContentGeneratorProps>(
       fiftyTwoWeekRangeLine?: string; // Added this field
       grouped?: boolean;
       individualActions?: PriceActionObj[];
+      fullAnalysis?: string;
     };
     const [priceActions, setPriceActions] = useState<(string | PriceActionObj)[]>([]);
     const [loadingPriceAction, setLoadingPriceAction] = useState(false);
