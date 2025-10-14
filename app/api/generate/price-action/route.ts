@@ -640,7 +640,7 @@ Day of Week: ${dayOfWeek}
 TASK: Write a complete unified analysis that flows naturally from the price action context. Your response should be the ENTIRE analysis from start to finish, including the price action information seamlessly integrated with technical analysis.
 
 FORMAT YOUR RESPONSE AS:
-${priceActionText} [Continue seamlessly with technical analysis, moving averages, volume analysis, support/resistance levels, and overall market outlook in 3-4 flowing paragraphs.]
+${priceActionText} [Continue seamlessly with technical analysis, moving averages, volume analysis, support/resistance levels, and overall market outlook in multiple short paragraphs.]
 
 CRITICAL RULES:
 - Write the COMPLETE unified analysis - include the price action context naturally
@@ -649,9 +649,10 @@ CRITICAL RULES:
 - Use PERCENTAGES for moving averages (e.g., "4.4% above its 50-day moving average")
 - Use ${dayOfWeek} when mentioning volume timing
 - Include support/resistance levels and overall technical outlook
-- 3-4 paragraphs total, flowing naturally
+- Break content into SHORT paragraphs - MAXIMUM 2 sentences per paragraph
+- DO NOT use summary phrases like "In summary", "In conclusion", "Overall", "To summarize"
 - Use plain text only - no special formatting or markup
-- Write as one continuous, professional analysis`;
+- Write as one continuous, professional analysis with natural paragraph breaks`;
 
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
@@ -748,7 +749,7 @@ Day of Week: ${dayOfWeek}
 TASK: Write a complete unified analysis that flows naturally from the price action context. Your response should be the ENTIRE analysis from start to finish, including the price action information seamlessly integrated with technical analysis.
 
 FORMAT YOUR RESPONSE AS:
-${priceActionText} [Continue seamlessly with technical analysis, moving averages, ${hasVolume ? 'volume analysis,' : ''} support/resistance levels, and overall market outlook in 3-4 flowing paragraphs.]
+${priceActionText} [Continue seamlessly with technical analysis, moving averages, ${hasVolume ? 'volume analysis,' : ''} support/resistance levels, and overall market outlook in multiple short paragraphs.]
 
 CRITICAL RULES:
 - Write the COMPLETE unified analysis - include the price action context naturally
@@ -757,9 +758,10 @@ CRITICAL RULES:
 - Use PERCENTAGES for moving averages (e.g., "4.4% above its 50-day moving average")
 - ${hasVolume ? `Use ${dayOfWeek} when mentioning volume timing` : 'DO NOT mention volume or volume analysis at all - volume data is not available (premarket/afterhours)'}
 - Include support/resistance levels and overall technical outlook
-- 3-4 paragraphs total, flowing naturally
+- Break content into SHORT paragraphs - MAXIMUM 2 sentences per paragraph
+- DO NOT use summary phrases like "In summary", "In conclusion", "Overall", "To summarize"
 - Use plain text only - no special formatting or markup
-- Write as one continuous, professional analysis`;
+- Write as one continuous, professional analysis with natural paragraph breaks`;
 
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
