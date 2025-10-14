@@ -679,8 +679,9 @@ async function fetchPolygonData(symbol: string): Promise<PolygonData> {
     // Get financial ratios data (P/E, average volume, etc.)
     const averageVolume = ratios?.averageVolume || null;
     const peRatio = ratios?.pe || null;
-    const priceToBook = ratios?.priceToBook || null;
-    const dividendYield = ratios?.dividendYield || null;
+    // Additional ratios available but not currently used
+    // const priceToBook = ratios?.priceToBook || null;
+    // const dividendYield = ratios?.dividendYield || null;
 
     // Calculate support and resistance levels from historical data
     const { support, resistance } = calculateSupportResistance(historical.results || [], currentPrice, symbol);
