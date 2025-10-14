@@ -941,6 +941,7 @@ CRITICAL RULES:
 - Write the COMPLETE unified analysis - include the price action context naturally
 - DO NOT use separate headers or labels
 - DO NOT repeat the price action information - build upon it
+- ALWAYS use day of week (Monday, Tuesday, etc.) - NEVER use "today", "yesterday", or "this week"
 - Use PERCENTAGES for moving averages - VERIFY THE DIRECTION (e.g., if price is $710 and MA is $670, the price is ABOVE the MA, not below)
 - ${hasVolume ? `When mentioning volume, ALWAYS compare to the 30-day average volume provided (e.g., "above average at X million vs Y million average" or "below average")` : 'DO NOT mention volume or volume analysis at all - market is still open and volume is incomplete/misleading'}
 - For support/resistance levels, use the CALCULATED support/resistance levels provided (based on recent swing highs/lows from chart data)
