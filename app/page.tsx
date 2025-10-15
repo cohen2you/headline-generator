@@ -9,6 +9,7 @@ import PriceActionGenerator, { PriceActionGeneratorRef } from './components/Pric
 import KeywordSearchGenerator, { KeywordSearchGeneratorRef } from './components/KeywordSearchGenerator';
 import EdgeRankingsGenerator, { EdgeRankingsGeneratorRef } from './components/EdgeRankingsGenerator';
 import AnalystRatingsGenerator, { AnalystRatingsGeneratorRef } from './components/AnalystRatingsGenerator';
+import StockMarketReport, { StockMarketReportRef } from './components/StockMarketReport';
 import LeadGenerator, { LeadGeneratorRef } from './components/LeadGenerator';
 import SubheadGenerator, { SubheadGeneratorRef } from './components/SubheadGenerator';
 import AltTextGenerator, { AltTextGeneratorRef } from './components/AltTextGenerator';
@@ -25,6 +26,7 @@ export default function Page() {
   const keywordSearchGeneratorRef = useRef<KeywordSearchGeneratorRef>(null);
   const edgeRankingsGeneratorRef = useRef<EdgeRankingsGeneratorRef>(null);
   const analystRatingsGeneratorRef = useRef<AnalystRatingsGeneratorRef>(null);
+  const stockMarketReportRef = useRef<StockMarketReportRef>(null);
   const leadGeneratorRef = useRef<LeadGeneratorRef>(null);
   const subheadGeneratorRef = useRef<SubheadGeneratorRef>(null);
   const altTextGeneratorRef = useRef<AltTextGeneratorRef>(null);
@@ -57,6 +59,9 @@ export default function Page() {
     }
     if (analystRatingsGeneratorRef.current?.clearData) {
       analystRatingsGeneratorRef.current.clearData();
+    }
+    if (stockMarketReportRef.current?.clearData) {
+      stockMarketReportRef.current.clearData();
     }
     if (leadGeneratorRef.current?.clearData) {
       leadGeneratorRef.current.clearData();
@@ -107,6 +112,11 @@ export default function Page() {
         {/* Analyst Ratings - Fourth */}
         <div className="mb-6">
           <AnalystRatingsGenerator ref={analystRatingsGeneratorRef} />
+        </div>
+
+        {/* Stock Market Report */}
+        <div className="mb-8">
+          <StockMarketReport ref={stockMarketReportRef} />
         </div>
       </div>
 
