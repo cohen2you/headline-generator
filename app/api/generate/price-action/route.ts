@@ -856,7 +856,7 @@ CRITICAL RULES:
 }
 
 // Unified Full Analysis for Polygon API data - generates one complete text block
-async function generateUnifiedFullAnalysis(priceActionText: string, quote: PolygonData, sectorComparison?: PolygonData[]): Promise<string> {
+async function generateUnifiedFullAnalysis(priceActionText: string, quote: PolygonData, sectorComparison?: PolygonData[], marketStatus?: string): Promise<string> {
   try {
     // Calculate Market Cap comparisons with sector peers (P/E often not available from Polygon)
     let sectorComparisonText = '';
@@ -911,7 +911,7 @@ ${priceActionText}
 STOCK DATA:
 Stock: ${quote.symbol} (${quote.name})
 Current Price: $${formatPrice(quote.lastTradePrice)}
-Daily Change: ${quote.changePercent}%
+Daily Change: ${quote.changePercent}%${marketStatus === 'afterhours' ? ' (combined regular + after-hours)' : ''}
 YTD Performance: ${quote.ytdReturn ? quote.ytdReturn.toFixed(1) + '%' : 'N/A'}
 Market Cap: ${quote.marketCap ? (quote.marketCap >= 1000000000000 ? (quote.marketCap / 1000000000000).toFixed(2) + 'T' : (quote.marketCap / 1000000000).toFixed(2) + 'B') : 'N/A'}
 RSI: ${quote.rsi ? quote.rsi.toFixed(2) : 'N/A'}
@@ -942,6 +942,7 @@ CRITICAL RULES:
 - DO NOT use separate headers or labels
 - DO NOT repeat the price action information - build upon it
 - ALWAYS use day of week (Monday, Tuesday, etc.) - NEVER use "today", "yesterday", or "this week"
+- ${marketStatus === 'afterhours' ? 'The price action shows SEPARATE regular session and after-hours changes - DO NOT reference the combined daily change percentage, reference the specific session changes mentioned in the price action context' : 'Use the daily change percentage when referencing price movement'}
 - Use PERCENTAGES for moving averages - VERIFY THE DIRECTION (e.g., if price is $710 and MA is $670, the price is ABOVE the MA, not below)
 - ${hasVolume ? `When mentioning volume, ALWAYS compare to the 30-day average volume provided (e.g., "above average at X million vs Y million average" or "below average")` : 'DO NOT mention volume or volume analysis at all - market is still open and volume is incomplete/misleading'}
 - For support/resistance levels, use the CALCULATED support/resistance levels provided (based on recent swing highs/lows from chart data)
@@ -1406,6 +1407,9 @@ export async function POST(request: Request) {
       // Build the price action text based on market status and available data
       let priceActionText = '';
       
+      // Store whether we're showing split changes for after-hours
+      let showingSplitChanges = false;
+      
       if (marketStatus === 'afterhours' && hasAfterHoursData) {
         // Show both regular session and after-hours changes
         const regularUpDown = regularSessionChange > 0 ? 'up' : regularSessionChange < 0 ? 'down' : 'unchanged';
@@ -1414,6 +1418,7 @@ export async function POST(request: Request) {
         const absAfterHoursChange = Math.abs(afterHoursChange).toFixed(2);
         
         priceActionText = `${symbol} Price Action: ${shortCompanyName} shares were ${regularUpDown} ${absRegularChange}% during regular trading and ${afterHoursUpDown} ${absAfterHoursChange}% in after-hours trading on ${dayOfWeek}`;
+        showingSplitChanges = true;
       } else if (marketStatus === 'open') {
         // Regular trading hours: include 'at the time of publication'
         priceActionText = `${symbol} Price Action: ${shortCompanyName} shares were ${upDown} ${absChange}% at $${lastPrice} at the time of publication on ${dayOfWeek}`;
@@ -2019,7 +2024,7 @@ REQUIREMENTS:
         const patchedQuote = { ...polygonData, close: closeValue };
         // Get sector peers for comparison
         const sectorPeers = await getSectorPeers(symbol);
-        fullAnalysisText = await generateUnifiedFullAnalysis(priceActionText, patchedQuote, sectorPeers);
+        fullAnalysisText = await generateUnifiedFullAnalysis(priceActionText, patchedQuote, sectorPeers, marketStatus);
       } else {
         fullAnalysisText = priceActionText + ' Full technical analysis is unavailable due to limited data.';
       }
