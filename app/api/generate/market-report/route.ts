@@ -45,7 +45,7 @@ const INDICES = ['SPY', 'QQQ', 'DIA', 'IWM']; // S&P 500, Nasdaq, Dow, Russell 2
 // 11 Sector ETFs
 const SECTORS = ['XLK', 'XLF', 'XLE', 'XLV', 'XLI', 'XLP', 'XLY', 'XLU', 'XLRE', 'XLC', 'XLB'];
 
-export async function POST(request: Request) {
+export async function POST() {
   try {
     console.log('=== GENERATING MARKET REPORT ===');
 
@@ -285,8 +285,8 @@ async function generateMarketReport(data: MarketData): Promise<string> {
     const allMovers = [...data.gainers, ...data.losers];
     const moverTickers = allMovers.map(s => s.ticker).join(',');
     
-    let exchangeMap: Record<string, string> = {};
-    let companyNameMap: Record<string, string> = {};
+          const exchangeMap: Record<string, string> = {};
+          const companyNameMap: Record<string, string> = {};
     if (moverTickers) {
       try {
         const detailsRes = await fetch(`https://api.polygon.io/v3/reference/tickers?ticker=${moverTickers}&limit=100&apikey=${POLYGON_API_KEY}`);
