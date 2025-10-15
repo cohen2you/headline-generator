@@ -858,6 +858,9 @@ CRITICAL RULES:
 // Unified Full Analysis for Polygon API data - generates one complete text block
 async function generateUnifiedFullAnalysis(priceActionText: string, quote: PolygonData, sectorComparison?: PolygonData[], marketStatus?: string): Promise<string> {
   try {
+    // Market status is used in the AI prompt to adjust instructions for after-hours analysis
+    const isAfterHours = marketStatus === 'afterhours' || false;
+    
     // Calculate Market Cap comparisons with sector peers (P/E often not available from Polygon)
     let sectorComparisonText = '';
     if (sectorComparison && sectorComparison.length > 0) {
@@ -900,8 +903,8 @@ async function generateUnifiedFullAnalysis(priceActionText: string, quote: Polyg
     // Check if volume data is available and meaningful
     // During market hours, volume is incomplete and misleading - skip it
     // Only analyze volume when market is closed (comparing full day to average)
-    const marketStatus = await getMarketStatus();
-    const hasVolume = marketStatus === 'closed' && quote.volume && quote.volume > 0;
+    const currentMarketStatus = await getMarketStatus();
+    const hasVolume = currentMarketStatus === 'closed' && quote.volume && quote.volume > 0;
     
     const prompt = `You are a financial analyst writing a complete market analysis. Create a unified, flowing analysis that seamlessly continues from the provided price action information.
 
@@ -911,7 +914,7 @@ ${priceActionText}
 STOCK DATA:
 Stock: ${quote.symbol} (${quote.name})
 Current Price: $${formatPrice(quote.lastTradePrice)}
-Daily Change: ${quote.changePercent}%${marketStatus === 'afterhours' ? ' (combined regular + after-hours)' : ''}
+Daily Change: ${quote.changePercent}%${isAfterHours ? ' (combined regular + after-hours)' : ''}
 YTD Performance: ${quote.ytdReturn ? quote.ytdReturn.toFixed(1) + '%' : 'N/A'}
 Market Cap: ${quote.marketCap ? (quote.marketCap >= 1000000000000 ? (quote.marketCap / 1000000000000).toFixed(2) + 'T' : (quote.marketCap / 1000000000).toFixed(2) + 'B') : 'N/A'}
 RSI: ${quote.rsi ? quote.rsi.toFixed(2) : 'N/A'}
@@ -942,7 +945,7 @@ CRITICAL RULES:
 - DO NOT use separate headers or labels
 - DO NOT repeat the price action information - build upon it
 - ALWAYS use day of week (Monday, Tuesday, etc.) - NEVER use "today", "yesterday", or "this week"
-- ${marketStatus === 'afterhours' ? 'The price action shows SEPARATE regular session and after-hours changes - DO NOT reference the combined daily change percentage, reference the specific session changes mentioned in the price action context' : 'Use the daily change percentage when referencing price movement'}
+- ${isAfterHours ? 'The price action shows SEPARATE regular session and after-hours changes - DO NOT reference the combined daily change percentage, reference the specific session changes mentioned in the price action context' : 'Use the daily change percentage when referencing price movement'}
 - Use PERCENTAGES for moving averages - VERIFY THE DIRECTION (e.g., if price is $710 and MA is $670, the price is ABOVE the MA, not below)
 - ${hasVolume ? `When mentioning volume, ALWAYS compare to the 30-day average volume provided (e.g., "above average at X million vs Y million average" or "below average")` : 'DO NOT mention volume or volume analysis at all - market is still open and volume is incomplete/misleading'}
 - For support/resistance levels, use the CALCULATED support/resistance levels provided (based on recent swing highs/lows from chart data)
@@ -1407,9 +1410,6 @@ export async function POST(request: Request) {
       // Build the price action text based on market status and available data
       let priceActionText = '';
       
-      // Store whether we're showing split changes for after-hours
-      let showingSplitChanges = false;
-      
       if (marketStatus === 'afterhours' && hasAfterHoursData) {
         // Show both regular session and after-hours changes
         const regularUpDown = regularSessionChange > 0 ? 'up' : regularSessionChange < 0 ? 'down' : 'unchanged';
@@ -1418,7 +1418,6 @@ export async function POST(request: Request) {
         const absAfterHoursChange = Math.abs(afterHoursChange).toFixed(2);
         
         priceActionText = `${symbol} Price Action: ${shortCompanyName} shares were ${regularUpDown} ${absRegularChange}% during regular trading and ${afterHoursUpDown} ${absAfterHoursChange}% in after-hours trading on ${dayOfWeek}`;
-        showingSplitChanges = true;
       } else if (marketStatus === 'open') {
         // Regular trading hours: include 'at the time of publication'
         priceActionText = `${symbol} Price Action: ${shortCompanyName} shares were ${upDown} ${absChange}% at $${lastPrice} at the time of publication on ${dayOfWeek}`;
