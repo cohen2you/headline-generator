@@ -286,21 +286,42 @@ Respond with a numbered list of 3 headlines only.`;
 
 export function seoHeadlinePrompt(headline: string) {
   return `
-You are an SEO expert optimizing financial headlines.
+You are an SEO expert optimizing financial headlines for maximum search visibility and click-through rates.
 
-Turn the headline into a clear, SEO-ready title under 8 words:
+Generate EXACTLY 3 SEO-optimized headlines, each under 8 words:
+
+OPTION 1 (Similar to Original):
+- Keep the core message and angle of the original headline
+- Optimize for SEO while maintaining the main idea
+- Make it clearer and more clickable
+
+OPTION 2 (Alternative Angle):
+- Take a completely different approach or angle
+- Focus on a different aspect of the story
+- Use different keywords and perspective
+
+OPTION 3 (Alternative Angle):
+- Another distinct approach or angle
+- Emphasize different elements or implications
+- Use varied keywords and framing
+
+REQUIREMENTS FOR ALL 3 HEADLINES:
+- Maximum 8 words each - this is critical
 - Use the main company name or key entity
-- Include a compelling but natural verb
-- Use natural sentence structure - no colons or excessive punctuation
-- Focus on one clear point
+- Include compelling action verbs
+- Natural sentence structure - avoid excessive colons
+- SEO-friendly with strong keywords
+- Clear, direct, and clickable
 
-EXAMPLES OF GOOD SEO HEADLINES:
-- "New York's Office Boom Stands Alone As Most US Cities Stay Remote"
-- "Tesla Faces Growing Competition In Electric Vehicle Market"
-- "Federal Reserve Signals Potential Rate Cuts Ahead"
+EXAMPLES OF GOOD SEO HEADLINES (under 8 words):
+- "Tesla Faces Growing Electric Vehicle Competition"
+- "Federal Reserve Signals Potential Rate Cuts"
+- "Apple Stock Surges On Strong Earnings"
+- "Microsoft Expands AI Capabilities With OpenAI"
+- "Amazon Challenges Walmart In Grocery Market"
 
 Original Headline:
 "${headline}"
 
-Respond with the optimized headline only.`;
+Respond with exactly 3 headlines, one per line, no numbering or extra text.`;
 }
