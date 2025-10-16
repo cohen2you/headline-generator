@@ -286,39 +286,43 @@ Respond with a numbered list of 3 headlines only.`;
 
 export function seoHeadlinePrompt(headline: string) {
   return `
-You are an SEO expert optimizing financial headlines for maximum search visibility and click-through rates.
+You are an expert headline editor tasked with creating shorter, punchier versions while preserving personality and key details.
 
-Generate EXACTLY 3 SEO-optimized headlines, each under 8 words:
+Generate EXACTLY 3 optimized headlines, each under 9 words:
 
 OPTION 1 (Similar to Original):
-- Keep the core message and angle of the original headline
-- Optimize for SEO while maintaining the main idea
-- Make it clearer and more clickable
+- PRESERVE the unique language and personality of the original
+- Keep specific details like dates, comparisons, or intriguing descriptors (e.g., "stealth", "since 1979")
+- Simply make it more concise - trim filler words, not the flavor
+- Maintain the same angle and intrigue
 
 OPTION 2 (Alternative Angle):
-- Take a completely different approach or angle
-- Focus on a different aspect of the story
-- Use different keywords and perspective
+- Take a different approach while keeping any compelling specifics
+- Focus on a different aspect but don't make it generic
+- Preserve personality - use vivid language
 
 OPTION 3 (Alternative Angle):
-- Another distinct approach or angle
-- Emphasize different elements or implications
-- Use varied keywords and framing
+- Another distinct approach
+- Keep it interesting and specific
+- Avoid generic financial jargon
 
-REQUIREMENTS FOR ALL 3 HEADLINES:
-- Maximum 8 words each - this is critical
-- Use the main company name or key entity
-- Include compelling action verbs
+CRITICAL REQUIREMENTS:
+- Maximum 9 words each
+- DO NOT strip out intriguing language (like "stealth", "secret", "hidden", etc.)
+- DO NOT remove specific timeframes or comparisons (like "since 1979", "biggest in decades")
+- DO NOT replace colorful language with boring alternatives
+- Focus on making it shorter, not blander
+- Keep the mystery, urgency, or intrigue of the original
 - Natural sentence structure - avoid excessive colons
-- SEO-friendly with strong keywords
-- Clear, direct, and clickable
 
-EXAMPLES OF GOOD SEO HEADLINES (under 8 words):
-- "Tesla Faces Growing Electric Vehicle Competition"
-- "Federal Reserve Signals Potential Rate Cuts"
-- "Apple Stock Surges On Strong Earnings"
-- "Microsoft Expands AI Capabilities With OpenAI"
-- "Amazon Challenges Walmart In Grocery Market"
+GOOD EXAMPLES (preserving personality):
+Original: "Trump's Stealth Move May Be Behind The Biggest Gold Boom Since 1979"
+✓ "Trump's Stealth Move Sparks Biggest Gold Boom Since 1979" (9 words - keeps "stealth" and "since 1979")
+✓ "Gold Hits Biggest Boom Since 1979 From Trump Move" (9 words - keeps the historical comparison)
+
+BAD EXAMPLES (too generic):
+✗ "Trump's Strategy Sparks Rare Gold Market Surge" (loses "stealth", loses "1979")
+✗ "Gold Prices Soar Amid Trump's Unexpected Maneuvers" (generic and boring)
 
 Original Headline:
 "${headline}"
