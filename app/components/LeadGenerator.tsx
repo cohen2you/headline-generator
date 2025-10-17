@@ -191,12 +191,22 @@ const LeadGenerator = forwardRef<LeadGeneratorRef, LeadGeneratorProps>(({ articl
         <>
           <div className="mb-3">
             <div className="text-sm text-green-700 font-medium mb-2">Generated Lead:</div>
-            <textarea
-              readOnly
-              value={lead}
-              rows={lead.includes('\n') ? 8 : 4}
-              className="w-full p-3 border border-green-400 rounded resize-none font-mono text-sm"
-            />
+            <div className="w-full p-3 border border-green-400 rounded bg-white text-sm">
+              {lead.split('\n\n').filter((p: string) => p.trim()).map((paragraph: string, pIndex: number) => {
+                // Convert markdown bold (**text**) to HTML bold
+                const parts = paragraph.split(/(\*\*.*?\*\*)/g);
+                return (
+                  <p key={pIndex} className="mb-2 last:mb-0">
+                    {parts.map((part, partIdx) => {
+                      if (part.startsWith('**') && part.endsWith('**')) {
+                        return <strong key={partIdx}>{part.slice(2, -2)}</strong>;
+                      }
+                      return <span key={partIdx}>{part}</span>;
+                    })}
+                  </p>
+                );
+              })}
+            </div>
           </div>
           <div className="flex gap-2">
             <button

@@ -25,6 +25,13 @@ Your task is to analyze both the headline and article content to create a lead t
 - Is concise (2-3 sentences maximum)
 - Uses simple, direct language; no jargon
 
+FORMATTING REQUIREMENTS FOR COMPANY NAMES:
+- If you mention a company name, you MUST bold ONLY the company name using markdown bold **company name** syntax
+- Include the full legal company name (e.g., "Charles Schwab Corporation" not just "Charles Schwab")
+- Include the stock exchange and ticker symbol in parentheses after the company name, but DO NOT bold the ticker
+- Format: **Company Name** (EXCHANGE: TICKER)
+- Example: **Charles Schwab Corporation** (NYSE: SCHW)
+
 ANALYSIS INSTRUCTIONS:
 1. First, analyze the headline's tone and style:
    - Is it urgent/breaking news? Use urgent language
