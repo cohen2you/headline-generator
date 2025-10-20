@@ -833,7 +833,9 @@ CRITICAL RULES:
 - Write the COMPLETE unified analysis - include the price action context naturally
 - DO NOT use separate headers or labels
 - DO NOT repeat the price action information - build upon it
-- Use PERCENTAGES for moving averages (e.g., "4.4% above its 50-day moving average")
+- Use PERCENTAGES for moving averages (e.g., "trading 4.4% above its 50-day moving average" OR "trading above its 50-day moving average of $259.58")
+- DO NOT combine dollar value AND percentage in confusing ways (e.g., DON'T say "above its 50-day moving average of $259.58, which is approximately 2.3% higher")
+- PREFERRED FORMAT: "trading approximately 2.3% above its 50-day moving average" (percentage only, more concise)
 - Use ${dayOfWeek} when mentioning volume timing
 - Include support/resistance levels and overall technical outlook
 - Break content into SHORT paragraphs - MAXIMUM 2 sentences per paragraph
@@ -946,7 +948,10 @@ CRITICAL RULES:
 - DO NOT repeat the price action information - build upon it
 - ALWAYS use day of week (Monday, Tuesday, etc.) - NEVER use "today", "yesterday", or "this week"
 - ${isAfterHours ? 'The price action shows SEPARATE regular session and after-hours changes - DO NOT reference the combined daily change percentage, reference the specific session changes mentioned in the price action context' : 'Use the daily change percentage when referencing price movement'}
-- Use PERCENTAGES for moving averages - VERIFY THE DIRECTION (e.g., if price is $710 and MA is $670, the price is ABOVE the MA, not below)
+- Use PERCENTAGES for moving averages (e.g., "trading 4.4% above its 50-day moving average" OR "trading above its 50-day moving average of $259.58")
+- DO NOT combine dollar value AND percentage in confusing ways (e.g., DON'T say "above its 50-day moving average of $259.58, which is approximately 2.3% higher")
+- PREFERRED FORMAT: "trading approximately 2.3% above its 50-day moving average" (percentage only, more concise)
+- VERIFY THE DIRECTION (e.g., if price is $710 and MA is $670, the price is ABOVE the MA, not below)
 - ${hasVolume ? `When mentioning volume, ALWAYS compare to the 30-day average volume provided (e.g., "above average at X million vs Y million average" or "below average")` : 'DO NOT mention volume or volume analysis at all - market is still open and volume is incomplete/misleading'}
 - For support/resistance levels, use the CALCULATED support/resistance levels provided (based on recent swing highs/lows from chart data)
 - If calculated support is N/A (common for high-momentum stocks), use the 50-day MA as the primary support level instead
