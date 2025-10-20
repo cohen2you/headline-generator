@@ -102,6 +102,13 @@ Write a single, powerful lead sentence that:
 - Do NOT be vague or generic - be specific about who and what.
 - Avoid clichés like "navigating a dynamic landscape," "redefine expectations," "shifting tides," "renewed vitality."
 
+HANDLING MULTI-STOCK ARTICLES:
+- If the article covers MULTIPLE stocks without a clear single focus (like CNBC roundups, analyst picks, market movers lists):
+  * DO NOT try to list all company names with tickers - it becomes too long and cluttered
+  * Instead, write a BROADER lead that captures the overall theme or context
+  * Focus on WHAT TYPE of story this is: "Wall Street analysts highlighted multiple picks," "CNBC traders named their top choices," "Several tech stocks drew upgrades"
+  * Keep it broad but still specific about the format/source/theme of the article
+
 FORMATTING REQUIREMENTS FOR COMPANY NAMES:
 - If you mention a company name, you MUST bold ONLY the company name using markdown bold **company name** syntax
 - Include the full legal company name (e.g., "Charles Schwab Corporation" not just "Charles Schwab")
@@ -142,6 +149,18 @@ Article themes: Services revenue at record, analysts raising targets, iPhone sal
 Lead: "**Apple Inc.** (NASDAQ: AAPL) is drawing higher price targets as its pivot to services pays off."
 First Sentence: "Apple Inc. (NASDAQ: AAPL) reported services revenue hit a record $22 billion in the quarter."
 [Why it works: Lead captures price target raises and strategic shift without repeating "services revenue record"]
+
+Example 5 - Multi-Stock Roundup (CNBC picks):
+Article themes: CNBC Halftime Report, three different analyst picks (crypto mining, auto retail, aviation), diverse sectors
+Lead: "Wall Street traders spotlighted picks across crypto mining, auto retail, and aviation on CNBC's latest market roundup."
+First Sentence: "On CNBC's 'Halftime Report Final Trades,' Bryn Talkington, managing partner of Requisite Capital Management, named Bitmine Immersion Technologies, Inc. (NYSE: BMNR) as her final trade."
+[Why it works: Broad enough to cover all three stocks without listing them all; captures the CNBC format and diverse sectors]
+
+Example 6 - Multi-Stock Analyst Upgrades:
+Article themes: Multiple tech stocks getting analyst upgrades, sector rotation, AI momentum
+Lead: "Tech stocks are drawing fresh analyst optimism as multiple firms raise price targets on AI-focused companies."
+First Sentence: "Goldman Sachs analyst Mark Delaney upgraded NVIDIA Corporation (NASDAQ: NVDA) to Buy with a $150 price target."
+[Why it works: Broad sector theme without trying to list every company; hints at the AI theme that connects them]
 
 BAD EXAMPLES (too vague and generic):
 - "Investors are navigating a dynamic financial landscape as earnings surprises redefine market expectations."
