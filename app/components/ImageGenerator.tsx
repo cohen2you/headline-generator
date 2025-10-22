@@ -15,6 +15,7 @@ interface ImageIdea {
 
 const ImageGenerator = forwardRef<ImageGeneratorRef>((props, ref) => {
   const [articleText, setArticleText] = useState('');
+  const [customPrompt, setCustomPrompt] = useState('');
   const [loading, setLoading] = useState(false);
   const [imageIdeas, setImageIdeas] = useState<ImageIdea[]>([]);
   const [selectedIdea, setSelectedIdea] = useState<ImageIdea | null>(null);
@@ -87,6 +88,44 @@ const ImageGenerator = forwardRef<ImageGeneratorRef>((props, ref) => {
     }
   }
 
+  async function generateFromCustomPrompt() {
+    if (!customPrompt.trim()) {
+      setError('Please enter a custom prompt.');
+      return;
+    }
+
+    setGeneratingImage(true);
+    setError('');
+    setGeneratedImageUrl('');
+    setAltText('');
+    setImageIdeas([]);
+
+    try {
+      // Enhance the simple prompt with cinematic quality specifications
+      const enhancedPrompt = `Ultra-realistic cinematic 3:2 widescreen image: ${customPrompt}. Photorealistic quality with dramatic lighting, atmospheric depth, fine surface textures, and professional color grading. Cinematic composition with depth of field, lens flares where appropriate, and hyperreal materials. Professional editorial photography style with sharp focus and rich detail. No text or logos.`;
+
+      const res = await fetch('/api/generate/dalle-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          prompt: enhancedPrompt,
+          description: customPrompt // Use the simple prompt as description for alt-text
+        }),
+      });
+
+      if (!res.ok) throw new Error('Failed to generate image');
+
+      const data = await res.json();
+      setGeneratedImageUrl(data.imageUrl);
+      setAltText(data.altText || '');
+    } catch (err) {
+      console.error('Error generating image from custom prompt:', err);
+      setError(err instanceof Error ? err.message : 'Failed to generate image');
+    } finally {
+      setGeneratingImage(false);
+    }
+  }
+
   function downloadImage() {
     if (!generatedImageUrl) return;
 
@@ -110,6 +149,38 @@ const ImageGenerator = forwardRef<ImageGeneratorRef>((props, ref) => {
     <section className="p-4 border border-indigo-500 rounded-md max-w-4xl mx-auto">
       <h2 className="text-lg font-semibold mb-4 text-indigo-700">Article Image Generator</h2>
 
+      {/* Custom Prompt Input */}
+      <div className="mb-6 p-4 bg-indigo-50 border border-indigo-300 rounded">
+        <h3 className="text-md font-semibold text-indigo-700 mb-2">Quick Custom Image</h3>
+        <p className="text-xs text-gray-600 mb-3">Enter a simple description - we'll enhance it with cinematic quality</p>
+        <input
+          type="text"
+          value={customPrompt}
+          onChange={(e) => setCustomPrompt(e.target.value)}
+          placeholder="e.g., A bull and bear charging through Wall Street"
+          className="w-full p-3 border border-indigo-300 rounded text-sm mb-3"
+          onKeyPress={(e) => e.key === 'Enter' && generateFromCustomPrompt()}
+        />
+        <button
+          onClick={generateFromCustomPrompt}
+          disabled={generatingImage || !customPrompt.trim()}
+          className="bg-indigo-700 text-white px-6 py-2 rounded disabled:bg-indigo-300"
+        >
+          {generatingImage ? 'Generating...' : '⚡ Generate Image Now'}
+        </button>
+      </div>
+
+      {/* Divider */}
+      <div className="relative mb-6">
+        <div className="absolute inset-0 flex items-center">
+          <div className="w-full border-t border-indigo-300"></div>
+        </div>
+        <div className="relative flex justify-center text-sm">
+          <span className="px-2 bg-white text-indigo-600 font-medium">OR Generate from Article</span>
+        </div>
+      </div>
+
+      {/* Article Input */}
       <div className="mb-4">
         <label className="block text-sm font-medium text-indigo-700 mb-2">
           Enter Headline or Article:
