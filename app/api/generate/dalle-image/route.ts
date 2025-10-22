@@ -12,6 +12,14 @@ export async function POST(request: Request) {
     }
 
     console.log('Generating DALL-E image with prompt:', prompt);
+    console.log('DALL-E parameters:', {
+      model: 'dall-e-3',
+      size: '1792x1024',
+      quality: 'hd',
+      style: 'natural'
+    });
+
+    const startTime = Date.now();
 
     // Generate the image
     const response = await openai.images.generate({
@@ -23,13 +31,20 @@ export async function POST(request: Request) {
       style: 'natural'
     });
 
+    const generationTime = ((Date.now() - startTime) / 1000).toFixed(1);
+    console.log(`DALL-E generation took ${generationTime} seconds`);
+
     const imageUrl = response.data?.[0]?.url;
+    const revisedPrompt = response.data?.[0]?.revised_prompt;
 
     if (!imageUrl) {
       throw new Error('No image URL returned from DALL-E');
     }
 
     console.log('DALL-E image generated successfully');
+    if (revisedPrompt) {
+      console.log('DALL-E revised prompt:', revisedPrompt);
+    }
 
     // Generate alt-text based on the image description
     let altText = '';
