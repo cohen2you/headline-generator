@@ -14,6 +14,7 @@ import StockMarketReport, { StockMarketReportRef } from './components/StockMarke
 import LeadGenerator, { LeadGeneratorRef } from './components/LeadGenerator';
 import SubheadGenerator, { SubheadGeneratorRef } from './components/SubheadGenerator';
 import AltTextGenerator, { AltTextGeneratorRef } from './components/AltTextGenerator';
+import ImageGenerator, { ImageGeneratorRef } from './components/ImageGenerator';
 
 export default function Page() {
   const [articleText, setArticleText] = useState('');
@@ -32,6 +33,7 @@ export default function Page() {
   const leadGeneratorRef = useRef<LeadGeneratorRef>(null);
   const subheadGeneratorRef = useRef<SubheadGeneratorRef>(null);
   const altTextGeneratorRef = useRef<AltTextGeneratorRef>(null);
+  const imageGeneratorRef = useRef<ImageGeneratorRef>(null);
 
   const clearAllData = () => {
     // Clear main article text
@@ -184,6 +186,11 @@ export default function Page() {
       {/* Alt-Text Generator */}
       <div className="mb-8">
         <AltTextGenerator ref={altTextGeneratorRef} />
+      </div>
+
+      {/* Image Generator */}
+      <div className="mb-8">
+        <ImageGenerator ref={imageGeneratorRef} />
       </div>
     </main>
   );
