@@ -152,7 +152,7 @@ const ImageGenerator = forwardRef<ImageGeneratorRef>((props, ref) => {
       {/* Custom Prompt Input */}
       <div className="mb-6 p-4 bg-indigo-50 border border-indigo-300 rounded">
         <h3 className="text-md font-semibold text-indigo-700 mb-2">Quick Custom Image</h3>
-        <p className="text-xs text-gray-600 mb-3">Enter a simple description - we'll enhance it with cinematic quality</p>
+        <p className="text-xs text-gray-600 mb-3">Enter a simple description - we&apos;ll enhance it with cinematic quality</p>
         <input
           type="text"
           value={customPrompt}
