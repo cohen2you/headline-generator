@@ -101,14 +101,26 @@ const ImageGenerator = forwardRef<ImageGeneratorRef>((props, ref) => {
     setImageIdeas([]);
 
     try {
-      // Enhance the simple prompt with cinematic quality specifications
-      const enhancedPrompt = `Ultra-realistic cinematic 3:2 widescreen image: ${customPrompt}. Photorealistic quality with dramatic lighting, atmospheric depth, fine surface textures, and professional color grading. Cinematic composition with depth of field, lens flares where appropriate, and hyperreal materials. Professional editorial photography style with sharp focus and rich detail. No text or logos.`;
+      // Step 1: Optimize the prompt with GPT-4
+      console.log('Optimizing prompt with GPT-4...');
+      const optimizeRes = await fetch('/api/generate/optimize-prompt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: customPrompt }),
+      });
 
+      if (!optimizeRes.ok) throw new Error('Failed to optimize prompt');
+      
+      const { optimizedPrompt } = await optimizeRes.json();
+      console.log('Optimized prompt:', optimizedPrompt);
+
+      // Step 2: Generate image with optimized prompt
+      console.log('Generating image with DALL-E...');
       const res = await fetch('/api/generate/dalle-image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          prompt: enhancedPrompt,
+          prompt: optimizedPrompt,
           description: customPrompt // Use the simple prompt as description for alt-text
         }),
       });
@@ -152,7 +164,7 @@ const ImageGenerator = forwardRef<ImageGeneratorRef>((props, ref) => {
       {/* Custom Prompt Input */}
       <div className="mb-6 p-4 bg-indigo-50 border border-indigo-300 rounded">
         <h3 className="text-md font-semibold text-indigo-700 mb-2">Quick Custom Image</h3>
-        <p className="text-xs text-gray-600 mb-3">Enter a simple description - we&apos;ll enhance it with cinematic quality</p>
+        <p className="text-xs text-gray-600 mb-3">Enter a simple description - GPT-4 will optimize it for best results</p>
         <input
           type="text"
           value={customPrompt}
