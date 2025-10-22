@@ -19,7 +19,7 @@ export async function POST(request: Request) {
       prompt: prompt,
       n: 1,
       size: '1792x1024', // Landscape format (16:9) - closest to 3:2 available
-      quality: 'standard',
+      quality: 'hd',
       style: 'natural'
     });
 

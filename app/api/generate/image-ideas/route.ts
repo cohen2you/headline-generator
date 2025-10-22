@@ -36,8 +36,10 @@ For each image concept, provide:
 
 CRITICAL REQUIREMENTS FOR DALL-E PROMPTS:
 - MUST reference specific details from the article (actual shows, locations, products, events mentioned)
+- DO NOT include company names in prompts (DALL-E can't render real logos/text accurately)
+- Focus on VISUAL ELEMENTS, not brand names (e.g., "streaming content" not "Netflix", "pink-suited guards" not "Squid Game logo")
 - Start with technical specs: "Ultra-realistic cinematic widescreen image" or "Photorealistic editorial style 3:2 aspect ratio"
-- Include SPECIFIC scene details from the article: exact products, shows, locations mentioned
+- Include SPECIFIC scene details from the article: exact shows, locations, events mentioned (but describe them visually, not by name)
 - Specify lighting: "golden hour", "dramatic side lighting", "soft ambient glow", "lens flares", "volumetric rays"
 - Add atmospheric details: fog, depth of field, atmospheric haze, particle effects
 - Include texture details: "fine surface textures", "hyperreal materials", "detailed reflections"
@@ -50,7 +52,9 @@ CRITICAL REQUIREMENTS FOR DALL-E PROMPTS:
   * Concept 3: The future/strategic aspect (upcoming events, expansion, new initiatives)
 - Professional quality suitable for financial news
 
-FORBIDDEN: Do NOT create generic images like "abstract waves", "data streams", "executive offices", "market dynamics". These are TOO VAGUE!
+FORBIDDEN: 
+- Do NOT include company names/brands in DALL-E prompts (causes fake text)
+- Do NOT create generic images like "abstract waves", "data streams", "executive offices", "market dynamics"
 
 EXAMPLES OF ARTICLE-SPECIFIC CONCEPTS:
 
@@ -63,17 +67,17 @@ Article: "Netflix stock drops 8% after Brazil tax settlement, but Squid Game Sea
 
 ✅ GOOD (uses actual details from this specific Netflix article):
 
-Concept 1: "Squid Game Viewership Surge"
-Description: "Living room with family watching Squid Game on large TV during evening, recognizable pink-suited guards on screen, cozy atmosphere"
-Prompt: "Ultra-realistic cinematic 3:2 widescreen photograph of modern living room at evening time. Large flat-screen TV displaying a dramatic scene with pink-suited guards in a dark arena (Squid Game style aesthetic). Family of four sitting on gray sectional sofa viewing the screen, bowls of popcorn, warm ambient lighting from floor lamps. City skyline visible through windows in background showing nighttime. Photorealistic details on TV screen, comfortable home setting, cinematic depth of field focusing on TV and viewers. Professional interior photography style with natural color grading. No text or logos."
+Concept 1: "Popular Series Viewing"
+Description: "Living room with family watching dramatic streaming content on large TV during evening, intense scene visible on screen, cozy atmosphere"
+Prompt: "Ultra-realistic cinematic 3:2 widescreen photograph of modern living room at evening time. Large flat-screen TV displaying a dramatic scene with people in distinctive pink uniforms in a dark arena setting. Family of four sitting on gray sectional sofa viewing the screen, bowls of popcorn, warm ambient lighting from floor lamps. City skyline visible through windows in background showing nighttime. Photorealistic details on TV screen, comfortable home setting, cinematic depth of field focusing on TV and viewers. Professional interior photography style with natural color grading. No text or logos."
 
 Concept 2: "Football Stadium Christmas Prep"
 Description: "NFL stadium decorated for Christmas with snowfall and dramatic lighting, preparing for streaming broadcast with camera crews"
 Prompt: "Photorealistic 3:2 widescreen image of a massive NFL football stadium during late afternoon in winter. Light snowfall visible against dramatic stadium lights. Christmas decorations visible including wreaths and garland on railings. Professional broadcast cameras positioned on sideline with crew members in winter gear. Empty green field with yard lines visible. Dramatic golden hour lighting mixed with bright stadium lights creating lens flares. Cold weather atmosphere with visible breath condensation. Professional sports photography aesthetic with cinematic color grading. No text or logos."
 
-Concept 3: "São Paulo Skyline Dusk"
-Description: "São Paulo, Brazil city skyline at dusk with modern buildings and vibrant sunset, representing the Brazil market"
-Prompt: "Ultra-realistic cinematic aerial photograph of São Paulo, Brazil skyline at golden hour. Modern glass skyscrapers and unique curved architecture silhouetted against dramatic orange and purple sunset sky. Dense urban landscape with mix of contemporary and historic buildings. Warm ambient city lights beginning to illuminate. Atmospheric haze between buildings creating depth. Paulista Avenue visible in composition. Photorealistic architectural details, professional cityscape photography with rich color grading capturing the vibrant Brazilian atmosphere. No text or logos."
+Concept 3: "Brazilian Metropolis Dusk"
+Description: "Major Brazilian city skyline at dusk with modern buildings and vibrant sunset, representing the South American market"
+Prompt: "Ultra-realistic cinematic aerial photograph of a major Brazilian city skyline at golden hour. Modern glass skyscrapers and unique curved architecture silhouetted against dramatic orange and purple sunset sky. Dense urban landscape with mix of contemporary and historic buildings. Warm ambient city lights beginning to illuminate. Atmospheric haze between buildings creating depth. Wide avenue visible cutting through the city center. Photorealistic architectural details, professional cityscape photography with rich color grading capturing the vibrant South American atmosphere. No text or logos."
 
 Return a JSON object with an "ideas" array containing exactly 3 objects, each with: title, description, prompt
 
