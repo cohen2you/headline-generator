@@ -2,6 +2,7 @@
 
 import { forwardRef, useImperativeHandle, useState } from 'react';
 
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface ImageGeneratorRef {
   // No external methods needed for now
 }
@@ -158,6 +159,7 @@ const ImageGenerator = forwardRef<ImageGeneratorRef>((props, ref) => {
         <div className="mb-4">
           <h3 className="text-md font-semibold text-indigo-700 mb-3">Generated Image:</h3>
           <div className="border border-indigo-300 rounded p-4 bg-white">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={generatedImageUrl}
               alt={altText}
