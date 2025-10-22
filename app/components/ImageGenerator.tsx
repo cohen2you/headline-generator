@@ -87,23 +87,22 @@ const ImageGenerator = forwardRef<ImageGeneratorRef>((props, ref) => {
     }
   }
 
-  async function downloadImage() {
+  function downloadImage() {
     if (!generatedImageUrl) return;
 
     try {
-      const response = await fetch(generatedImageUrl);
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
+      // Create a temporary link element
       const a = document.createElement('a');
-      a.href = url;
+      a.href = generatedImageUrl;
       a.download = `article-image-${Date.now()}.png`;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
       document.body.appendChild(a);
       a.click();
-      window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
     } catch (err) {
       console.error('Error downloading image:', err);
-      setError('Failed to download image');
+      setError('Failed to download image. Please right-click the image and select "Save image as..."');
     }
   }
 
@@ -208,12 +207,18 @@ const ImageGenerator = forwardRef<ImageGeneratorRef>((props, ref) => {
               </div>
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               <button
                 onClick={downloadImage}
                 className="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700"
               >
                 📥 Download Image
+              </button>
+              <button
+                onClick={() => window.open(generatedImageUrl, '_blank')}
+                className="bg-indigo-500 text-white px-4 py-2 rounded hover:bg-indigo-600"
+              >
+                🔗 Open in New Tab
               </button>
               <button
                 onClick={() => {
