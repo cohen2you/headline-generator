@@ -1422,7 +1422,7 @@ export async function POST(request: Request) {
         const absRegularChange = Math.abs(regularSessionChange).toFixed(2);
         const absAfterHoursChange = Math.abs(afterHoursChange).toFixed(2);
         
-        priceActionText = `${symbol} Price Action: ${shortCompanyName} shares were ${regularUpDown} ${absRegularChange}% during regular trading and ${afterHoursUpDown} ${absAfterHoursChange}% in after-hours trading on ${dayOfWeek}`;
+        priceActionText = `${symbol} Price Action: ${shortCompanyName} shares were ${regularUpDown} ${absRegularChange}% during regular trading and ${afterHoursUpDown} ${absAfterHoursChange}% in after-hours trading on ${dayOfWeek}, last trading at $${lastPrice}`;
       } else if (marketStatus === 'open') {
         // Regular trading hours: include 'at the time of publication'
         priceActionText = `${symbol} Price Action: ${shortCompanyName} shares were ${upDown} ${absChange}% at $${lastPrice} at the time of publication on ${dayOfWeek}`;
@@ -2120,6 +2120,26 @@ REQUIREMENTS:
         }
 
         const changePercent = typeof q.changePercent === 'number' ? q.changePercent : 0;
+        
+        // Calculate regular session and after-hours changes separately
+        let regularSessionChange = 0;
+        let afterHoursChange = 0;
+        let regularUpDown = '';
+        let afterHoursUpDown = '';
+        
+        if (marketStatus === 'afterhours' && q.close && q.lastTradePrice && q.previousClosePrice) {
+          // Regular session change: (regular_close - previous_close) / previous_close * 100
+          regularSessionChange = ((q.close - q.previousClosePrice) / q.previousClosePrice) * 100;
+          regularUpDown = regularSessionChange > 0 ? 'up' : regularSessionChange < 0 ? 'down' : 'unchanged';
+          
+          // After-hours change: (current - regular_close) / regular_close * 100
+          afterHoursChange = ((q.lastTradePrice - q.close) / q.close) * 100;
+          afterHoursUpDown = afterHoursChange > 0 ? 'up' : afterHoursChange < 0 ? 'down' : 'unchanged';
+          
+          console.log(`[${symbol}] Regular session: Previous: $${q.previousClosePrice}, Close: $${q.close}, Change: ${regularSessionChange.toFixed(2)}%`);
+          console.log(`[${symbol}] After-hours: Regular close: $${q.close}, Current: $${q.lastTradePrice}, Change: ${afterHoursChange.toFixed(2)}%`);
+        }
+        
         // Format price to ensure exactly 2 decimal places - moved after validation
         const lastPrice = formatPrice(q.lastTradePrice);
         console.log(`[${symbol}] Raw lastTradePrice:`, q.lastTradePrice, `typeof:`, typeof q.lastTradePrice, `Formatted lastPrice:`, lastPrice, `typeof formatted:`, typeof lastPrice);
@@ -2137,6 +2157,11 @@ REQUIREMENTS:
         
         if (marketStatus === 'open') {
           priceActionText = `${symbol} Price Action: ${companyName} shares were ${upDown} ${absChange}% at $${priceString} at the time of publication on ${dayOfWeek}`;
+        } else if (marketStatus === 'afterhours' && q.close && q.lastTradePrice && q.previousClosePrice) {
+          // Show both regular session and after-hours moves when we have the necessary data
+          const absRegularChange = Math.abs(regularSessionChange).toFixed(2);
+          const absAfterHoursChange = Math.abs(afterHoursChange).toFixed(2);
+          priceActionText = `${symbol} Price Action: ${companyName} shares were ${regularUpDown} ${absRegularChange}% during regular trading and ${afterHoursUpDown} ${absAfterHoursChange}% in after-hours trading on ${dayOfWeek}, last trading at $${priceString}`;
         } else {
           priceActionText = `${symbol} Price Action: ${companyName} shares were ${upDown} ${absChange}% at $${priceString}${marketStatusPhrase} on ${dayOfWeek}`;
         }
@@ -2156,11 +2181,11 @@ REQUIREMENTS:
             
             if (rangePosition >= 0.95) {
               rangeText = `. The stock is trading near its 52-week high of $${formatPrice(yearHigh)}`;
-            } else if (rangePosition <= 0.05) {
+            } else if (rangePosition <= 0.03) {
               rangeText = `. The stock is trading near its 52-week low of $${formatPrice(yearLow)}`;
-            } else if (rangePosition >= 0.85) {
+            } else if (rangePosition >= 0.90) {
               rangeText = `. The stock is approaching its 52-week high of $${formatPrice(yearHigh)}`;
-            } else if (rangePosition <= 0.15) {
+            } else if (rangePosition <= 0.05) {
               rangeText = `. The stock is near its 52-week low of $${formatPrice(yearLow)}`;
             }
           }
