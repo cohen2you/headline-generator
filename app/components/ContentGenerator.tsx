@@ -537,7 +537,7 @@ const ContentGenerator = forwardRef<ContentGeneratorRef, ContentGeneratorProps>(
                       </button>
                     </li>
                   );
-                } else if (action && !('technicalAnalysis' in action)) {
+                } else if (action && !('technicalAnalysis' in action) && !('fullAnalysis' in action)) {
                   // Price Action Only mode (object)
                   return (
                     <li key={i} className="flex justify-between items-start">
