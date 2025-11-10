@@ -116,6 +116,23 @@ export async function POST() {
   }
 }
 
+// Helper function to determine if DST is currently active in US Eastern Time
+function isDST(date: Date): boolean {
+  const year = date.getUTCFullYear();
+  
+  // DST starts on the second Sunday in March at 2:00 AM
+  const marchFirst = new Date(Date.UTC(year, 2, 1)); // March 1st
+  const marchFirstDay = marchFirst.getUTCDay();
+  const dstStart = new Date(Date.UTC(year, 2, 8 + (7 - marchFirstDay) % 7, 7)); // 2nd Sunday in March at 7 UTC (2 AM EST = 7 UTC)
+  
+  // DST ends on the first Sunday in November at 2:00 AM
+  const novemberFirst = new Date(Date.UTC(year, 10, 1)); // November 1st
+  const novemberFirstDay = novemberFirst.getUTCDay();
+  const dstEnd = new Date(Date.UTC(year, 10, 1 + (7 - novemberFirstDay) % 7, 6)); // 1st Sunday in November at 6 UTC (2 AM EDT = 6 UTC)
+  
+  return date >= dstStart && date < dstEnd;
+}
+
 async function generateMarketReport(data: MarketData): Promise<string> {
   try {
     // Get current day of week and time of day
@@ -125,7 +142,7 @@ async function generateMarketReport(data: MarketData): Promise<string> {
     
     // Determine time of day (EST)
     const now = new Date();
-    const estOffset = -4; // EDT offset
+    const estOffset = isDST(now) ? -4 : -5; // EDT or EST
     const estTime = new Date(now.getTime() + (estOffset * 60 * 60 * 1000));
     const hours = estTime.getUTCHours();
     const minutes = estTime.getUTCMinutes();

@@ -1259,13 +1259,30 @@ function calculateApproximateReturns(quote: PolygonData): HistoricalData | null 
   }
 }
 
+// Helper function to determine if DST is currently active in US Eastern Time
+function isDST(date: Date): boolean {
+  const year = date.getUTCFullYear();
+  
+  // DST starts on the second Sunday in March at 2:00 AM
+  const marchFirst = new Date(Date.UTC(year, 2, 1)); // March 1st
+  const marchFirstDay = marchFirst.getUTCDay();
+  const dstStart = new Date(Date.UTC(year, 2, 8 + (7 - marchFirstDay) % 7, 7)); // 2nd Sunday in March at 7 UTC (2 AM EST = 7 UTC)
+  
+  // DST ends on the first Sunday in November at 2:00 AM
+  const novemberFirst = new Date(Date.UTC(year, 10, 1)); // November 1st
+  const novemberFirstDay = novemberFirst.getUTCDay();
+  const dstEnd = new Date(Date.UTC(year, 10, 1 + (7 - novemberFirstDay) % 7, 6)); // 1st Sunday in November at 6 UTC (2 AM EDT = 6 UTC)
+  
+  return date >= dstStart && date < dstEnd;
+}
+
 // Utility function to detect US market status using time-based logic (for Benzinga modes)
 function getMarketStatusTimeBased(): 'open' | 'premarket' | 'afterhours' | 'closed' {
   const now = new Date();
   // Convert to UTC, then to New York time (Eastern Time)
   const nowUtc = now.getTime() + (now.getTimezoneOffset() * 60000);
-  // New York is UTC-4 (EDT) or UTC-5 (EST); for simplicity, use UTC-4 (EDT)
-  const nyOffset = -4; // hours
+  // New York is UTC-4 (EDT) or UTC-5 (EST) - determine based on DST
+  const nyOffset = isDST(now) ? -4 : -5; // EDT or EST
   const nyTime = new Date(nowUtc + (3600000 * nyOffset));
   const day = nyTime.getDay(); // 0 = Sunday, 6 = Saturday
   const hour = nyTime.getHours();
@@ -1292,7 +1309,7 @@ async function getMarketStatus(): Promise<'open' | 'premarket' | 'afterhours' | 
     if (data.market === 'extended-hours') {
       const now = new Date();
       const nowUtc = now.getTime() + (now.getTimezoneOffset() * 60000);
-      const nyOffset = -4; // EDT
+      const nyOffset = isDST(now) ? -4 : -5; // EDT or EST
       const nyTime = new Date(nowUtc + (3600000 * nyOffset));
       const hour = nyTime.getHours();
       const minute = nyTime.getMinutes();
