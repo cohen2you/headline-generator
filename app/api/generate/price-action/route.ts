@@ -1875,7 +1875,9 @@ Return only the enhanced text, no explanations.`;
           priceAction: priceActionText,
           fullAnalysis: cleanedFullAnalysis
         };
-      } else if (vsAnalysis && primaryTicker && comparisonTickers) {
+      }
+
+      if (vsAnalysis && primaryTicker && comparisonTickers) {
         // Vs. Analysis - Compare primary ticker against comparison tickers
         const primarySymbol = primaryTicker.trim().toUpperCase();
         const comparisonSymbols = comparisonTickers.split(',').map((t: string) => t.trim().toUpperCase());
