@@ -1803,9 +1803,7 @@ Return only the enhanced text, no explanations.`;
             narrativeType: narrativeType,
             smartAnalysis: true
           };
-        }
-
-        if (vsAnalysis && primaryTicker && comparisonTickers) {
+        } else if (vsAnalysis && primaryTicker && comparisonTickers) {
           // Vs. Analysis - Compare primary ticker against comparison tickers
           const primarySymbol = primaryTicker.trim().toUpperCase();
           const comparisonSymbols = comparisonTickers.split(',').map((t: string) => t.trim().toUpperCase());
@@ -2136,9 +2134,7 @@ REQUIREMENTS:
           priceAction: priceActionText,
           fullAnalysis: cleanedFullAnalysis
         };
-      }
-
-      if (vsAnalysis && primaryTicker && comparisonTickers) {
+      } else if (vsAnalysis && primaryTicker && comparisonTickers) {
         // Vs. Analysis - Compare primary ticker against comparison tickers
         const primarySymbol = primaryTicker.trim().toUpperCase();
         const comparisonSymbols = comparisonTickers.split(',').map((t: string) => t.trim().toUpperCase());
