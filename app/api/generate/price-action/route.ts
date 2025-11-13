@@ -1522,6 +1522,8 @@ export async function POST(request: Request) {
           // Check if stock is above the 52-week high (new high)
           if (currentPrice > yearHigh) {
             rangeText = `. The stock is trading at a new 52-week high`;
+          } else if (currentPrice < yearLow) {
+            rangeText = `. The stock is trading below its 52-week low of $${formatPrice(yearLow)}`;
           } else {
             // Calculate position within 52-week range (0 = at low, 1 = at high)
             const rangePosition = (currentPrice - yearLow) / (yearHigh - yearLow);
