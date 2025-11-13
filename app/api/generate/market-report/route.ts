@@ -116,37 +116,37 @@ export async function POST() {
   }
 }
 
-// Helper function to determine if DST is currently active in US Eastern Time
-function isDST(date: Date): boolean {
-  const year = date.getUTCFullYear();
-  
-  // DST starts on the second Sunday in March at 2:00 AM
-  const marchFirst = new Date(Date.UTC(year, 2, 1)); // March 1st
-  const marchFirstDay = marchFirst.getUTCDay();
-  const dstStart = new Date(Date.UTC(year, 2, 8 + (7 - marchFirstDay) % 7, 7)); // 2nd Sunday in March at 7 UTC (2 AM EST = 7 UTC)
-  
-  // DST ends on the first Sunday in November at 2:00 AM
-  const novemberFirst = new Date(Date.UTC(year, 10, 1)); // November 1st
-  const novemberFirstDay = novemberFirst.getUTCDay();
-  const dstEnd = new Date(Date.UTC(year, 10, 1 + (7 - novemberFirstDay) % 7, 6)); // 1st Sunday in November at 6 UTC (2 AM EDT = 6 UTC)
-  
-  return date >= dstStart && date < dstEnd;
+// Helper to get Eastern Time components without manual DST math
+function getEasternTimeParts(date: Date): { dayIndex: number; weekday: string; hour: number; minute: number } {
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    weekday: 'long',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+
+  const parts = formatter.formatToParts(date);
+  const weekday = parts.find(part => part.type === 'weekday')?.value ?? 'Sunday';
+  const hourString = parts.find(part => part.type === 'hour')?.value ?? '00';
+  const minuteString = parts.find(part => part.type === 'minute')?.value ?? '00';
+
+  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const dayIndex = dayNames.indexOf(weekday);
+
+  return {
+    dayIndex: dayIndex === -1 ? 0 : dayIndex,
+    weekday,
+    hour: parseInt(hourString, 10),
+    minute: parseInt(minuteString, 10),
+  };
 }
 
 async function generateMarketReport(data: MarketData): Promise<string> {
   try {
     // Get current day of week and time of day
-    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    const today = new Date();
-    const dayOfWeek = dayNames[today.getDay()];
-    
-    // Determine time of day (EST)
-    const now = new Date();
-    const estOffset = isDST(now) ? -4 : -5; // EDT or EST
-    const estTime = new Date(now.getTime() + (estOffset * 60 * 60 * 1000));
-    const hours = estTime.getUTCHours();
-    const minutes = estTime.getUTCMinutes();
-    const timeInMinutes = hours * 60 + minutes;
+    const { weekday: dayOfWeek, hour, minute } = getEasternTimeParts(new Date());
+    const timeInMinutes = hour * 60 + minute;
     
     // Market hours: 9:30 AM (570) to 4:00 PM (960)
     let timeOfDay = '';
