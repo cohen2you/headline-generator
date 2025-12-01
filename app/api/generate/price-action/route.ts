@@ -1426,8 +1426,8 @@ export async function POST(request: Request) {
     console.log('Mode:', { smartAnalysis, vsAnalysis, briefAnalysis, priceActionOnly, grouped });
 
     // Use different data sources based on mode
-    if (smartAnalysis || vsAnalysis || (!priceActionOnly && !briefAnalysis && !grouped)) {
-      // Smart Price Action, Vs Analysis, and Full Analysis use Polygon API
+    if (smartAnalysis || vsAnalysis) {
+      // Smart Price Action and Vs Analysis use Polygon API
       // Detect market status using Polygon API
       const marketStatus = await getMarketStatus();
       
@@ -1445,7 +1445,7 @@ export async function POST(request: Request) {
 
         const symbol = polygonData.symbol;
         const companyName = polygonData.companyName;
-        const shortCompanyName = companyName.split(' ')[0];
+        const shortCompanyName = normalizeCompanyName(companyName.split(' ')[0]);
         const changePercent = polygonData.changePercent;
         const lastPrice = formatPrice(polygonData.lastTradePrice);
 
@@ -1805,254 +1805,182 @@ Return only the enhanced text, no explanations.`;
             narrativeType: narrativeType,
             smartAnalysis: true
           };
-      }
-
-        // Move briefAnalysis check before priceActionOnly
-        if (briefAnalysis) {
-          // Generate a brief, insightful analysis paragraph using OpenAI
-          let briefAnalysisText = '';
-          try {
-            let briefPrompt = '';
-            // Historical performance data is not available with current Polygon implementation
-
-            if (marketStatus === 'afterhours' || marketStatus === 'premarket') {
-              briefPrompt = `You are a financial news analyst. Write a single, concise, insightful analysis (2-3 sentences, no more than 60% the length of a typical news paragraph) about the following stock's global and historical context. Do NOT mention premarket, after-hours, or current price action or volume. Do not mention current session trading activity. Only mention a data point if it is notably high, low, or unusual. Do not mention data points that are within normal or average ranges. Be specific: if referencing the 52-week range, state if the price is near the high or low, or if there is a notable long-term trend, not just 'within the range'. If nothing is notable, say so briefly. Focus only on global or historical data points (52-week range, sector, industry, market cap, P/E ratio, regular session close, previous close, dividend yield, long-term trends). Avoid generic statements and do NOT repeat the price action line. Do not include the ticker in the analysis line.\n\nCompany: ${companyName}\nSector: ${polygonData.industry || 'N/A'}\nIndustry: ${polygonData.industry || 'N/A'}\nMarket Cap: $${polygonData.marketCap ? (polygonData.marketCap >= 1e12 ? (polygonData.marketCap / 1e12).toFixed(2) + 'T' : (polygonData.marketCap / 1e9).toFixed(2) + 'B') : 'N/A'}\nP/E Ratio: N/A\nDividend Yield: N/A\nRegular Close: $${formatPrice(polygonData.close)}\nPrevious Close: $${formatPrice(polygonData.previousClose)}\n52-week Range: $${formatPrice(polygonData.fiftyTwoWeekLow)} - $${formatPrice(polygonData.fiftyTwoWeekHigh)}`;
-            } else {
-              briefPrompt = `You are a financial news analyst. Write a single, concise, insightful analysis (2-3 sentences, no more than 60% the length of a typical news paragraph) about the following stock's global and historical context. Do NOT mention current price action or volume. Only mention a data point if it is notably high, low, or unusual. Do not mention data points that are within normal or average ranges. Be specific: if referencing the 52-week range, state if the price is near the high or low, or if there is a notable long-term trend, not just 'within the range'. If nothing is notable, say so briefly. Focus only on global or historical data points (52-week range, sector, industry, market cap, P/E ratio, regular session close, previous close, dividend yield, long-term trends). Avoid generic statements and do NOT repeat the price action line. Do not include the ticker in the analysis line.\n\nCompany: ${companyName}\nSector: ${polygonData.industry || 'N/A'}\nIndustry: ${polygonData.industry || 'N/A'}\nMarket Cap: $${polygonData.marketCap ? (polygonData.marketCap >= 1e12 ? (polygonData.marketCap / 1e12).toFixed(2) + 'T' : (polygonData.marketCap / 1e9).toFixed(2) + 'B') : 'N/A'}\nP/E Ratio: N/A\nDividend Yield: N/A\nRegular Close: $${formatPrice(polygonData.close)}\nPrevious Close: $${formatPrice(polygonData.previousClose)}\n52-week Range: $${formatPrice(polygonData.fiftyTwoWeekLow)} - $${formatPrice(polygonData.fiftyTwoWeekHigh)}`;
-            }
-            const completion = await openai.chat.completions.create({
-              model: 'gpt-4o-mini',
-              messages: [{ role: 'user', content: briefPrompt }],
-              max_tokens: 200,
-              temperature: 0.5,
-            });
-            briefAnalysisText = completion.choices[0].message?.content?.trim() || '';
-          } catch {
-            briefAnalysisText = 'Brief analysis unavailable due to an error.';
-          }
-          return {
-            ticker: symbol,
-            companyName: companyName,
-            priceAction: priceActionText,
-            briefAnalysis: briefAnalysisText
-          };
         }
 
-        if (priceActionOnly) {
-          // Only return the price action line
-          return {
-            ticker: symbol,
-            companyName: companyName,
-            priceAction: priceActionText
-          };
-        }
-
-        // Generate unified Full Analysis using OpenAI - one complete text block
-        let fullAnalysisText = '';
-        // Use polygonData.close if available, otherwise polygonData.lastTradePrice or previousClose
-        const closeValue = polygonData.close ?? polygonData.lastTradePrice ?? polygonData.previousClose;
-        // Check if at least one technical field is present (expanded to include previousClose)
-        const hasAnyTechnicalField = polygonData.open || polygonData.high || polygonData.low || closeValue || polygonData.previousClose;
-        if (hasAnyTechnicalField) {
-          // Patch the polygonData object to always have a close value
-          const patchedQuote = { ...polygonData, close: closeValue };
-          // Get sector peers for comparison
-          const sectorPeers = await getSectorPeers(symbol);
-          fullAnalysisText = await generateUnifiedFullAnalysis(priceActionText, patchedQuote, sectorPeers, marketStatus);
-        } else {
-          fullAnalysisText = priceActionText + ' Full technical analysis is unavailable due to limited data.';
-        }
-
-        // Clean the unified text to remove any special characters that WordPress might interpret as code
-        const cleanedFullAnalysis = fullAnalysisText
-          .replace(/[\u200B-\u200D\uFEFF]/g, '') // Remove zero-width spaces
-          .replace(/\u00A0/g, ' ') // Replace non-breaking spaces with regular spaces
-          .replace(/\r\n/g, '\n') // Normalize line endings
-          .trim();
-        
-        // Return unified Full Analysis
-        return {
-          ticker: symbol,
-          companyName: companyName,
-          priceAction: priceActionText,
-          fullAnalysis: cleanedFullAnalysis
-        };
-      }
-
-      if (vsAnalysis && primaryTicker && comparisonTickers) {
-        // Vs. Analysis - Compare primary ticker against comparison tickers
-        const primarySymbol = primaryTicker.trim().toUpperCase();
-        const comparisonSymbols = comparisonTickers.split(',').map((t: string) => t.trim().toUpperCase());
-        
-        if (symbol !== primarySymbol) {
-          // Skip non-primary tickers in vs analysis
-          return null;
-        }
-
-        console.log(`=== VS ANALYSIS: ${primarySymbol} vs ${comparisonSymbols.join(', ')} ===`);
-        
-        // Fetch data for all tickers using Polygon API
-        const allTickers = [primarySymbol, ...comparisonSymbols];
-        const tickerData: Array<PolygonData> = [];
-        
-        for (const ticker of allTickers) {
-          try {
-            const data = await fetchPolygonData(ticker);
-            tickerData.push(data);
-          } catch (error) {
-            console.log(`Error fetching data for ${ticker}:`, error);
-          }
-        }
-        
-        if (tickerData.length < 2) {
-          return {
-            ticker: symbol,
-            companyName: companyName,
-            priceAction: `Unable to fetch comparison data for all tickers.`,
-            vsAnalysis: true
-          };
-        }
-        
-        // Generate comparative analysis using OpenAI
-        const primaryData = tickerData.find(t => t.symbol === primarySymbol);
-        const comparisonData = tickerData.filter(t => t.symbol !== primarySymbol);
-        
-        if (!primaryData) {
-          return {
-            ticker: symbol,
-            companyName: companyName,
-            priceAction: `Unable to fetch data for primary ticker ${primarySymbol}.`,
-            vsAnalysis: true
-          };
-        }
-        
-        // RSI comparison is included in the comparison prompt directly
-        
-        // Fetch comprehensive historical data for broader perspective
-        const historicalData: Array<{
-          symbol: string;
-          ytdReturn: number;
-          sixMonthReturn: number;
-          oneYearReturn: number;
-          currentPrice: number;
-          ytdStartPrice: number;
-          sixMonthsAgoPrice: number;
-          oneYearAgoPrice: number;
-        }> = [];
-        
-        for (const ticker of allTickers) {
-          try {
-            // Get 1 year of historical data from Polygon for comprehensive analysis
-            const oneYearAgo = new Date();
-            oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
-            const fromDate = oneYearAgo.toISOString().split('T')[0];
-            const toDate = new Date().toISOString().split('T')[0];
-            
-            const historicalUrl = `https://api.polygon.io/v2/aggs/ticker/${ticker}/range/1/day/${fromDate}/${toDate}?adjusted=true&apikey=${process.env.POLYGON_API_KEY}`;
-            const historicalRes = await fetch(historicalUrl);
-            const historicalDataResponse = historicalRes.ok ? await historicalRes.json() : null;
-            
-            if (historicalDataResponse?.results?.length > 0) {
-              const sortedData = historicalDataResponse.results.sort((a: { t: number }, b: { t: number }) => a.t - b.t);
-              
-              // Find YTD start (first trading day of current year)
-              const currentYear = new Date().getFullYear();
-              const ytdStart = sortedData.find((item: { t: number }) => {
-                const date = new Date(item.t);
-                return date.getFullYear() === currentYear;
-              }) || sortedData[Math.floor(sortedData.length * 0.8)]; // Fallback to 80% through data
-              
-              // Find 6 months ago
-              const sixMonthsAgo = new Date();
-              sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-              const sixMonthsAgoData = sortedData.find((item: { t: number }) => {
-                const date = new Date(item.t);
-                return date >= sixMonthsAgo;
-              }) || sortedData[Math.floor(sortedData.length * 0.5)]; // Fallback to middle of data
-              
-              const oneYearAgoData = sortedData[0];
-              const currentData = sortedData[sortedData.length - 1];
-              
-              const ytdReturn = ytdStart ? ((currentData.c - ytdStart.c) / ytdStart.c) * 100 : 0;
-              const sixMonthReturn = ((currentData.c - sixMonthsAgoData.c) / sixMonthsAgoData.c) * 100;
-              const oneYearReturn = ((currentData.c - oneYearAgoData.c) / oneYearAgoData.c) * 100;
-              
-              console.log(`Historical data for ${ticker}:`, {
-                ytdReturn: ytdReturn,
-                sixMonthReturn: sixMonthReturn,
-                oneYearReturn: oneYearReturn,
-                dataPoints: sortedData.length
-              });
-              
-              historicalData.push({
-                symbol: ticker,
-                ytdReturn: ytdReturn,
-                sixMonthReturn: sixMonthReturn,
-                oneYearReturn: oneYearReturn,
-                currentPrice: currentData.c,
-                ytdStartPrice: ytdStart?.c || 0,
-                sixMonthsAgoPrice: sixMonthsAgoData.c,
-                oneYearAgoPrice: oneYearAgoData.c
-              });
-            }
-          } catch (error) {
-            console.log(`Error fetching historical data for ${ticker}:`, error);
-          }
-        }
-
-        const primaryHistorical = historicalData.find(h => h.symbol === primarySymbol);
-        const comparisonHistorical = historicalData.filter(h => h.symbol !== primarySymbol);
-
-        // No forced transition phrases - let AI choose natural flow
-        
-        // Get day of week for timing context
-        const date = new Date();
-        const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-        const dayOfWeek = dayNames[date.getDay()];
-        
-        // Create timing phrase based on market status
-        let timingPhrase = '';
-        if (marketStatus === 'premarket') {
-          timingPhrase = 'in premarket trading on ' + dayOfWeek;
-        } else if (marketStatus === 'afterhours') {
-          timingPhrase = 'in after-hours trading on ' + dayOfWeek;
-        } else if (marketStatus === 'open') {
-          timingPhrase = 'at the time of publication on ' + dayOfWeek;
-        } else {
-          timingPhrase = 'on ' + dayOfWeek;
-        }
-
-        // Helper function to format percentages (remove .0 for whole numbers)
-        const formatPct = (num: number) => {
-          const rounded = parseFloat(num.toFixed(1));
-          return rounded % 1 === 0 ? rounded.toFixed(0) : rounded.toFixed(1);
-        };
-        
-        // Calculate percentage distances for primary ticker
-        const primaryDistFromHigh = primaryData.fiftyTwoWeekHigh ? ((primaryData.fiftyTwoWeekHigh - primaryData.lastTradePrice) / primaryData.fiftyTwoWeekHigh) * 100 : 0;
-        const primaryDistFromLow = primaryData.fiftyTwoWeekLow ? ((primaryData.lastTradePrice - primaryData.fiftyTwoWeekLow) / primaryData.fiftyTwoWeekLow) * 100 : 0;
-        const primary52WeekContext = primaryDistFromHigh < primaryDistFromLow 
-          ? `${formatPct(primaryDistFromHigh)}% below its 52-week high`
-          : `${formatPct(primaryDistFromLow)}% above its 52-week low`;
-        
-        // Calculate MA percentage for primary ticker (choose one)
-        let primaryMAContext = '';
-        if (primaryData.sma50 && primaryData.sma200) {
-          const distFrom50 = ((primaryData.lastTradePrice - primaryData.sma50) / primaryData.sma50) * 100;
-          const distFrom200 = ((primaryData.lastTradePrice - primaryData.sma200) / primaryData.sma200) * 100;
+        if (vsAnalysis && primaryTicker && comparisonTickers) {
+          // Vs. Analysis - Compare primary ticker against comparison tickers
+          const primarySymbol = primaryTicker.trim().toUpperCase();
+          const comparisonSymbols = comparisonTickers.split(',').map((t: string) => t.trim().toUpperCase());
           
-          if (Math.abs(distFrom50) > 3) {
-            primaryMAContext = distFrom50 > 0 
-              ? `${formatPct(distFrom50)}% above its 50-day MA` 
-              : `${formatPct(Math.abs(distFrom50))}% below its 50-day MA`;
-          } else if (Math.abs(distFrom200) > 5) {
-            primaryMAContext = distFrom200 > 0 
-              ? `${formatPct(distFrom200)}% above its 200-day MA` 
-              : `${formatPct(Math.abs(distFrom200))}% below its 200-day MA`;
+          if (symbol !== primarySymbol) {
+            // Skip non-primary tickers in vs analysis
+            return null;
           }
-        }
 
-        const comparisonPrompt = `You are a financial analyst writing a concise comparative price action analysis. Today is ${dayOfWeek}, ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}. Compare the primary ticker against the comparison tickers.
+          console.log(`=== VS ANALYSIS: ${primarySymbol} vs ${comparisonSymbols.join(', ')} ===`);
+          
+          // Fetch data for all tickers using Polygon API
+          const allTickers = [primarySymbol, ...comparisonSymbols];
+          const tickerData: Array<PolygonData> = [];
+          
+          for (const ticker of allTickers) {
+            try {
+              const data = await fetchPolygonData(ticker);
+              tickerData.push(data);
+            } catch (error) {
+              console.log(`Error fetching data for ${ticker}:`, error);
+            }
+          }
+          
+          if (tickerData.length < 2) {
+            return {
+              ticker: symbol,
+              companyName: companyName,
+              priceAction: `Unable to fetch comparison data for all tickers.`,
+              vsAnalysis: true
+            };
+          }
+          
+          // Generate comparative analysis using OpenAI
+          const primaryData = tickerData.find(t => t.symbol === primarySymbol);
+          const comparisonData = tickerData.filter(t => t.symbol !== primarySymbol);
+          
+          if (!primaryData) {
+            return {
+              ticker: symbol,
+              companyName: companyName,
+              priceAction: `Unable to fetch data for primary ticker ${primarySymbol}.`,
+              vsAnalysis: true
+            };
+          }
+          
+          // RSI comparison is included in the comparison prompt directly
+          
+          // Fetch comprehensive historical data for broader perspective
+          const historicalData: Array<{
+            symbol: string;
+            ytdReturn: number;
+            sixMonthReturn: number;
+            oneYearReturn: number;
+            currentPrice: number;
+            ytdStartPrice: number;
+            sixMonthsAgoPrice: number;
+            oneYearAgoPrice: number;
+          }> = [];
+          
+          for (const ticker of allTickers) {
+            try {
+              // Get 1 year of historical data from Polygon for comprehensive analysis
+              const oneYearAgo = new Date();
+              oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+              const fromDate = oneYearAgo.toISOString().split('T')[0];
+              const toDate = new Date().toISOString().split('T')[0];
+              
+              const historicalUrl = `https://api.polygon.io/v2/aggs/ticker/${ticker}/range/1/day/${fromDate}/${toDate}?adjusted=true&apikey=${process.env.POLYGON_API_KEY}`;
+              const historicalRes = await fetch(historicalUrl);
+              const historicalDataResponse = historicalRes.ok ? await historicalRes.json() : null;
+              
+              if (historicalDataResponse?.results?.length > 0) {
+                const sortedData = historicalDataResponse.results.sort((a: { t: number }, b: { t: number }) => a.t - b.t);
+                
+                // Find YTD start (first trading day of current year)
+                const currentYear = new Date().getFullYear();
+                const ytdStart = sortedData.find((item: { t: number }) => {
+                  const date = new Date(item.t);
+                  return date.getFullYear() === currentYear;
+                }) || sortedData[Math.floor(sortedData.length * 0.8)]; // Fallback to 80% through data
+                
+                // Find 6 months ago
+                const sixMonthsAgo = new Date();
+                sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+                const sixMonthsAgoData = sortedData.find((item: { t: number }) => {
+                  const date = new Date(item.t);
+                  return date >= sixMonthsAgo;
+                }) || sortedData[Math.floor(sortedData.length * 0.5)]; // Fallback to middle of data
+                
+                const oneYearAgoData = sortedData[0];
+                const currentData = sortedData[sortedData.length - 1];
+                
+                const ytdReturn = ytdStart ? ((currentData.c - ytdStart.c) / ytdStart.c) * 100 : 0;
+                const sixMonthReturn = ((currentData.c - sixMonthsAgoData.c) / sixMonthsAgoData.c) * 100;
+                const oneYearReturn = ((currentData.c - oneYearAgoData.c) / oneYearAgoData.c) * 100;
+                
+                console.log(`Historical data for ${ticker}:`, {
+                  ytdReturn: ytdReturn,
+                  sixMonthReturn: sixMonthReturn,
+                  oneYearReturn: oneYearReturn,
+                  dataPoints: sortedData.length
+                });
+                
+                historicalData.push({
+                  symbol: ticker,
+                  ytdReturn: ytdReturn,
+                  sixMonthReturn: sixMonthReturn,
+                  oneYearReturn: oneYearReturn,
+                  currentPrice: currentData.c,
+                  ytdStartPrice: ytdStart?.c || 0,
+                  sixMonthsAgoPrice: sixMonthsAgoData.c,
+                  oneYearAgoPrice: oneYearAgoData.c
+                });
+              }
+            } catch (error) {
+              console.log(`Error fetching historical data for ${ticker}:`, error);
+            }
+          }
+
+          const primaryHistorical = historicalData.find(h => h.symbol === primarySymbol);
+          const comparisonHistorical = historicalData.filter(h => h.symbol !== primarySymbol);
+
+          // No forced transition phrases - let AI choose natural flow
+          
+          // Get day of week for timing context
+          const date = new Date();
+          const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+          const dayOfWeek = dayNames[date.getDay()];
+          
+          // Create timing phrase based on market status
+          let timingPhrase = '';
+          if (marketStatus === 'premarket') {
+            timingPhrase = 'in premarket trading on ' + dayOfWeek;
+          } else if (marketStatus === 'afterhours') {
+            timingPhrase = 'in after-hours trading on ' + dayOfWeek;
+          } else if (marketStatus === 'open') {
+            timingPhrase = 'at the time of publication on ' + dayOfWeek;
+          } else {
+            timingPhrase = 'on ' + dayOfWeek;
+          }
+
+          // Helper function to format percentages (remove .0 for whole numbers)
+          const formatPct = (num: number) => {
+            const rounded = parseFloat(num.toFixed(1));
+            return rounded % 1 === 0 ? rounded.toFixed(0) : rounded.toFixed(1);
+          };
+          
+          // Calculate percentage distances for primary ticker
+          const primaryDistFromHigh = primaryData.fiftyTwoWeekHigh ? ((primaryData.fiftyTwoWeekHigh - primaryData.lastTradePrice) / primaryData.fiftyTwoWeekHigh) * 100 : 0;
+          const primaryDistFromLow = primaryData.fiftyTwoWeekLow ? ((primaryData.lastTradePrice - primaryData.fiftyTwoWeekLow) / primaryData.fiftyTwoWeekLow) * 100 : 0;
+          const primary52WeekContext = primaryDistFromHigh < primaryDistFromLow 
+            ? `${formatPct(primaryDistFromHigh)}% below its 52-week high`
+            : `${formatPct(primaryDistFromLow)}% above its 52-week low`;
+          
+          // Calculate MA percentage for primary ticker (choose one)
+          let primaryMAContext = '';
+          if (primaryData.sma50 && primaryData.sma200) {
+            const distFrom50 = ((primaryData.lastTradePrice - primaryData.sma50) / primaryData.sma50) * 100;
+            const distFrom200 = ((primaryData.lastTradePrice - primaryData.sma200) / primaryData.sma200) * 100;
+            
+            if (Math.abs(distFrom50) > 3) {
+              primaryMAContext = distFrom50 > 0 
+                ? `${formatPct(distFrom50)}% above its 50-day MA` 
+                : `${formatPct(Math.abs(distFrom50))}% below its 50-day MA`;
+            } else if (Math.abs(distFrom200) > 5) {
+              primaryMAContext = distFrom200 > 0 
+                ? `${formatPct(distFrom200)}% above its 200-day MA` 
+                : `${formatPct(Math.abs(distFrom200))}% below its 200-day MA`;
+            }
+          }
+
+          const comparisonPrompt = `You are a financial analyst writing a concise comparative price action analysis. Today is ${dayOfWeek}, ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}. Compare the primary ticker against the comparison tickers.
 
 PRIMARY TICKER: ${primarySymbol}
 - Current Price: $${primaryData.lastTradePrice.toFixed(2)}
@@ -2146,11 +2074,317 @@ REQUIREMENTS:
           let briefAnalysisText = '';
           try {
             let briefPrompt = '';
-            
+            // Historical performance data is not available with current Polygon implementation
+
             if (marketStatus === 'afterhours' || marketStatus === 'premarket') {
               briefPrompt = `You are a financial news analyst. Write a single, concise, insightful analysis (2-3 sentences, no more than 60% the length of a typical news paragraph) about the following stock's global and historical context. Do NOT mention premarket, after-hours, or current price action or volume. Do not mention current session trading activity. Only mention a data point if it is notably high, low, or unusual. Do not mention data points that are within normal or average ranges. Be specific: if referencing the 52-week range, state if the price is near the high or low, or if there is a notable long-term trend, not just 'within the range'. If nothing is notable, say so briefly. Focus only on global or historical data points (52-week range, sector, industry, market cap, P/E ratio, regular session close, previous close, dividend yield, long-term trends). Avoid generic statements and do NOT repeat the price action line. Do not include the ticker in the analysis line.\n\nCompany: ${companyName}\nSector: ${polygonData.industry || 'N/A'}\nIndustry: ${polygonData.industry || 'N/A'}\nMarket Cap: $${polygonData.marketCap ? (polygonData.marketCap >= 1e12 ? (polygonData.marketCap / 1e12).toFixed(2) + 'T' : (polygonData.marketCap / 1e9).toFixed(2) + 'B') : 'N/A'}\nP/E Ratio: N/A\nDividend Yield: N/A\nRegular Close: $${formatPrice(polygonData.close)}\nPrevious Close: $${formatPrice(polygonData.previousClose)}\n52-week Range: $${formatPrice(polygonData.fiftyTwoWeekLow)} - $${formatPrice(polygonData.fiftyTwoWeekHigh)}`;
             } else {
               briefPrompt = `You are a financial news analyst. Write a single, concise, insightful analysis (2-3 sentences, no more than 60% the length of a typical news paragraph) about the following stock's global and historical context. Do NOT mention current price action or volume. Only mention a data point if it is notably high, low, or unusual. Do not mention data points that are within normal or average ranges. Be specific: if referencing the 52-week range, state if the price is near the high or low, or if there is a notable long-term trend, not just 'within the range'. If nothing is notable, say so briefly. Focus only on global or historical data points (52-week range, sector, industry, market cap, P/E ratio, regular session close, previous close, dividend yield, long-term trends). Avoid generic statements and do NOT repeat the price action line. Do not include the ticker in the analysis line.\n\nCompany: ${companyName}\nSector: ${polygonData.industry || 'N/A'}\nIndustry: ${polygonData.industry || 'N/A'}\nMarket Cap: $${polygonData.marketCap ? (polygonData.marketCap >= 1e12 ? (polygonData.marketCap / 1e12).toFixed(2) + 'T' : (polygonData.marketCap / 1e9).toFixed(2) + 'B') : 'N/A'}\nP/E Ratio: N/A\nDividend Yield: N/A\nRegular Close: $${formatPrice(polygonData.close)}\nPrevious Close: $${formatPrice(polygonData.previousClose)}\n52-week Range: $${formatPrice(polygonData.fiftyTwoWeekLow)} - $${formatPrice(polygonData.fiftyTwoWeekHigh)}`;
+            }
+            const completion = await openai.chat.completions.create({
+              model: 'gpt-4o-mini',
+              messages: [{ role: 'user', content: briefPrompt }],
+              max_tokens: 200,
+              temperature: 0.5,
+            });
+            briefAnalysisText = completion.choices[0].message?.content?.trim() || '';
+          } catch {
+            briefAnalysisText = 'Brief analysis unavailable due to an error.';
+          }
+          return {
+            ticker: symbol,
+            companyName: companyName,
+            priceAction: priceActionText,
+            briefAnalysis: briefAnalysisText
+          };
+        }
+
+        if (priceActionOnly) {
+          // Only return the price action line
+          return {
+            ticker: symbol,
+            companyName: companyName,
+            priceAction: priceActionText
+          };
+        }
+
+        // Generate unified Full Analysis using OpenAI - one complete text block
+        let fullAnalysisText = '';
+        // Use polygonData.close if available, otherwise polygonData.lastTradePrice or previousClose
+        const closeValue = polygonData.close ?? polygonData.lastTradePrice ?? polygonData.previousClose;
+        // Check if at least one technical field is present (expanded to include previousClose)
+        const hasAnyTechnicalField = polygonData.open || polygonData.high || polygonData.low || closeValue || polygonData.previousClose;
+        if (hasAnyTechnicalField) {
+          // Patch the polygonData object to always have a close value
+          const patchedQuote = { ...polygonData, close: closeValue };
+          // Get sector peers for comparison
+          const sectorPeers = await getSectorPeers(symbol);
+          fullAnalysisText = await generateUnifiedFullAnalysis(priceActionText, patchedQuote, sectorPeers, marketStatus);
+        } else {
+          fullAnalysisText = priceActionText + ' Full technical analysis is unavailable due to limited data.';
+        }
+
+        // Clean the unified text to remove any special characters that WordPress might interpret as code
+        const cleanedFullAnalysis = fullAnalysisText
+          .replace(/[\u200B-\u200D\uFEFF]/g, '') // Remove zero-width spaces
+          .replace(/\u00A0/g, ' ') // Replace non-breaking spaces with regular spaces
+          .replace(/\r\n/g, '\n') // Normalize line endings
+          .trim();
+        
+        // Return unified Full Analysis
+        return {
+          ticker: symbol,
+          companyName: companyName,
+          priceAction: priceActionText,
+          fullAnalysis: cleanedFullAnalysis
+        };
+    }));
+
+    // Filter out null results and add error message for invalid tickers
+    const validPriceActions = priceActions.filter(action => action !== null);
+    
+    // Check if we have any valid results
+    if (validPriceActions.length === 0) {
+      return NextResponse.json({ 
+        priceActions: [], 
+        error: 'No valid ticker data found. Please check that all ticker symbols are correct and try again.' 
+      });
+    }
+
+    // If grouped is requested, handle single vs multiple tickers
+    if (grouped) {
+      if (validPriceActions.length === 1) {
+        // For single ticker, return the price action only format (no technical analysis)
+        const singleAction = validPriceActions[0];
+        return NextResponse.json({ 
+          priceActions: [{
+            ticker: singleAction.ticker,
+            companyName: singleAction.companyName,
+            priceAction: singleAction.priceAction
+          }]
+        });
+      } else if (validPriceActions.length > 1) {
+        // For multiple tickers, create a grouped response
+        // First, extract timing information from the first ticker to use at the end
+        const firstAction = validPriceActions[0].priceAction;
+        let timingPhrase = '';
+        let dayOfWeek = '';
+        
+        // Extract timing phrase (premarket, afterhours, etc.)
+        const timingMatch = firstAction.match(/(during premarket trading|during after-hours trading|while the market was closed|at the time of publication) on ([A-Za-z]+)/);
+        if (timingMatch) {
+          timingPhrase = timingMatch[1];
+          dayOfWeek = timingMatch[2];
+        }
+        
+        // Extract just the company and price action parts (remove the ticker prefix, attribution, and time/date)
+        const priceActionParts = validPriceActions.map((action, index) => {
+          // Start with the full price action text
+          console.log(`[GROUPED ${index}] Original priceAction:`, action.priceAction);
+          let cleanAction = action.priceAction;
+          
+          // Remove ticker prefix (e.g., "TSLA Price Action: ")
+          cleanAction = cleanAction.replace(/^[A-Z]{1,5}\s+Price Action:\s*/, '');
+          
+          // Remove attribution first (before removing 52-week range)
+          cleanAction = cleanAction.replace(/,\s*according to Benzinga Pro data\.?$/, '');
+          cleanAction = cleanAction.replace(/,\s*according to Benzinga Pro\.?$/, '');
+          
+          // Remove 52-week range sentences (e.g., ". The stock is trading near its 52-week high of $195.30")
+          // Match until comma or end of string, not until period (to avoid matching decimal points in prices)
+          cleanAction = cleanAction.replace(/\.\s*The stock is (trading|approaching|near)[^,]*52-week[^,]*(,|$)/g, '');
+          
+          // Remove timing phrases
+          cleanAction = cleanAction.replace(/\s+(during premarket trading|during after-hours trading|while the market was closed|at the time of publication) on [A-Za-z]+\.?/g, '');
+          
+          // Remove any trailing periods
+          cleanAction = cleanAction.replace(/\.$/, '');
+          
+          const trimmed = cleanAction.trim();
+          console.log(`[GROUPED ${index}] Cleaned priceAction:`, trimmed);
+          return trimmed;
+        });
+        
+        // Create a natural flowing sentence
+        let groupedText = 'Price Action: ';
+        
+        if (priceActionParts.length === 2) {
+          groupedText += priceActionParts[0] + ' and ' + priceActionParts[1];
+        } else if (priceActionParts.length === 3) {
+          groupedText += priceActionParts[0] + ', ' + priceActionParts[1] + ' and ' + priceActionParts[2];
+        } else {
+          // For 4 or more, use proper comma and "and" formatting
+          const lastPart = priceActionParts.pop();
+          groupedText += priceActionParts.join(', ') + ' and ' + lastPart;
+        }
+        
+        // Add the timing phrase and attribution
+        if (timingPhrase && dayOfWeek) {
+          groupedText += ` ${timingPhrase} on ${dayOfWeek}, according to Benzinga Pro data.`;
+        } else {
+          groupedText += ', according to Benzinga Pro data.';
+        }
+        
+        return NextResponse.json({ 
+          priceActions: [{
+            ticker: 'GROUPED',
+            companyName: 'Multiple Companies',
+            priceAction: groupedText,
+            grouped: true,
+            individualActions: validPriceActions
+          }]
+        });
+      }
+    }
+
+    return NextResponse.json({ priceActions: validPriceActions });
+    } else {
+      // Regular modes (Price Action Only, Brief Analysis, Grouped) use Benzinga API ONLY
+      // Use time-based market status (no Polygon API calls)
+      const marketStatus = getMarketStatusTimeBased();
+      let marketStatusPhrase = '';
+      if (marketStatus === 'premarket') {
+        marketStatusPhrase = ' during premarket trading';
+      } else if (marketStatus === 'afterhours') {
+        marketStatusPhrase = ' during after-hours trading';
+      } else if (marketStatus === 'closed') {
+        marketStatusPhrase = ' while the market was closed';
+      } // if open, leave as empty string
+
+      console.log('Market status (time-based for Benzinga):', marketStatus);
+
+      const url = `https://api.benzinga.com/api/v2/quoteDelayed?token=${process.env.BENZINGA_API_KEY}&symbols=${cleanedTickers}`;
+
+      console.log('Benzinga API URL:', url);
+
+      const res = await fetch(url);
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`Benzinga API error: ${text}`);
+      }
+      const data = await res.json();
+
+      console.log('Benzinga API raw response:', JSON.stringify(data, null, 2));
+
+      if (!data || typeof data !== 'object') {
+        return NextResponse.json({ priceActions: [], error: 'Invalid Benzinga response' });
+      }
+
+      // Check if Benzinga returned an empty array or object
+      if (Array.isArray(data) && data.length === 0) {
+        return NextResponse.json({ priceActions: [], error: 'Benzinga API returned no data. The ticker may not be available or markets may be closed.' });
+      }
+
+      const quotes = Object.values(data) as unknown[];
+      
+      if (quotes.length === 0) {
+        return NextResponse.json({ priceActions: [], error: 'No ticker data found in Benzinga response.' });
+      }
+
+      const priceActions = await Promise.all(quotes.map(async (quote) => {
+        if (typeof quote !== 'object' || quote === null) return null;
+
+        const q = quote as BenzingaQuote;
+
+        console.log('Parsed BenzingaQuote:', JSON.stringify(q, null, 2));
+
+        const symbol = q.symbol ?? 'UNKNOWN';
+        const companyName = normalizeCompanyName(q.name ?? symbol);
+        
+        if (symbol === 'UNKNOWN' || !q.lastTradePrice) {
+          console.log(`Skipping invalid quote for symbol: ${symbol}`);
+          return null;
+        }
+
+        const changePercent = typeof q.changePercent === 'number' ? q.changePercent : 0;
+        
+        // Calculate regular session and after-hours changes separately
+        let regularSessionChange = 0;
+        let afterHoursChange = 0;
+        let regularUpDown = '';
+        let afterHoursUpDown = '';
+        
+        if (marketStatus === 'afterhours' && q.close && q.lastTradePrice && q.previousClosePrice) {
+          // Regular session change: (regular_close - previous_close) / previous_close * 100
+          regularSessionChange = ((q.close - q.previousClosePrice) / q.previousClosePrice) * 100;
+          regularUpDown = regularSessionChange > 0 ? 'up' : regularSessionChange < 0 ? 'down' : 'unchanged';
+          
+          // After-hours change: (current - regular_close) / regular_close * 100
+          afterHoursChange = ((q.lastTradePrice - q.close) / q.close) * 100;
+          afterHoursUpDown = afterHoursChange > 0 ? 'up' : afterHoursChange < 0 ? 'down' : 'unchanged';
+          
+          console.log(`[${symbol}] Regular session: Previous: $${q.previousClosePrice}, Close: $${q.close}, Change: ${regularSessionChange.toFixed(2)}%`);
+          console.log(`[${symbol}] After-hours: Regular close: $${q.close}, Current: $${q.lastTradePrice}, Change: ${afterHoursChange.toFixed(2)}%`);
+        }
+        
+        // Format price to ensure exactly 2 decimal places - moved after validation
+        const lastPrice = formatPrice(q.lastTradePrice);
+        console.log(`[${symbol}] Raw lastTradePrice:`, q.lastTradePrice, `typeof:`, typeof q.lastTradePrice, `Formatted lastPrice:`, lastPrice, `typeof formatted:`, typeof lastPrice);
+
+        const upDown = changePercent > 0 ? 'up' : changePercent < 0 ? 'down' : 'unchanged';
+        const absChange = Math.abs(changePercent).toFixed(2);
+
+        const date = q.closeDate ? new Date(q.closeDate) : new Date();
+        const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        const dayOfWeek = dayNames[date.getDay()];
+
+        // Build price action text with explicit string concatenation to ensure no floating point issues
+          let priceActionText = '';
+        const priceString = String(lastPrice); // Ensure it's definitely a string
+        
+        if (marketStatus === 'open') {
+          priceActionText = `${symbol} Price Action: ${companyName} shares were ${upDown} ${absChange}% at $${priceString} at the time of publication on ${dayOfWeek}`;
+        } else if (marketStatus === 'afterhours' && q.close && q.lastTradePrice && q.previousClosePrice) {
+          // Show both regular session and after-hours moves when we have the necessary data
+          const absRegularChange = Math.abs(regularSessionChange).toFixed(2);
+          const absAfterHoursChange = Math.abs(afterHoursChange).toFixed(2);
+          priceActionText = `${symbol} Price Action: ${companyName} shares were ${regularUpDown} ${absRegularChange}% during regular trading and ${afterHoursUpDown} ${absAfterHoursChange}% in after-hours trading on ${dayOfWeek}, last trading at $${priceString}`;
+            } else {
+          priceActionText = `${symbol} Price Action: ${companyName} shares were ${upDown} ${absChange}% at $${priceString}${marketStatusPhrase} on ${dayOfWeek}`;
+        }
+
+        // Add 52-week range context if available
+        if (q.fiftyTwoWeekLow && q.fiftyTwoWeekHigh && q.lastTradePrice) {
+          const currentPrice = q.lastTradePrice;
+          const yearLow = q.fiftyTwoWeekLow;
+          const yearHigh = q.fiftyTwoWeekHigh;
+          
+          let rangeText = '';
+          
+          if (currentPrice > yearHigh) {
+            rangeText = `. The stock is trading at a new 52-week high`;
+          } else {
+            const rangePosition = (currentPrice - yearLow) / (yearHigh - yearLow);
+            
+            if (rangePosition >= 0.95) {
+              rangeText = `. The stock is trading near its 52-week high of $${formatPrice(yearHigh)}`;
+            } else if (rangePosition <= 0.03) {
+              rangeText = `. The stock is trading near its 52-week low of $${formatPrice(yearLow)}`;
+            } else if (rangePosition >= 0.90) {
+              rangeText = `. The stock is approaching its 52-week high of $${formatPrice(yearHigh)}`;
+            } else if (rangePosition <= 0.05) {
+              rangeText = `. The stock is near its 52-week low of $${formatPrice(yearLow)}`;
+            }
+          }
+          
+          if (rangeText) {
+            priceActionText += rangeText;
+          }
+        }
+
+        priceActionText += ', according to Benzinga Pro data.';
+        console.log(`[${symbol}] Final priceActionText:`, priceActionText);
+
+        if (briefAnalysis) {
+          // Brief analysis for Benzinga mode
+          let briefAnalysisText = '';
+          try {
+            let briefPrompt = '';
+            
+            if (marketStatus === 'afterhours' || marketStatus === 'premarket') {
+              briefPrompt = `You are a financial news analyst. Write a single, concise, insightful analysis (2-3 sentences, no more than 60% the length of a typical news paragraph) about the following stock's global and historical context. Do NOT mention premarket, after-hours, or current price action or volume. Do not mention current session trading activity. Only mention a data point if it is notably high, low, or unusual. Do not mention data points that are within normal or average ranges. Be specific: if referencing the 52-week range, state if the price is near the high or low, or if there is a notable long-term trend, not just 'within the range'. If nothing is notable, say so briefly. Focus only on global or historical data points (52-week range, sector, industry, market cap, P/E ratio, regular session close, previous close, dividend yield, long-term trends). Avoid generic statements and do NOT repeat the price action line. Do not include the ticker in the analysis line.\n\nCompany: ${companyName}\nSector: ${q.sector || 'N/A'}\nIndustry: ${q.industry || 'N/A'}\nMarket Cap: $${q.marketCap ? (q.marketCap >= 1e12 ? (q.marketCap / 1e12).toFixed(2) + 'T' : (q.marketCap / 1e9).toFixed(2) + 'B') : 'N/A'}\nP/E Ratio: ${typeof q.pe === 'number' && q.pe > 0 ? q.pe : 'N/A'}\nDividend Yield: ${q.dividendYield || 'N/A'}\nRegular Close: $${formatPrice(q.close)}\nPrevious Close: $${formatPrice(q.previousClosePrice)}\n52-week Range: $${formatPrice(q.fiftyTwoWeekLow)} - $${formatPrice(q.fiftyTwoWeekHigh)}`;
+            } else {
+              briefPrompt = `You are a financial news analyst. Write a single, concise, insightful analysis (2-3 sentences, no more than 60% the length of a typical news paragraph) about the following stock's global and historical context. Do NOT mention current price action or volume. Only mention a data point if it is notably high, low, or unusual. Do not mention data points that are within normal or average ranges. Be specific: if referencing the 52-week range, state if the price is near the high or low, or if there is a notable long-term trend, not just 'within the range'. If nothing is notable, say so briefly. Focus only on global or historical data points (52-week range, sector, industry, market cap, P/E ratio, regular session close, previous close, dividend yield, long-term trends). Avoid generic statements and do NOT repeat the price action line. Do not include the ticker in the analysis line.\n\nCompany: ${companyName}\nSector: ${q.sector || 'N/A'}\nIndustry: ${q.industry || 'N/A'}\nMarket Cap: $${q.marketCap ? (q.marketCap >= 1e12 ? (q.marketCap / 1e12).toFixed(2) + 'T' : (q.marketCap / 1e9).toFixed(2) + 'B') : 'N/A'}\nP/E Ratio: ${typeof q.pe === 'number' && q.pe > 0 ? q.pe : 'N/A'}\nDividend Yield: ${q.dividendYield || 'N/A'}\nRegular Close: $${formatPrice(q.close)}\nPrevious Close: $${formatPrice(q.previousClosePrice)}\n52-week Range: $${formatPrice(q.fiftyTwoWeekLow)} - $${formatPrice(q.fiftyTwoWeekHigh)}`;
             }
             
             const completion = await openai.chat.completions.create({
@@ -2181,9 +2415,9 @@ REQUIREMENTS:
 
         // For full analysis mode, generate technical analysis using Benzinga data
         // Check for any useful technical data (not just today's OHLC, which may not be available during premarket)
-        const hasAnyTechnicalField = polygonData.open || polygonData.high || polygonData.low || polygonData.close || 
-                                      polygonData.previousClosePrice || polygonData.lastTradePrice ||
-                                      polygonData.fiftyDayAveragePrice || polygonData.hundredDayAveragePrice || polygonData.twoHundredDayAveragePrice;
+        const hasAnyTechnicalField = q.open || q.high || q.low || q.close || 
+                                      q.previousClosePrice || q.lastTradePrice ||
+                                      q.fiftyDayAveragePrice || q.hundredDayAveragePrice || q.twoHundredDayAveragePrice;
         if (hasAnyTechnicalField) {
           // Get sector peers for comparison
           const sectorPeersData: BenzingaQuote[] = [];
@@ -2210,7 +2444,7 @@ REQUIREMENTS:
           }
           
           // Generate unified Full Analysis using OpenAI - one complete text block
-          const fullAnalysisText = await generateUnifiedFullAnalysisBenzinga(priceActionText, polygonData, sectorPeersData);
+          const fullAnalysisText = await generateUnifiedFullAnalysisBenzinga(priceActionText, q, sectorPeersData);
           
           // Clean the unified text to remove any special characters that WordPress might interpret as code
           const cleanedFullAnalysis = fullAnalysisText
@@ -2225,14 +2459,6 @@ REQUIREMENTS:
             priceAction: priceActionText,
             fullAnalysis: cleanedFullAnalysis
           };
-        } else {
-          return {
-            ticker: symbol,
-            companyName: companyName,
-            priceAction: priceActionText,
-            fullAnalysis: priceActionText + ' Full technical analysis is unavailable due to limited data.'
-          };
-        }
       } else {
         return {
           ticker: symbol,
@@ -2341,6 +2567,7 @@ REQUIREMENTS:
     }
 
     return NextResponse.json({ priceActions: validPriceActions });
+    }
   } catch (error) {
     console.error('Error generating price actions:', error);
     return NextResponse.json({ priceActions: [], error: 'Failed to generate price actions.' });
