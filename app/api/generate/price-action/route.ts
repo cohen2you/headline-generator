@@ -1460,7 +1460,7 @@ export async function POST(request: Request) {
           effectiveMarketStatus = tradeSession;
         }
 
-        let marketStatusPhrase = getMarketStatusPhrase(effectiveMarketStatus);
+        const marketStatusPhrase = getMarketStatusPhrase(effectiveMarketStatus);
 
         // For Polygon data, we already have the current price and change data
         // Historical data is not used in current implementation
@@ -1600,8 +1600,8 @@ export async function POST(request: Request) {
             sessionChange = hasAfterHoursData ? afterHoursChange : 0;
           }
 
-          let sessionUpDown: 'up' | 'down' | 'unchanged' = sessionChange > 0 ? 'up' : sessionChange < 0 ? 'down' : 'unchanged';
-          let sessionAbsChange = Math.abs(sessionChange).toFixed(2);
+          const sessionUpDown: 'up' | 'down' | 'unchanged' = sessionChange > 0 ? 'up' : sessionChange < 0 ? 'down' : 'unchanged';
+          const sessionAbsChange = Math.abs(sessionChange).toFixed(2);
 
           let smartPriceActionText = '';
           if (sessionUpDown === 'unchanged') {
