@@ -839,6 +839,12 @@ CRITICAL RULES:
 - Use PERCENTAGES for moving averages (e.g., "trading 4.4% above its 50-day moving average" OR "trading above its 50-day moving average of $259.58")
 - DO NOT combine dollar value AND percentage in confusing ways (e.g., DON'T say "above its 50-day moving average of $259.58, which is approximately 2.3% higher")
 - PREFERRED FORMAT: "trading approximately 2.3% above its 50-day moving average" (percentage only, more concise)
+- NEVER use ambiguous phrasing with "which is" when describing moving average distance (e.g., DON'T say "below its 50-day moving average, which is approximately X% lower" or "which is currently X% lower" or "which is X% lower")
+- These phrases are confusing because they make it unclear whether the stock or the moving average is X% lower
+- ALWAYS use clear, direct phrasing: "trading X% below its 50-day moving average" or "the stock is X% below its 50-day moving average" or "sitting X% below its 50-day moving average"
+- CORRECT EXAMPLES: "trading 15.5% below its 50-day moving average" or "the stock is 15.5% below its 50-day moving average"
+- WRONG EXAMPLES: "below its 50-day moving average, which is 15.5% lower" or "below its 50-day moving average, which is currently 15.5% lower"
+- The percentage always refers to how far the STOCK is from the moving average, not the other way around
 - Use ${dayOfWeek} when mentioning volume timing
 - Include support/resistance levels and overall technical outlook
 - Break content into SHORT paragraphs - MAXIMUM 2 sentences per paragraph
@@ -954,6 +960,12 @@ CRITICAL RULES:
 - Use PERCENTAGES for moving averages (e.g., "trading 4.4% above its 50-day moving average" OR "trading above its 50-day moving average of $259.58")
 - DO NOT combine dollar value AND percentage in confusing ways (e.g., DON'T say "above its 50-day moving average of $259.58, which is approximately 2.3% higher")
 - PREFERRED FORMAT: "trading approximately 2.3% above its 50-day moving average" (percentage only, more concise)
+- NEVER use ambiguous phrasing with "which is" when describing moving average distance (e.g., DON'T say "below its 50-day moving average, which is approximately X% lower" or "which is currently X% lower" or "which is X% lower")
+- These phrases are confusing because they make it unclear whether the stock or the moving average is X% lower
+- ALWAYS use clear, direct phrasing: "trading X% below its 50-day moving average" or "the stock is X% below its 50-day moving average" or "sitting X% below its 50-day moving average"
+- CORRECT EXAMPLES: "trading 15.5% below its 50-day moving average" or "the stock is 15.5% below its 50-day moving average"
+- WRONG EXAMPLES: "below its 50-day moving average, which is 15.5% lower" or "below its 50-day moving average, which is currently 15.5% lower"
+- The percentage always refers to how far the STOCK is from the moving average, not the other way around
 - VERIFY THE DIRECTION (e.g., if price is $710 and MA is $670, the price is ABOVE the MA, not below)
 - ${hasVolume ? `When mentioning volume, ALWAYS compare to the 30-day average volume provided (e.g., "above average at X million vs Y million average" or "below average")` : 'DO NOT mention volume or volume analysis at all - market is still open and volume is incomplete/misleading'}
 - For support/resistance levels, use the CALCULATED support/resistance levels provided (based on recent swing highs/lows from chart data)
