@@ -6,6 +6,7 @@ import HeadlineTools, { HeadlineToolsRef } from './components/HeadlineTools';
 import HeadlineWorkshop, { HeadlineWorkshopRef } from './components/HeadlineWorkshop';
 import CTALineGenerator, { CTALineGeneratorRef } from './components/CTALineGenerator';
 import PriceActionGenerator, { PriceActionGeneratorRef } from './components/PriceActionGenerator';
+import TechnicalAnalysisGenerator, { TechnicalAnalysisGeneratorRef } from './components/TechnicalAnalysisGenerator';
 import SEOHeadlineGenerator, { SEOHeadlineGeneratorRef } from './components/SEOHeadlineGenerator';
 import KeywordSearchGenerator, { KeywordSearchGeneratorRef } from './components/KeywordSearchGenerator';
 import EdgeRankingsGenerator, { EdgeRankingsGeneratorRef } from './components/EdgeRankingsGenerator';
@@ -25,6 +26,7 @@ export default function Page() {
   const headlineWorkshopRef = useRef<HeadlineWorkshopRef>(null);
   const ctaLineGeneratorRef = useRef<CTALineGeneratorRef>(null);
   const priceActionGeneratorRef = useRef<PriceActionGeneratorRef>(null);
+  const technicalAnalysisGeneratorRef = useRef<TechnicalAnalysisGeneratorRef>(null);
   const seoHeadlineGeneratorRef = useRef<SEOHeadlineGeneratorRef>(null);
   const keywordSearchGeneratorRef = useRef<KeywordSearchGeneratorRef>(null);
   const edgeRankingsGeneratorRef = useRef<EdgeRankingsGeneratorRef>(null);
@@ -54,6 +56,9 @@ export default function Page() {
     }
     if (priceActionGeneratorRef.current?.clearData) {
       priceActionGeneratorRef.current.clearData();
+    }
+    if (technicalAnalysisGeneratorRef.current?.clearData) {
+      technicalAnalysisGeneratorRef.current.clearData();
     }
     if (seoHeadlineGeneratorRef.current?.clearData) {
       seoHeadlineGeneratorRef.current.clearData();
@@ -101,7 +106,12 @@ export default function Page() {
           <PriceActionGenerator ref={priceActionGeneratorRef} />
         </div>
 
-        {/* SEO Headline Generator - Second */}
+        {/* Technical Analysis Generator - Second */}
+        <div className="mb-6">
+          <TechnicalAnalysisGenerator ref={technicalAnalysisGeneratorRef} />
+        </div>
+
+        {/* SEO Headline Generator - Third */}
         <div className="mb-6">
           <SEOHeadlineGenerator ref={seoHeadlineGeneratorRef} />
         </div>
