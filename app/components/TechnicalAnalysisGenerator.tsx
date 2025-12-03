@@ -104,7 +104,7 @@ const TechnicalAnalysisGenerator = forwardRef<TechnicalAnalysisGeneratorRef>((pr
 
       setCopiedIndex(index);
       setTimeout(() => setCopiedIndex(null), 2000);
-    } catch (textError) {
+    } catch {
       // Fallback to plain text
       try {
         const plainText = targetDiv.textContent?.trim() || '';

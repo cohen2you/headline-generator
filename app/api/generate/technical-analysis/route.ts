@@ -5,17 +5,6 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-// Helper functions from price-action route
-function getToday(): string {
-  return new Date().toISOString().split('T')[0];
-}
-
-function getOneYearAgo(): string {
-  const date = new Date();
-  date.setFullYear(date.getFullYear() - 1);
-  return date.toISOString().split('T')[0];
-}
-
 function formatPrice(price: number | null | undefined): string {
   if (price === null || price === undefined || isNaN(price)) return 'N/A';
   return price.toFixed(2);
@@ -702,7 +691,6 @@ async function fetchTechnicalData(symbol: string): Promise<TechnicalAnalysisData
     const oneYearAgo = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
     const sixMonthsAgo = new Date(now.getTime() - (180 * 24 * 60 * 60 * 1000));
     const threeMonthsAgo = new Date(now.getTime() - (90 * 24 * 60 * 60 * 1000));
-    const currentYearStart = new Date(now.getFullYear(), 0, 1);
     
     const formatDate = (date: Date) => date.toISOString().split('T')[0];
     const to = formatDate(now);
@@ -713,8 +701,6 @@ async function fetchTechnicalData(symbol: string): Promise<TechnicalAnalysisData
       snapshotRes,
       overviewRes,
       dailyBars,
-      weeklyBars,
-      monthlyBars,
       rsiData,
       sma20,
       sma50,
@@ -735,8 +721,6 @@ async function fetchTechnicalData(symbol: string): Promise<TechnicalAnalysisData
       fetch(`https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers/${symbol}?apikey=${process.env.POLYGON_API_KEY}`),
       fetch(`https://api.polygon.io/v3/reference/tickers/${symbol}?apikey=${process.env.POLYGON_API_KEY}`),
       fetchHistoricalBars(symbol, 1, 'day', from, to),
-      fetchHistoricalBars(symbol, 1, 'week', from, to),
-      fetchHistoricalBars(symbol, 1, 'month', from, to),
       fetchRSI(symbol),
       fetchSMA(symbol, 20),
       fetchSMA(symbol, 50),
