@@ -13,8 +13,6 @@ interface TechnicalAnalysisResult {
   data?: {
     currentPrice: number;
     changePercent: number;
-    threeMonthReturn?: number;
-    sixMonthReturn?: number;
     twelveMonthReturn?: number;
     rsi?: number;
     rsiSignal?: string;

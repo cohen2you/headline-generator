@@ -18,8 +18,6 @@ interface TechnicalAnalysisData {
   changePercent: number;
   
   // Multi-timeframe returns
-  threeMonthReturn?: number;
-  sixMonthReturn?: number;
   twelveMonthReturn?: number;
   
   // Moving averages
@@ -689,8 +687,6 @@ async function fetchTechnicalData(symbol: string): Promise<TechnicalAnalysisData
     
     const now = new Date();
     const oneYearAgo = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
-    const sixMonthsAgo = new Date(now.getTime() - (180 * 24 * 60 * 60 * 1000));
-    const threeMonthsAgo = new Date(now.getTime() - (90 * 24 * 60 * 60 * 1000));
     
     const formatDate = (date: Date) => date.toISOString().split('T')[0];
     const to = formatDate(now);
@@ -775,14 +771,12 @@ async function fetchTechnicalData(symbol: string): Promise<TechnicalAnalysisData
       }
     }
     
-    // Calculate period returns from daily bars for accuracy
+    // Calculate 12-month return from daily bars for accuracy
     // Use the most recent trading day as the end point (not "now" which might be a weekend)
     const mostRecentTradingDay = dailyBars && dailyBars.length > 0 
       ? new Date(Math.max(...dailyBars.map((bar: { t: number }) => bar.t)))
       : now;
     
-    const threeMonthReturn = dailyBars ? calculatePeriodReturn(dailyBars, threeMonthsAgo, mostRecentTradingDay) : undefined;
-    const sixMonthReturn = dailyBars ? calculatePeriodReturn(dailyBars, sixMonthsAgo, mostRecentTradingDay) : undefined;
     const twelveMonthReturn = dailyBars ? calculatePeriodReturn(dailyBars, oneYearAgo, mostRecentTradingDay) : undefined;
     
     // Calculate support/resistance
@@ -815,8 +809,6 @@ async function fetchTechnicalData(symbol: string): Promise<TechnicalAnalysisData
       companyName,
       currentPrice,
       changePercent,
-      threeMonthReturn,
-      sixMonthReturn,
       twelveMonthReturn,
       sma20,
       sma50,
@@ -892,8 +884,6 @@ Current Price: $${formatPrice(data.currentPrice)}
 Daily Change: ${data.changePercent.toFixed(2)}%
 
 MULTI-TIMEFRAME PERFORMANCE:
-${data.threeMonthReturn !== undefined ? `- 3-Month: ${data.threeMonthReturn.toFixed(2)}%` : '- 3-Month: N/A'}
-${data.sixMonthReturn !== undefined ? `- 6-Month: ${data.sixMonthReturn.toFixed(2)}%` : '- 6-Month: N/A'}
 ${data.twelveMonthReturn !== undefined ? `- 12-Month: ${data.twelveMonthReturn.toFixed(2)}%` : '- 12-Month: N/A'}
 
 MOVING AVERAGES:
@@ -914,9 +904,7 @@ ${crossovers.length > 0 ? crossovers.join('\n') : 'No significant crossovers det
 
 TECHNICAL INDICATORS:
 - RSI: ${data.rsi ? data.rsi.toFixed(2) : 'N/A'} ${data.rsiSignal ? `(${data.rsiSignal})` : ''}
-- MACD: ${data.macd !== undefined ? data.macd.toFixed(4) : 'N/A'}
-- MACD Signal: ${data.macdSignal !== undefined ? data.macdSignal.toFixed(4) : 'N/A'}
-- MACD Histogram: ${data.macdHistogram !== undefined ? data.macdHistogram.toFixed(4) : 'N/A'} ${data.macdHistogram !== undefined ? (data.macdHistogram > 0 ? '(bullish - MACD above signal)' : '(bearish - MACD below signal)') : ''}
+- MACD: ${data.macd !== undefined && data.macdSignal !== undefined ? (data.macd > data.macdSignal ? 'MACD is above signal line (bullish)' : 'MACD is below signal line (bearish)') : 'N/A'}
 
 SUPPORT/RESISTANCE:
 - Support Level: ${data.supportLevel ? `$${formatPrice(data.supportLevel)}` : 'N/A'}
@@ -998,20 +986,26 @@ ${data.turningPoints?.resistanceBreakDate ? `- Price broke above resistance on $
 ${data.turningPoints?.supportBreakDate ? `- Price broke below support on ${data.turningPoints.supportBreakDate}` : ''}
 ${!data.turningPoints || Object.keys(data.turningPoints).length === 0 ? '- No significant turning points identified in the past year' : ''}
 
-TASK: Write a conversational, direct technical analysis that focuses on longer-term trends (12-month, 6-month, 3-month). Lead with the most important technical takeaways for traders - what they need to know first. Weave data points naturally into your analysis rather than listing them. Write like you're explaining the stock's technical picture to a colleague - clear, direct, and engaging. When relevant, mention key turning points and when they occurred to provide context for the current technical setup. Think like a trader: prioritize actionable insights and key technical signals over routine price updates.
+TASK: Write a conversational, direct technical analysis that focuses on longer-term trends (12-month). Lead with the most important technical takeaways for traders - what they need to know first. Weave data points naturally into your analysis rather than listing them. Write like you're explaining the stock's technical picture to a colleague - clear, direct, and engaging. When relevant, mention key turning points and when they occurred to provide context for the current technical setup. Think like a trader: prioritize actionable insights and key technical signals over routine price updates.
 
 CRITICAL RULES - PARAGRAPH LENGTH IS MANDATORY:
 - EVERY PARAGRAPH MUST BE EXACTLY 2 SENTENCES OR LESS - NO EXCEPTIONS. If you find yourself writing a third sentence, start a new paragraph instead.
 - Write in a CONVERSATIONAL, DIRECT tone - avoid robotic or overly formal language
-- FIRST PARAGRAPH (2 sentences max): Start with the company name in bold (**Company Name**), followed by the ticker in parentheses (not bold) - e.g., **Microsoft Corp** (MSFT) or **Apple Inc.** (AAPL). Use proper company name formatting with periods (Inc., Corp., etc.). Lead AGGRESSIVELY with the top technical takeaways - what traders need to know most. Focus on current technical positioning, moving average relationships, momentum, and key levels. DO NOT mention golden cross/death cross in the first paragraph - save that for paragraph 2 or 3. DO NOT lead with current price or daily change - those are secondary. Think like a trader: what are the most important technical insights right now? STOP AFTER 2 SENTENCES.
-- SECOND PARAGRAPH (2 sentences max, PRIORITY FOR TRADERS): Include RSI level and signal (overbought/oversold/neutral) and what it means for the stock. Also mention MACD status (whether MACD is above or below signal line, and what the histogram indicates about momentum). Also mention key support and resistance levels (rounded to nearest $0.50, not penny-precise) and explain what traders should anticipate if these levels are hit or breached - will it signal a trend change, continuation, or potential reversal? These are critical for traders, so prioritize them early. DO NOT repeat support and resistance levels in later paragraphs - mention them once here and move on. STOP AFTER 2 SENTENCES.
-- THIRD PARAGRAPH (2 sentences max): If a golden cross or death cross occurred RECENTLY (within the last 3-4 months), mention it here with the EXACT MONTH NAME provided in the KEY TURNING POINTS section above. The month name is EXPLICITLY STATED IN ALL CAPS in the brackets - use that EXACT month name and ONLY that month name (e.g., if it says "JUNE" in the brackets, you MUST say "In June" or "The stock experienced a golden cross in June" - DO NOT write "October", "November", or any other month). DO NOT use vague terms like "recently" or "recent". DO NOT guess or infer the month - use the exact month name from the brackets. Only mention if it's actually recent - don't mention a golden cross from 6+ months ago. If no recent crossovers, discuss moving average relationships and what they indicate about trend strength. STOP AFTER 2 SENTENCES.
+- Avoid overly sophisticated or formal words like "robust", "substantial", "notable", "significant", "considerable" - use simpler, more direct words instead
+- Use normal, everyday language that's clear and accessible - write like you're talking to someone, not writing a formal report
+- FIRST PARAGRAPH (2 sentences max): Start with the company name in bold (**Company Name**), followed by the ticker in parentheses (not bold) - e.g., **Microsoft Corp** (MSFT) or **Apple Inc.** (AAPL). Use proper company name formatting with periods (Inc., Corp., etc.). Lead AGGRESSIVELY with the top technical takeaways - what traders need to know most. Focus on current technical positioning, moving average relationships, momentum, and key levels. DO NOT mention golden cross/death cross in the first paragraph - save that for later. DO NOT mention 12-month performance in the first paragraph - save that for later. DO NOT lead with current price or daily change - those are secondary. Think like a trader: what are the most important technical insights right now? STOP AFTER 2 SENTENCES.
+- SECOND PARAGRAPH (2 sentences max, RSI FOCUS): Include RSI level and signal (overbought/oversold/neutral) and explain what it means for the stock. Provide insight into what this RSI level suggests about momentum and potential price action. STOP AFTER 2 SENTENCES.
+- THIRD PARAGRAPH (2 sentences max, MACD FOCUS): Mention MACD status (whether MACD is above or below signal line) in simple terms - e.g., "MACD is below its signal line, indicating bearish pressure" or "MACD is above its signal line, indicating bullish momentum". DO NOT use the word "histogram" - just state whether MACD is above or below the signal line and what it indicates about momentum or trend strength. Provide insight into what this means for traders. STOP AFTER 2 SENTENCES.
+- FOURTH PARAGRAPH (2 sentences max, SUPPORT/RESISTANCE FOCUS): Mention key support and resistance levels (rounded to nearest $0.50, not penny-precise) and explain what traders should anticipate if these levels are hit or breached - will it signal a trend change, continuation, or potential reversal? These are critical for traders. DO NOT repeat support and resistance levels in later paragraphs - mention them once here and move on. STOP AFTER 2 SENTENCES.
+- FIFTH PARAGRAPH (2 sentences max, GOLDEN/DEATH CROSS IF RECENT): If a golden cross or death cross occurred RECENTLY (within the last 3-4 months), mention it here with the EXACT MONTH NAME provided in the KEY TURNING POINTS section above. The month name is EXPLICITLY STATED IN ALL CAPS in the brackets - use that EXACT month name and ONLY that month name. DO NOT use vague terms like "recently" or "recent". If no recent crossovers, discuss moving average relationships and what they indicate about trend strength. STOP AFTER 2 SENTENCES.
 - DON'T overwhelm with numbers - use key numbers strategically to support your analysis, not as the main focus
 - Provide CONTEXT and EXPLANATION - explain what the numbers mean and why they matter, rather than just listing percentages
 - NATURALLY weave data points into sentences with context (e.g., "The stock is up 14.92% this week, reflecting strong short-term momentum" not just "Weekly performance: 14.92%")
 - Focus on LONGER-TERM trends and patterns, not daily fluctuations
-- After RSI and support/resistance, move through timeframes (3-month → 6-month → 12-month) and provide context about what these timeframes reveal - but keep each paragraph to 2 sentences max
-- DO NOT mention weekly or monthly performance - only use 3-month, 6-month, and 12-month returns
+- After RSI, MACD, support/resistance, and golden/death cross discussion, discuss the 12-month performance in a dedicated paragraph and provide context about what it reveals about the longer-term trend - but keep each paragraph to 2 sentences max
+- DO NOT mention 12-month performance in the first paragraph - save it for later in the analysis
+- DO NOT mention weekly, monthly, 3-month, or 6-month performance - only use 12-month return
+- DO NOT repeat the 12-month performance multiple times - mention it once in a dedicated paragraph
 - DO NOT repeat support and resistance levels after mentioning them in the second paragraph - they should only appear once
 - Discuss moving average relationships naturally - explain what they mean for the stock's trend and what traders should watch for, not just list percentages
 - CRITICAL: When price is ABOVE a moving average, that's BULLISH (positive). When price is BELOW a moving average, that's BEARISH (negative). If a stock is trading above its 20-day, 50-day, and 100-day SMAs, that indicates strength, not weakness. Only describe it as "struggling" if the stock is below key moving averages.
@@ -1080,8 +1074,6 @@ export async function POST(request: Request) {
           data: {
             currentPrice: technicalData.currentPrice,
             changePercent: technicalData.changePercent,
-            threeMonthReturn: technicalData.threeMonthReturn,
-            sixMonthReturn: technicalData.sixMonthReturn,
             twelveMonthReturn: technicalData.twelveMonthReturn,
             rsi: technicalData.rsi,
             rsiSignal: technicalData.rsiSignal,
