@@ -86,11 +86,6 @@ function getFirstSentence(ticker: string, quote: Quote) {
   const lastPrice = quote.lastTradePrice;
   const fiftyTwoWeekHigh = quote.fiftyTwoWeekHigh;
   const fiftyTwoWeekLow = quote.fiftyTwoWeekLow;
-  const pe = quote.pe;
-  const sector = quote.sector;
-  const industry = quote.industry;
-  const volume = quote.volume;
-  const averageVolume = quote.averageVolume;
 
   // Template sets for each scenario - using company name
   const templates = {
