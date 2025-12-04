@@ -935,18 +935,17 @@ ${(() => {
     const monthName = monthNames[monthIndex];
     const monthNumber = parseInt(dateParts[1], 10); // 1-12
     
-    console.log(`[GOLDEN CROSS DATE] API Date String: ${data.turningPoints.goldenCrossDate}, Month Number: ${monthNumber}, Month Name: ${monthName}, Month Index: ${monthIndex}, Parsed Date: ${crossDate.toISOString()}`);
-    
-    const fourMonthsAgo = new Date();
-    fourMonthsAgo.setMonth(fourMonthsAgo.getMonth() - 4);
-    const isRecent = crossDate >= fourMonthsAgo;
-    console.log(`[GOLDEN CROSS DATE] Is recent (>= ${fourMonthsAgo.toISOString().split('T')[0]}): ${isRecent}`);
-    
-    // Always include in prompt with explicit month, but mark if recent
-    const recentTag = isRecent ? ' [RECENT]' : '';
-    // Pass the exact date in multiple formats to make it impossible to misinterpret
-    // Use very explicit formatting to prevent AI confusion
-    return `- Golden cross occurred (50-day SMA crossed above 200-day SMA) on ${monthName} ${day}, ${year} (date string: ${data.turningPoints.goldenCrossDate})${recentTag} [CRITICAL INSTRUCTION: The golden cross happened in the month of ${monthName.toUpperCase()}. The date ${data.turningPoints.goldenCrossDate} breaks down as: Year=${year}, Month=${monthNumber} (which is ${monthName}), Day=${day}. You MUST write "In ${monthName}" or "The golden cross in ${monthName}" or "${monthName}" - DO NOT write "October", "November", or any other month. The month is ${monthName.toUpperCase()} - use ONLY ${monthName.toUpperCase()}. If you see this instruction, you MUST use ${monthName.toUpperCase()} and nothing else.]`;
+      console.log(`[GOLDEN CROSS DATE] API Date String: ${data.turningPoints.goldenCrossDate}, Month Number: ${monthNumber}, Month Name: ${monthName}, Month Index: ${monthIndex}, Parsed Date: ${crossDate.toISOString()}`);
+      
+      const fourMonthsAgo = new Date();
+      fourMonthsAgo.setMonth(fourMonthsAgo.getMonth() - 4);
+      const isRecent = crossDate >= fourMonthsAgo;
+      console.log(`[GOLDEN CROSS DATE] Is recent (>= ${fourMonthsAgo.toISOString().split('T')[0]}): ${isRecent}`);
+      
+      // Always include in prompt with explicit month, but mark if recent
+      const recentTag = isRecent ? ' [RECENT]' : '';
+      // Pass the exact date with clear instructions - use proper case, not ALL CAPS
+      return `- Golden cross occurred (50-day SMA crossed above 200-day SMA) on ${monthName} ${day}, ${year} (date string: ${data.turningPoints.goldenCrossDate})${recentTag} [CRITICAL: The golden cross happened in ${monthName}. You MUST write "In ${monthName}" or "The golden cross in ${monthName}" using proper capitalization (first letter uppercase, rest lowercase - e.g., "June" or "September", NOT "JUNE" or "SEPTEMBER"). Use ${monthName} exactly as shown here.]`;
   }
   return '';
 })()}
@@ -993,11 +992,11 @@ CRITICAL RULES - PARAGRAPH LENGTH IS MANDATORY:
 - Write in a CONVERSATIONAL, DIRECT tone - avoid robotic or overly formal language
 - Avoid overly sophisticated or formal words like "robust", "substantial", "notable", "significant", "considerable" - use simpler, more direct words instead
 - Use normal, everyday language that's clear and accessible - write like you're talking to someone, not writing a formal report
-- FIRST PARAGRAPH (2 sentences max): Start with the company name in bold (**Company Name**), followed by the ticker in parentheses (not bold) - e.g., **Microsoft Corp** (MSFT) or **Apple Inc.** (AAPL). Use proper company name formatting with periods (Inc., Corp., etc.). Lead AGGRESSIVELY with the top technical takeaways - what traders need to know most. Focus on current technical positioning, moving average relationships, momentum, and key levels. DO NOT mention golden cross/death cross in the first paragraph - save that for later. DO NOT mention 12-month performance in the first paragraph - save that for later. DO NOT lead with current price or daily change - those are secondary. Think like a trader: what are the most important technical insights right now? STOP AFTER 2 SENTENCES.
+- FIRST PARAGRAPH (2 sentences max): Start with the company name in bold (**Company Name**), followed by the ticker in parentheses (not bold) - e.g., **Microsoft Corp** (MSFT) or **Apple Inc.** (AAPL). Use proper company name formatting with periods (Inc., Corp., etc.). Lead with the most important TECHNICAL SETUP for traders - what's the current technical picture? Focus on moving average positioning, momentum indicators, and what this setup means for traders. DO NOT mention current price or daily change in the first paragraph - focus on the technical story (e.g., "trading above key moving averages", "showing bullish momentum", "positioned for a breakout"). DO NOT mention golden cross/death cross or 12-month performance yet. Think like a trader analyzing a chart: what's the technical setup telling you? STOP AFTER 2 SENTENCES.
 - SECOND PARAGRAPH (2 sentences max, RSI FOCUS): Include RSI level and signal (overbought/oversold/neutral) and explain what it means for the stock. Provide insight into what this RSI level suggests about momentum and potential price action. STOP AFTER 2 SENTENCES.
 - THIRD PARAGRAPH (2 sentences max, MACD FOCUS): Mention MACD status (whether MACD is above or below signal line) in simple terms - e.g., "MACD is below its signal line, indicating bearish pressure" or "MACD is above its signal line, indicating bullish momentum". DO NOT use the word "histogram" - just state whether MACD is above or below the signal line and what it indicates about momentum or trend strength. Provide insight into what this means for traders. STOP AFTER 2 SENTENCES.
 - FOURTH PARAGRAPH (2 sentences max, SUPPORT/RESISTANCE FOCUS): Mention key support and resistance levels (rounded to nearest $0.50, not penny-precise) and explain what traders should anticipate if these levels are hit or breached - will it signal a trend change, continuation, or potential reversal? These are critical for traders. DO NOT repeat support and resistance levels in later paragraphs - mention them once here and move on. STOP AFTER 2 SENTENCES.
-- FIFTH PARAGRAPH (2 sentences max, GOLDEN/DEATH CROSS IF RECENT): If a golden cross or death cross occurred RECENTLY (within the last 3-4 months), mention it here with the EXACT MONTH NAME provided in the KEY TURNING POINTS section above. The month name is EXPLICITLY STATED IN ALL CAPS in the brackets - use that EXACT month name and ONLY that month name. DO NOT use vague terms like "recently" or "recent". If no recent crossovers, discuss moving average relationships and what they indicate about trend strength. STOP AFTER 2 SENTENCES.
+- FIFTH PARAGRAPH (2 sentences max, GOLDEN/DEATH CROSS IF RECENT): If a golden cross or death cross occurred RECENTLY (within the last 3-4 months), mention it here with the EXACT MONTH NAME provided in the KEY TURNING POINTS section above. Use proper capitalization for the month (e.g., "June" or "September", NOT "JUNE" or "SEPTEMBER" in all caps). The month name is stated in the brackets - use that exact month name with proper case. DO NOT use vague terms like "recently" or "recent". If no recent crossovers, discuss moving average relationships and what they indicate about trend strength. STOP AFTER 2 SENTENCES.
 - DON'T overwhelm with numbers - use key numbers strategically to support your analysis, not as the main focus
 - Provide CONTEXT and EXPLANATION - explain what the numbers mean and why they matter, rather than just listing percentages
 - NATURALLY weave data points into sentences with context (e.g., "The stock is up 14.92% this week, reflecting strong short-term momentum" not just "Weekly performance: 14.92%")
