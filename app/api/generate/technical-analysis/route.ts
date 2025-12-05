@@ -415,7 +415,11 @@ function analyzeTurningPoints(
     }
     
     // If currently in death cross state, use the most recent death cross
+    // Always include the most recent death cross if it exists (let prompt decide if it's too old)
     if (isCurrentlyDeathCross && deathCrossDates.length > 0) {
+      turningPoints.deathCrossDate = deathCrossDates[deathCrossDates.length - 1];
+    } else if (deathCrossDates.length > 0) {
+      // Include the most recent death cross regardless of age - we'll filter in prompt if needed
       turningPoints.deathCrossDate = deathCrossDates[deathCrossDates.length - 1];
     }
   }
@@ -950,7 +954,7 @@ ${(() => {
   return '';
 })()}
 ${(() => {
-  // Only include death cross if it's recent (within last 4 months)
+  // Include death cross if it exists (already filtered for recency in analyzeTurningPoints)
   if (data.turningPoints?.deathCrossDate) {
     // Use the exact date string from API
     const dateParts = data.turningPoints.deathCrossDate.split('-');
@@ -959,17 +963,21 @@ ${(() => {
     const day = parseInt(dateParts[2], 10);
     const crossDate = new Date(year, monthIndex, day);
     
-    const fourMonthsAgo = new Date();
-    fourMonthsAgo.setMonth(fourMonthsAgo.getMonth() - 4);
-    if (crossDate >= fourMonthsAgo) {
-      // Get month name from the exact date string
-      const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-      const monthName = monthNames[monthIndex];
-      const monthNumber = parseInt(dateParts[1], 10); // 1-12
-      
-      // Pass the exact date in multiple formats
-      return `- Death cross occurred (50-day SMA crossed below 200-day SMA) on ${data.turningPoints.deathCrossDate} (which is ${monthName} ${day}, ${year}) [EXACT DATE FROM API: ${data.turningPoints.deathCrossDate} = Month ${monthNumber} = ${monthName}. You MUST use "${monthName}".]`;
-    }
+    console.log(`[DEATH CROSS DATE] API Date String: ${data.turningPoints.deathCrossDate}, Month Number: ${parseInt(dateParts[1], 10)}, Month Index: ${monthIndex}, Parsed Date: ${crossDate.toISOString()}`);
+    
+    // Get month name from the exact date string
+    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    const monthName = monthNames[monthIndex];
+    const monthNumber = parseInt(dateParts[1], 10); // 1-12
+    
+    console.log(`[DEATH CROSS DATE] Month name: ${monthName}, Month number: ${monthNumber}`);
+    
+    // Pass the exact date with very explicit instructions - use proper case, not ALL CAPS
+    // CRITICAL: Make it absolutely clear what month to use and explicitly forbid using current month
+    const today = new Date();
+    const currentMonthName = monthNames[today.getMonth()];
+    
+    return `- Death cross occurred (50-day SMA crossed below 200-day SMA) on ${data.turningPoints.deathCrossDate} (which is ${monthName} ${day}, ${year}) [CRITICAL INSTRUCTION: The death cross happened in ${monthName.toUpperCase()}. The date ${data.turningPoints.deathCrossDate} = Year ${year}, Month ${monthNumber} = ${monthName}. You MUST write "In ${monthName}" or "The death cross in ${monthName}". DO NOT use "${currentMonthName}" (the current month). DO NOT use any other month. The month is ${monthName.toUpperCase()} - use ONLY ${monthName} with proper capitalization (first letter uppercase, rest lowercase).]`;
   }
   return '';
 })()}
@@ -996,7 +1004,7 @@ CRITICAL RULES - PARAGRAPH LENGTH IS MANDATORY:
 - SECOND PARAGRAPH (2 sentences max, RSI FOCUS): Include RSI level and signal (overbought/oversold/neutral) and explain what it means for the stock. Provide insight into what this RSI level suggests about momentum and potential price action. STOP AFTER 2 SENTENCES.
 - THIRD PARAGRAPH (2 sentences max, MACD FOCUS): Mention MACD status (whether MACD is above or below signal line) in simple terms - e.g., "MACD is below its signal line, indicating bearish pressure" or "MACD is above its signal line, indicating bullish momentum". DO NOT use the word "histogram" - just state whether MACD is above or below the signal line and what it indicates about momentum or trend strength. Provide insight into what this means for traders. STOP AFTER 2 SENTENCES.
 - FOURTH PARAGRAPH (2 sentences max, SUPPORT/RESISTANCE FOCUS): Mention key support and resistance levels (rounded to nearest $0.50, not penny-precise) and explain what traders should anticipate if these levels are hit or breached - will it signal a trend change, continuation, or potential reversal? These are critical for traders. DO NOT repeat support and resistance levels in later paragraphs - mention them once here and move on. STOP AFTER 2 SENTENCES.
-- FIFTH PARAGRAPH (2 sentences max, GOLDEN/DEATH CROSS IF RECENT): If a golden cross or death cross occurred RECENTLY (within the last 3-4 months), mention it here with the EXACT MONTH NAME provided in the KEY TURNING POINTS section above. Use proper capitalization for the month (e.g., "June" or "September", NOT "JUNE" or "SEPTEMBER" in all caps). The month name is stated in the brackets - use that exact month name with proper case. DO NOT use vague terms like "recently" or "recent". If no recent crossovers, discuss moving average relationships and what they indicate about trend strength. STOP AFTER 2 SENTENCES.
+- FIFTH PARAGRAPH (2 sentences max, GOLDEN/DEATH CROSS IF RECENT): If a golden cross or death cross is mentioned in the KEY TURNING POINTS section above, mention it here with the EXACT MONTH NAME provided. Use proper capitalization for the month (e.g., "June" or "September", NOT "JUNE" or "SEPTEMBER" in all caps). The month name is EXPLICITLY STATED in brackets with CRITICAL INSTRUCTIONS - use that exact month name with proper case. DO NOT use the current month (December) unless it's explicitly stated in the turning points. DO NOT use vague terms like "recently" or "recent". If no crossovers are mentioned, discuss moving average relationships and what they indicate about trend strength. STOP AFTER 2 SENTENCES.
 - DON'T overwhelm with numbers - use key numbers strategically to support your analysis, not as the main focus
 - Provide CONTEXT and EXPLANATION - explain what the numbers mean and why they matter, rather than just listing percentages
 - NATURALLY weave data points into sentences with context (e.g., "The stock is up 14.92% this week, reflecting strong short-term momentum" not just "Weekly performance: 14.92%")
