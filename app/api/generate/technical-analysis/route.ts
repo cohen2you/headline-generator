@@ -1037,8 +1037,9 @@ CRITICAL RULES - PARAGRAPH LENGTH IS MANDATORY:
     if (provider && (provider === 'openai' || provider === 'gemini')) {
       try {
         aiProvider.setProvider(provider);
-      } catch (error: any) {
-        console.warn(`Provider ${provider} not available, using default:`, error.message);
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        console.warn(`Provider ${provider} not available, using default:`, errorMessage);
       }
     }
 

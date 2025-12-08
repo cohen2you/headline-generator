@@ -84,9 +84,10 @@ class AIProviderService {
     if (provider === 'gemini' && this.gemini) {
       try {
         return await this.generateGeminiCompletion(messages, options);
-      } catch (error: any) {
+      } catch (error: unknown) {
         // If Gemini fails and OpenAI is available, fall back to OpenAI
-        if (this.openai && (error.message?.includes('not found') || error.message?.includes('All model attempts failed'))) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        if (this.openai && (errorMessage.includes('not found') || errorMessage.includes('All model attempts failed'))) {
           console.warn('Gemini models not available, falling back to OpenAI');
           return this.generateOpenAICompletion(messages, options);
         }
@@ -163,7 +164,13 @@ class AIProviderService {
     
     prompt += conversation;
 
-    const generationConfig: any = {
+    interface GeminiGenerationConfig {
+      temperature: number;
+      maxOutputTokens: number;
+      responseMimeType?: string;
+    }
+
+    const generationConfig: GeminiGenerationConfig = {
       temperature: options.temperature ?? 0.7,
       // CRITICAL: Gemini supports higher token limits (8192+)
       // Use the provided maxTokens or default to 8192 for Gemini
@@ -190,7 +197,7 @@ class AIProviderService {
       'gemini-1.5-pro-latest', // Latest 1.5 version
     ];
     
-    let lastError: any = null;
+    let lastError: unknown = null;
     
     // Try each model name until one works
     for (const modelName of modelNames) {
@@ -209,10 +216,12 @@ class AIProviderService {
           content: text,
           provider: 'gemini',
         };
-      } catch (error: any) {
+      } catch (error: unknown) {
         lastError = error;
         // If it's a 404 (model not found), try the next model
-        if (error.status === 404 || error.message?.includes('not found')) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        const errorStatus = (error as { status?: number })?.status;
+        if (errorStatus === 404 || errorMessage.includes('not found')) {
           console.log(`Model ${modelName} not found, trying next...`);
           continue;
         }
@@ -222,7 +231,8 @@ class AIProviderService {
     }
     
     // If all models failed, throw the last error
-    throw new Error(`Gemini API error: All model attempts failed. Last error: ${lastError?.message || 'Unknown error'}`);
+    const lastErrorMessage = lastError instanceof Error ? lastError.message : String(lastError || 'Unknown error');
+    throw new Error(`Gemini API error: All model attempts failed. Last error: ${lastErrorMessage}`);
   }
 }
 
