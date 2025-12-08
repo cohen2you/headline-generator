@@ -1,9 +1,5 @@
 import { NextResponse } from 'next/server';
-import OpenAI from 'openai';
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+import { aiProvider, AIProvider } from '@/lib/aiProvider';
 
 function formatPrice(price: number | null | undefined): string {
   if (price === null || price === undefined || isNaN(price)) return 'N/A';
@@ -844,8 +840,8 @@ async function fetchTechnicalData(symbol: string): Promise<TechnicalAnalysisData
   }
 }
 
-// Generate comprehensive technical analysis using OpenAI
-async function generateTechnicalAnalysis(data: TechnicalAnalysisData): Promise<string> {
+// Generate comprehensive technical analysis using AI provider
+async function generateTechnicalAnalysis(data: TechnicalAnalysisData, provider?: AIProvider): Promise<string> {
   try {
     const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     const today = new Date();
@@ -1037,14 +1033,33 @@ CRITICAL RULES - PARAGRAPH LENGTH IS MANDATORY:
 - The percentage always refers to how far the STOCK is from the moving average, not the other way around
 - Write like you're having a conversation, not writing a formal report`;
 
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [{ role: 'user', content: prompt }],
-      max_tokens: 800,
-      temperature: 0.3,
-    });
+    // Set provider if specified
+    if (provider && (provider === 'openai' || provider === 'gemini')) {
+      try {
+        aiProvider.setProvider(provider);
+      } catch (error: any) {
+        console.warn(`Provider ${provider} not available, using default:`, error.message);
+      }
+    }
 
-    return completion.choices[0].message?.content?.trim() || '';
+    // Use provider-specific model and token limits
+    const currentProvider = aiProvider.getCurrentProvider();
+    const model = currentProvider === 'gemini' 
+      ? 'gemini-2.5-flash' 
+      : 'gpt-4o-mini';
+    const maxTokens = currentProvider === 'gemini' ? 8192 : 800;
+
+    const response = await aiProvider.generateCompletion(
+      [{ role: 'user', content: prompt }],
+      {
+        model,
+        temperature: 0.3,
+        maxTokens,
+      },
+      provider
+    );
+
+    return response.content.trim();
   } catch (error) {
     console.error('Error generating technical analysis:', error);
     return '';
@@ -1053,13 +1068,18 @@ CRITICAL RULES - PARAGRAPH LENGTH IS MANDATORY:
 
 export async function POST(request: Request) {
   try {
-    const { tickers } = await request.json();
+    const { tickers, provider } = await request.json();
     
     if (!tickers || !tickers.trim()) {
       return NextResponse.json({ error: 'Please provide ticker(s)' }, { status: 400 });
     }
     
     const tickerList = tickers.split(',').map((t: string) => t.trim().toUpperCase());
+    
+    // Validate provider if provided
+    const aiProvider: AIProvider | undefined = provider && (provider === 'openai' || provider === 'gemini')
+      ? provider
+      : undefined;
     
     const analyses = await Promise.all(
       tickerList.map(async (ticker: string) => {
@@ -1072,7 +1092,7 @@ export async function POST(request: Request) {
           };
         }
         
-        const analysis = await generateTechnicalAnalysis(technicalData);
+        const analysis = await generateTechnicalAnalysis(technicalData, aiProvider);
         
         return {
           ticker,

@@ -32,6 +32,7 @@ const TechnicalAnalysisGenerator = forwardRef<TechnicalAnalysisGeneratorRef>((pr
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  const [provider, setProvider] = useState<'openai' | 'gemini'>('openai');
 
   const analysisRefs = useRef<(HTMLDivElement | null)[]>([]);
 
@@ -59,7 +60,7 @@ const TechnicalAnalysisGenerator = forwardRef<TechnicalAnalysisGeneratorRef>((pr
       const res = await fetch('/api/generate/technical-analysis', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tickers }),
+        body: JSON.stringify({ tickers, provider }),
       });
       if (!res.ok) {
         const errorData = await res.json();
@@ -122,6 +123,20 @@ const TechnicalAnalysisGenerator = forwardRef<TechnicalAnalysisGeneratorRef>((pr
         Generate comprehensive multi-timeframe technical analysis focusing on 12-month, 6-month, 3-month, monthly, and weekly trends. 
         Includes moving averages, RSI, support/resistance levels, and overall technical outlook.
       </p>
+      <div className="mb-4">
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          AI Provider
+        </label>
+        <select
+          value={provider}
+          onChange={(e) => setProvider(e.target.value as 'openai' | 'gemini')}
+          className="w-full p-2 border border-blue-400 rounded"
+        >
+          <option value="openai">OpenAI (GPT-4o-mini)</option>
+          <option value="gemini">Gemini (2.5 Flash)</option>
+        </select>
+      </div>
+      
       <input
         type="text"
         placeholder="Enter ticker(s), comma separated (e.g., AAPL, MSFT)"
