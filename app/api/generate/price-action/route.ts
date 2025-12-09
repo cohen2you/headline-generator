@@ -814,8 +814,8 @@ Current Price: $${formatPrice(quote.lastTradePrice)}
 Daily Change: ${quote.changePercent}%
 
 Technical Indicators:
-- 50-day Moving Average: ${sma50Pct ? `${Math.abs(parseFloat(sma50Pct))}% ${parseFloat(sma50Pct) >= 0 ? 'above' : 'below'}` : 'N/A'}
-- 200-day Moving Average: ${sma200Pct ? `${Math.abs(parseFloat(sma200Pct))}% ${parseFloat(sma200Pct) >= 0 ? 'above' : 'below'}` : 'N/A'}
+- 50-day Moving Average: $${formatPrice(quote.fiftyDayAveragePrice)} (Current price is ${sma50Pct ? `${Math.abs(parseFloat(sma50Pct))}% ${parseFloat(sma50Pct) >= 0 ? 'above' : 'below'}` : 'N/A'})
+- 200-day Moving Average: $${formatPrice(quote.twoHundredDayAveragePrice)} (Current price is ${sma200Pct ? `${Math.abs(parseFloat(sma200Pct))}% ${parseFloat(sma200Pct) >= 0 ? 'above' : 'below'}` : 'N/A'})
 - 52-week Range: $${formatPrice(quote.fiftyTwoWeekLow)} - $${formatPrice(quote.fiftyTwoWeekHigh)}
 - Volume: ${quote.volume ? (quote.volume / 1000000).toFixed(1) + ' million' : 'N/A'}
 
@@ -845,6 +845,7 @@ CRITICAL RULES:
 - CORRECT EXAMPLES: "trading 15.5% below its 50-day moving average" or "the stock is 15.5% below its 50-day moving average"
 - WRONG EXAMPLES: "below its 50-day moving average, which is 15.5% lower" or "below its 50-day moving average, which is currently 15.5% lower"
 - The percentage always refers to how far the STOCK is from the moving average, not the other way around
+- CRITICAL: Verify the direction by comparing Current Price to the Moving Average dollar value provided. If Current Price > Moving Average, the stock is ABOVE. If Current Price < Moving Average, the stock is BELOW. Use the exact percentage and direction provided in the Technical Indicators section.
 - Use ${dayOfWeek} when mentioning volume timing
 - Include support/resistance levels and overall technical outlook
 - Break content into SHORT paragraphs - MAXIMUM 2 sentences per paragraph
