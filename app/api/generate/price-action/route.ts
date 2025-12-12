@@ -260,6 +260,23 @@ interface HistoricalData {
   oneYearReturn?: number;
 }
 
+interface ETFHolder {
+  id: number;
+  fund_id: number;
+  fund_name: string;
+  fund_slug: string;
+  fund_symbol?: string; // Ticker symbol from API
+  fund_exchange?: string; // Exchange from API
+  sharepercentage: string;
+  etf_id: number | null;
+  inception_date: string;
+  marketcapital: string;
+  ticker?: string; // Legacy field name
+  symbol?: string; // Alternative field name
+  exchange?: string; // Legacy field name
+  [key: string]: unknown; // Allow for additional fields we might not know about
+}
+
 // Utility function to truncate to two decimal places
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 function truncateToTwoDecimals(num: number): number {
@@ -288,6 +305,268 @@ function normalizeCompanyName(name: string): string {
   
   // Otherwise return as-is (already has proper mixed case)
   return name;
+}
+
+// Function to lookup ETF ticker by fund name using Benzinga quote API
+async function lookupETFTicker(fundName: string, stockTicker?: string): Promise<{ ticker?: string; exchange?: string } | null> {
+  try {
+    console.log(`Looking up ticker for ETF: ${fundName}`);
+    
+    // First, try to extract ticker from fund name if it's in parentheses
+    // e.g., "ARK Space Exploration & Innovation ETF (ARKX)"
+    const tickerInName = fundName.match(/\(([A-Z]+)\)/);
+    if (tickerInName) {
+      const ticker = tickerInName[1];
+      console.log(`Found ticker in name: ${ticker}`);
+      // Verify it's an ETF and get exchange info
+      const quoteUrl = `https://api.benzinga.com/api/v2/quoteDelayed?token=${process.env.BENZINGA_API_KEY}&symbols=${ticker}`;
+      const quoteRes = await fetch(quoteUrl);
+      if (quoteRes.ok) {
+        const quoteData = await quoteRes.json();
+        const quote = quoteData && quoteData[ticker];
+        if (quote) {
+          console.log(`Verified ticker ${ticker} is an ETF on ${quote.bzExchange || quote.exchange}`);
+          return { ticker, exchange: quote.bzExchange || quote.exchange };
+        }
+        // Even if quote lookup fails, return the ticker we found
+        return { ticker };
+      }
+    }
+    
+    // For leveraged ETFs, try common patterns
+    // GraniteShares leveraged ETFs have specific tickers
+    // "GraniteShares 2x Long META Daily ETF" -> "FBL"
+    // "GraniteShares 1.5x Long META Daily ETF" -> "FBU" (or similar)
+    if (stockTicker && fundName.toLowerCase().includes('graniteshares')) {
+      const multiplierMatch = fundName.match(/(\d+(?:\.\d+)?)x/i);
+      if (multiplierMatch) {
+        const multiplier = parseFloat(multiplierMatch[1]);
+        // For META: 2x = FBL, 1.5x = FBU
+        // Try known patterns for GraniteShares leveraged ETFs
+        const stockCode = stockTicker.substring(0, 2).toUpperCase();
+        const potentialTickers: string[] = [];
+        
+        // Common GraniteShares patterns:
+        // 2x Long: FBL (for META), FAL (for AAPL), etc.
+        // 1.5x Long: FBU (for META), FAU (for AAPL), etc.
+        if (multiplier === 2) {
+          potentialTickers.push(`F${stockCode[0]}L`); // FBL for META 2x
+          potentialTickers.push(`F${stockCode}L`); // Alternative
+        } else if (multiplier === 1.5) {
+          potentialTickers.push(`F${stockCode[0]}U`); // FBU for META 1.5x
+          potentialTickers.push(`F${stockCode}U`); // Alternative
+        }
+        
+        // Also try direct lookups for known META ETFs (prioritize these)
+        if (stockTicker.toUpperCase() === 'META') {
+          if (multiplier === 2) {
+            potentialTickers.unshift('FBL'); // Add to front - try first (confirmed: FBL = 2x)
+          } else if (multiplier === 1.5) {
+            // For 1.5x, we need to find the actual ticker
+            // Common patterns might be: FBU, FME, or variations
+            // But we'll let the API lookup determine if any exist
+            // Note: The exact ticker for 1.5x META ETF needs to be verified
+            potentialTickers.unshift('FBU', 'FME'); // Try common patterns
+          }
+        }
+        
+        console.log(`Trying GraniteShares patterns for ${multiplier}x: ${potentialTickers.join(', ')}`);
+        
+        for (const potentialTicker of potentialTickers) {
+          try {
+            const quoteUrl = `https://api.benzinga.com/api/v2/quoteDelayed?token=${process.env.BENZINGA_API_KEY}&symbols=${potentialTicker}`;
+            const quoteRes = await fetch(quoteUrl);
+            if (quoteRes.ok) {
+              const quoteData = await quoteRes.json();
+              const quote = quoteData && quoteData[potentialTicker];
+              if (quote) {
+                console.log(`Checking ${potentialTicker}: type=${quote.type}, name=${quote.name}`);
+                if (quote.type === 'ETF' || quote.description?.toLowerCase().includes('etf')) {
+                  // Check if the name matches - should contain "GraniteShares" and the stock name
+                  const quoteName = (quote.name || quote.description || '').toLowerCase();
+                  const fundNameLower = fundName.toLowerCase();
+                  const stockNameLower = stockTicker.toLowerCase();
+                  
+                  // More flexible matching - check if it's a GraniteShares ETF and matches the multiplier
+                  const isGraniteShares = quoteName.includes('graniteshares');
+                  const matchesStock = quoteName.includes(stockNameLower) || fundNameLower.includes(stockNameLower);
+                  const matchesMultiplier = quoteName.includes(`${multiplier}x`) || fundNameLower.includes(`${multiplier}x`);
+                  
+                  console.log(`  isGraniteShares=${isGraniteShares}, matchesStock=${matchesStock}, matchesMultiplier=${matchesMultiplier}`);
+                  
+                  if (isGraniteShares && (matchesStock || matchesMultiplier)) {
+                    console.log(`Found matching GraniteShares ETF ticker: ${potentialTicker} for ${fundName} (quote name: ${quote.name})`);
+                    return { ticker: potentialTicker, exchange: quote.bzExchange || quote.exchange };
+                  }
+                } else {
+                  console.log(`  ${potentialTicker} is not an ETF (type: ${quote.type})`);
+                }
+              } else {
+                console.log(`  No quote data found for ${potentialTicker}`);
+              }
+            } else {
+              console.log(`  API request failed for ${potentialTicker}: ${quoteRes.status}`);
+            }
+          } catch (error) {
+            console.log(`  Error looking up ${potentialTicker}:`, error);
+            continue;
+          }
+        }
+      }
+    }
+    
+    // Try extracting meaningful acronyms from the name
+    const nameWords = fundName.split(/\s+/);
+    const potentialTickers: string[] = [];
+    
+    // Look for short uppercase words (2-5 chars) that could be tickers
+    for (const word of nameWords) {
+      const cleanWord = word.replace(/[^A-Z0-9]/g, '').toUpperCase();
+      if (cleanWord.length >= 2 && cleanWord.length <= 5 && /^[A-Z0-9]+$/.test(cleanWord)) {
+        // Skip common words that aren't tickers
+        if (!['ETF', 'LONG', 'SHORT', 'DAILY', 'WEEKLY', 'MONTHLY', 'YEAR', 'X', 'META'].includes(cleanWord)) {
+          potentialTickers.push(cleanWord);
+        }
+      }
+    }
+    
+    console.log(`Trying potential tickers: ${potentialTickers.slice(0, 5).join(', ')}`);
+    
+    // Try each potential ticker (limit to 5 to avoid too many API calls)
+    for (const potentialTicker of potentialTickers.slice(0, 5)) {
+      try {
+        const quoteUrl = `https://api.benzinga.com/api/v2/quoteDelayed?token=${process.env.BENZINGA_API_KEY}&symbols=${potentialTicker}`;
+        const quoteRes = await fetch(quoteUrl);
+        if (quoteRes.ok) {
+          const quoteData = await quoteRes.json();
+          const quote = quoteData && quoteData[potentialTicker];
+          // Check if it's an ETF
+          if (quote && (quote.type === 'ETF' || quote.description?.toLowerCase().includes('etf'))) {
+            console.log(`Found ETF ticker: ${potentialTicker} for ${fundName}`);
+            return { ticker: potentialTicker, exchange: quote.bzExchange || quote.exchange };
+          }
+        }
+      } catch {
+        // Continue to next potential ticker
+        continue;
+      }
+    }
+    
+    console.log(`No ticker found for ${fundName}`);
+    return null;
+  } catch (error) {
+    console.error(`Error looking up ETF ticker for ${fundName}:`, error);
+    return null;
+  }
+}
+
+// Function to fetch ETF holders from Benzinga API
+async function fetchETFs(symbol: string): Promise<Array<ETFHolder & { ticker?: string; exchange?: string }>> {
+  try {
+    const url = `https://www.benzinga.com/lavapress/api/get-top-holders/${symbol.toUpperCase()}`;
+    console.log(`Fetching ETFs for ${symbol} from: ${url}`);
+    
+    const res = await fetch(url);
+    if (!res.ok) {
+      console.error(`Failed to fetch ETFs for ${symbol}: ${res.status} ${res.statusText}`);
+      return [];
+    }
+    
+    const data = await res.json();
+    if (!Array.isArray(data)) {
+      console.error(`Invalid ETF data format for ${symbol}`);
+      return [];
+    }
+    
+    // Log first item to see if ticker/exchange are now in the API response
+    if (data.length > 0) {
+      console.log(`ETF API response sample for ${symbol}:`, JSON.stringify(data[0], null, 2));
+    }
+    
+    // Filter to only ETFs (exclude non-ETF funds if needed) and sort by share percentage
+    const etfs = data
+      .filter((item: ETFHolder) => item.fund_name && parseFloat(item.sharepercentage || '0') > 0)
+      .sort((a: ETFHolder, b: ETFHolder) => parseFloat(b.sharepercentage) - parseFloat(a.sharepercentage))
+      .slice(0, 3); // Get top 3 ETFs
+    
+    // Lookup tickers for each ETF
+    // First check if ticker/exchange are already in the API response (new feature)
+    // The API uses fund_symbol and fund_exchange fields
+    // If not, fall back to lookup logic for backward compatibility
+    const etfsWithTickers = await Promise.all(
+      etfs.map(async (etf: ETFHolder) => {
+        // Check for fund_symbol and fund_exchange (new API fields) or legacy ticker/exchange
+        const ticker = etf.fund_symbol || etf.ticker || etf.symbol;
+        const exchange = etf.fund_exchange || etf.exchange;
+        
+        // If ticker and exchange are already in the API response, use them directly
+        if (ticker && exchange) {
+          console.log(`ETF: ${etf.fund_name} -> Ticker from API: ${ticker}, Exchange: ${exchange}`);
+          return {
+            ...etf,
+            ticker: ticker,
+            exchange: exchange
+          };
+        }
+        
+        // Fall back to lookup logic if not in API response
+        const tickerInfo = await lookupETFTicker(etf.fund_name, symbol);
+        console.log(`ETF: ${etf.fund_name} -> Ticker: ${tickerInfo?.ticker || 'NOT FOUND'}, Exchange: ${tickerInfo?.exchange || 'N/A'}`);
+        return {
+          ...etf,
+          ticker: tickerInfo?.ticker || ticker,
+          exchange: tickerInfo?.exchange || exchange
+        };
+      })
+    );
+    
+    console.log(`Found ${etfsWithTickers.length} ETFs for ${symbol}`);
+    return etfsWithTickers;
+  } catch (error) {
+    console.error(`Error fetching ETFs for ${symbol}:`, error);
+    return [];
+  }
+}
+
+// Function to format ETF sentence
+function formatETFSentence(companyName: string, etfs: Array<ETFHolder & { ticker?: string; exchange?: string }>): string {
+  if (etfs.length === 0) {
+    return '';
+  }
+  
+  // Format ETF with ticker if available
+  const formatETF = (etf: ETFHolder & { ticker?: string; exchange?: string }): string => {
+    const ticker = etf.ticker;
+    const exchange = etf.exchange;
+    
+    // Bold the ETF name using HTML strong tags
+    const boldName = `<strong>${etf.fund_name}</strong>`;
+    
+    if (ticker) {
+      // If we have exchange, format as "Exchange:TICKER", otherwise just "TICKER"
+      if (exchange) {
+        return `${boldName} (${exchange}:${ticker})`;
+      } else {
+        return `${boldName} (${ticker})`;
+      }
+    }
+    
+    // If no ticker found, return name only (bolded)
+    return boldName;
+  };
+  
+  const etfList = etfs.map(formatETF);
+  
+  // Remove trailing period - the attribution will be added separately
+  if (etfList.length === 1) {
+    return `Investors can gain exposure to ${companyName} through ETFs like ${etfList[0]}`;
+  } else if (etfList.length === 2) {
+    return `Investors can gain exposure to ${companyName} through ETFs like ${etfList[0]} and ${etfList[1]}`;
+  } else {
+    // 3 or more: "ETF1, ETF2, and ETF3"
+    const lastETF = etfList.pop();
+    return `Investors can gain exposure to ${companyName} through ETFs like ${etfList.join(', ')}, and ${lastETF}`;
+  }
 }
 
 // Helper function to get date strings for API calls
@@ -836,6 +1115,7 @@ CRITICAL RULES:
 - Write the COMPLETE unified analysis - include the price action context naturally
 - DO NOT use separate headers or labels
 - DO NOT repeat the price action information - build upon it
+- DO NOT include phrases like "marking one of the stock's bigger moves in a single day" or similar statements about the significance of the daily move
 - Use PERCENTAGES for moving averages (e.g., "trading 4.4% above its 50-day moving average" OR "trading above its 50-day moving average of $259.58")
 - DO NOT combine dollar value AND percentage in confusing ways (e.g., DON'T say "above its 50-day moving average of $259.58, which is approximately 2.3% higher")
 - PREFERRED FORMAT: "trading approximately 2.3% above its 50-day moving average" (percentage only, more concise)
@@ -956,6 +1236,7 @@ CRITICAL RULES:
 - Write the COMPLETE unified analysis - include the price action context naturally
 - DO NOT use separate headers or labels
 - DO NOT repeat the price action information - build upon it
+- DO NOT include phrases like "marking one of the stock's bigger moves in a single day" or similar statements about the significance of the daily move
 - ALWAYS use day of week (Monday, Tuesday, etc.) - NEVER use "today", "yesterday", or "this week"
 - ${isAfterHours ? 'The price action shows SEPARATE regular session and after-hours changes - DO NOT reference the combined daily change percentage, reference the specific session changes mentioned in the price action context' : 'Use the daily change percentage when referencing price movement'}
 - Use PERCENTAGES for moving averages (e.g., "trading 4.4% above its 50-day moving average" OR "trading above its 50-day moving average of $259.58")
@@ -1406,7 +1687,7 @@ function getTimePhrase(status: 'open' | 'premarket' | 'afterhours' | 'closed'): 
 
 export async function POST(request: Request) {
   try {
-    const { tickers, priceActionOnly, briefAnalysis, grouped, smartAnalysis, primaryTicker, comparisonTickers, vsAnalysis } = await request.json();
+    const { tickers, priceActionOnly, briefAnalysis, grouped, smartAnalysis, primaryTicker, comparisonTickers, vsAnalysis, includeETFs } = await request.json();
 
     if (!tickers?.trim() && !vsAnalysis) {
       return NextResponse.json({ priceActions: [], error: 'Ticker(s) required.' });
@@ -2125,6 +2406,22 @@ REQUIREMENTS:
           };
         }
 
+        // Add ETF sentence if requested (before priceActionOnly check, on a new paragraph)
+        // For Polygon path, we need to check if attribution was already added and handle it
+        if (includeETFs) {
+          const etfs = await fetchETFs(symbol);
+          if (etfs.length > 0) {
+            const etfSentence = formatETFSentence(companyName, etfs);
+            if (etfSentence) {
+              // Remove any existing attribution from priceActionText if present
+              priceActionText = priceActionText.replace(/,\s*according to Benzinga Pro data\.?$/, '');
+              priceActionText = priceActionText.replace(/,\s*according to Polygon\.?$/, '');
+              priceActionText = priceActionText.replace(/,\s*according to Polygon data\.?$/, '');
+              priceActionText += '\n\n' + etfSentence + ', according to Benzinga Pro data.';
+            }
+          }
+        }
+
         if (priceActionOnly) {
           // Only return the price action line
           return {
@@ -2383,7 +2680,7 @@ REQUIREMENTS:
           } else if (currentPrice < yearLow) {
             // Stock is below reported 52-week low - this means it's setting a new 52-week low
             rangeText = `. The stock is trading at a new 52-week low`;
-          } else {
+            } else {
             // Calculate position within 52-week range (0 = at low, 1 = at high)
             const rangePosition = (currentPrice - yearLow) / (yearHigh - yearLow);
             
@@ -2403,7 +2700,28 @@ REQUIREMENTS:
           }
         }
 
-        priceActionText += ', according to Benzinga Pro data.';
+        // Don't add attribution here if ETFs will be added - add it at the end instead
+        if (!includeETFs) {
+          priceActionText += ', according to Benzinga Pro data.';
+        }
+        
+        // Add ETF sentence if requested (on a new paragraph)
+        if (includeETFs) {
+          const etfs = await fetchETFs(symbol);
+          if (etfs.length > 0) {
+            const etfSentence = formatETFSentence(companyName, etfs);
+            if (etfSentence) {
+              priceActionText += '\n\n' + etfSentence + ', according to Benzinga Pro data.';
+            } else {
+              // If no ETF sentence, add attribution here
+              priceActionText += ', according to Benzinga Pro data.';
+            }
+          } else {
+            // If no ETFs found, add attribution here
+            priceActionText += ', according to Benzinga Pro data.';
+          }
+        }
+        
         console.log(`[${symbol}] Final priceActionText:`, priceActionText);
 
         if (briefAnalysis) {

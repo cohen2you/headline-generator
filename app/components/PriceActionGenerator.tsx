@@ -103,6 +103,36 @@ const PriceActionGenerator = forwardRef<PriceActionGeneratorRef>((props, ref) =>
     }
   }
 
+  async function generatePriceActionWithETFs() {
+    if (!tickers.trim()) {
+      setPriceActionError('Please enter ticker(s) first.');
+      return;
+    }
+    setPriceActions([]);
+    setPriceActionError('');
+    setLoadingPriceAction(true);
+    try {
+      const res = await fetch('/api/generate/price-action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          tickers,
+          priceActionOnly: true,
+          includeETFs: true
+        }),
+      });
+      if (!res.ok) throw new Error('Failed to generate price action with ETFs');
+      const data = await res.json();
+      setPriceActions(data.priceActions);
+    } catch (error: unknown) {
+      console.error('Error generating price action with ETFs:', error);
+      if (error instanceof Error) setPriceActionError(error.message);
+      else setPriceActionError(String(error));
+    } finally {
+      setLoadingPriceAction(false);
+    }
+  }
+
   async function generateBriefAnalysis() {
     if (!tickers.trim()) {
       setPriceActionError('Please enter ticker(s) first.');
@@ -232,11 +262,19 @@ const PriceActionGenerator = forwardRef<PriceActionGeneratorRef>((props, ref) =>
     const hasBenzingaPro = mainText.includes('Benzinga Pro');
     const cleanText = mainText.replace(/,\s*according to Benzinga Pro data\.?$/, '');
     
+    // Split by double newlines to create separate paragraphs
+    const paragraphs = cleanText.split(/\n\n/);
+    
     return (
       <span className="mb-1 text-gray-900 dark:text-gray-100" ref={el => { priceActionRefs.current[idx] = el; }}>
         <strong>{beforeText}</strong>
         <span className="font-normal">
-          {cleanText}
+          {paragraphs.map((para, pIdx) => (
+            <span key={pIdx}>
+              {pIdx > 0 && <><br /><br /></>}
+              <span dangerouslySetInnerHTML={{ __html: para.replace(/\n/g, '<br>') }} />
+            </span>
+          ))}
           {hasBenzingaPro && (
             <>
               , <a
@@ -379,6 +417,13 @@ const PriceActionGenerator = forwardRef<PriceActionGeneratorRef>((props, ref) =>
           className="bg-yellow-500 text-white px-4 py-2 rounded disabled:bg-yellow-300"
         >
           {loadingPriceAction ? 'Generating...' : 'Price Action Only'}
+        </button>
+        <button
+          onClick={() => generatePriceActionWithETFs()}
+          disabled={loadingPriceAction || !tickers.trim()}
+          className="bg-yellow-500 text-white px-4 py-2 rounded disabled:bg-yellow-300"
+        >
+          {loadingPriceAction ? 'Generating...' : 'Price Action w/ ETFs'}
         </button>
         <button
           onClick={() => generateBriefAnalysis()}
