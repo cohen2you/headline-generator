@@ -1116,16 +1116,7 @@ CRITICAL RULES:
 - DO NOT use separate headers or labels
 - DO NOT repeat the price action information - build upon it
 - DO NOT include phrases like "marking one of the stock's bigger moves in a single day" or similar statements about the significance of the daily move
-- Use PERCENTAGES for moving averages (e.g., "trading 4.4% above its 50-day moving average" OR "trading above its 50-day moving average of $259.58")
-- DO NOT combine dollar value AND percentage in confusing ways (e.g., DON'T say "above its 50-day moving average of $259.58, which is approximately 2.3% higher")
-- PREFERRED FORMAT: "trading approximately 2.3% above its 50-day moving average" (percentage only, more concise)
-- NEVER use ambiguous phrasing with "which is" when describing moving average distance (e.g., DON'T say "below its 50-day moving average, which is approximately X% lower" or "which is currently X% lower" or "which is X% lower")
-- These phrases are confusing because they make it unclear whether the stock or the moving average is X% lower
-- ALWAYS use clear, direct phrasing: "trading X% below its 50-day moving average" or "the stock is X% below its 50-day moving average" or "sitting X% below its 50-day moving average"
-- CORRECT EXAMPLES: "trading 15.5% below its 50-day moving average" or "the stock is 15.5% below its 50-day moving average"
-- WRONG EXAMPLES: "below its 50-day moving average, which is 15.5% lower" or "below its 50-day moving average, which is currently 15.5% lower"
-- The percentage always refers to how far the STOCK is from the moving average, not the other way around
-- CRITICAL: Verify the direction by comparing Current Price to the Moving Average dollar value provided. If Current Price > Moving Average, the stock is ABOVE. If Current Price < Moving Average, the stock is BELOW. Use the exact percentage and direction provided in the Technical Indicators section.
+- DO NOT mention moving averages (50-day, 100-day, 200-day, etc.) at all in the analysis
 - Use ${dayOfWeek} when mentioning volume timing
 - Include support/resistance levels and overall technical outlook
 - Break content into SHORT paragraphs - MAXIMUM 2 sentences per paragraph
@@ -1237,23 +1228,14 @@ CRITICAL RULES:
 - DO NOT use separate headers or labels
 - DO NOT repeat the price action information - build upon it
 - DO NOT include phrases like "marking one of the stock's bigger moves in a single day" or similar statements about the significance of the daily move
+- DO NOT mention moving averages (50-day, 100-day, 200-day, etc.) at all in the analysis
 - ALWAYS use day of week (Monday, Tuesday, etc.) - NEVER use "today", "yesterday", or "this week"
 - ${isAfterHours ? 'The price action shows SEPARATE regular session and after-hours changes - DO NOT reference the combined daily change percentage, reference the specific session changes mentioned in the price action context' : 'Use the daily change percentage when referencing price movement'}
-- Use PERCENTAGES for moving averages (e.g., "trading 4.4% above its 50-day moving average" OR "trading above its 50-day moving average of $259.58")
-- DO NOT combine dollar value AND percentage in confusing ways (e.g., DON'T say "above its 50-day moving average of $259.58, which is approximately 2.3% higher")
-- PREFERRED FORMAT: "trading approximately 2.3% above its 50-day moving average" (percentage only, more concise)
-- NEVER use ambiguous phrasing with "which is" when describing moving average distance (e.g., DON'T say "below its 50-day moving average, which is approximately X% lower" or "which is currently X% lower" or "which is X% lower")
-- These phrases are confusing because they make it unclear whether the stock or the moving average is X% lower
-- ALWAYS use clear, direct phrasing: "trading X% below its 50-day moving average" or "the stock is X% below its 50-day moving average" or "sitting X% below its 50-day moving average"
-- CORRECT EXAMPLES: "trading 15.5% below its 50-day moving average" or "the stock is 15.5% below its 50-day moving average"
-- WRONG EXAMPLES: "below its 50-day moving average, which is 15.5% lower" or "below its 50-day moving average, which is currently 15.5% lower"
-- The percentage always refers to how far the STOCK is from the moving average, not the other way around
-- VERIFY THE DIRECTION (e.g., if price is $710 and MA is $670, the price is ABOVE the MA, not below)
 - ${hasVolume ? `When mentioning volume, ALWAYS compare to the 30-day average volume provided (e.g., "above average at X million vs Y million average" or "below average")` : 'DO NOT mention volume or volume analysis at all - market is still open and volume is incomplete/misleading'}
 - For support/resistance levels, use the CALCULATED support/resistance levels provided (based on recent swing highs/lows from chart data)
-- If calculated support is N/A (common for high-momentum stocks), use the 50-day MA as the primary support level instead
+- If calculated support is N/A (common for high-momentum stocks), use the 52-week low or psychological round numbers as support instead
 - If calculated resistance is N/A, use the 52-week high or psychological round numbers as resistance
-- You can also reference the 50-day MA, 200-day MA, 52-week high/low, or psychological round numbers as additional levels
+- You can also reference the 52-week high/low or psychological round numbers as additional levels
 - DO NOT use intraday highs/lows for support/resistance - these are temporary and not meaningful
 - If YTD performance is provided, weave it naturally into the analysis to provide year-long context (e.g., "up 45% year-to-date despite today's pullback")
 - If related companies comparison data is provided, briefly mention the market cap positioning relative to peers in ONE sentence (e.g., "among the largest", "mid-sized player", etc.)
@@ -1916,40 +1898,11 @@ export async function POST(request: Request) {
             }
           }
 
-          // Build technical context - choose EITHER MA or RSI, not both
+          // Build technical context - DO NOT include moving averages
           let technicalContext = '';
           
-          // First check for significant MA signals
-          if (polygonData.sma50 && polygonData.sma200) {
-            const distanceFrom50 = ((currentPrice - polygonData.sma50) / polygonData.sma50) * 100;
-            const distanceFrom200 = ((currentPrice - polygonData.sma200) / polygonData.sma200) * 100;
-            
-            // Check for golden cross or death cross (priority)
-            if (polygonData.sma50 > polygonData.sma200 && Math.abs(polygonData.sma50 - polygonData.sma200) / polygonData.sma200 < 0.02) {
-              technicalContext = ` as the 50-day moving average crosses above the 200-day`;
-            } else if (polygonData.sma50 < polygonData.sma200 && Math.abs(polygonData.sma50 - polygonData.sma200) / polygonData.sma200 < 0.02) {
-              technicalContext = ` while the 50-day moving average tests the 200-day from below`;
-            } 
-            // Otherwise show percentage distance from MA
-            else if (Math.abs(distanceFrom50) > 3) {
-              // Use 50-day if distance is significant
-              if (distanceFrom50 > 0) {
-                technicalContext = `. The stock is trading ${distanceFrom50.toFixed(1)}% above its 50-day moving average`;
-              } else {
-                technicalContext = `. The stock is trading ${Math.abs(distanceFrom50).toFixed(1)}% below its 50-day moving average`;
-              }
-            } else if (Math.abs(distanceFrom200) > 5) {
-              // Use 200-day if distance is significant
-              if (distanceFrom200 > 0) {
-                technicalContext = `. The stock is trading ${distanceFrom200.toFixed(1)}% above its 200-day moving average`;
-              } else {
-                technicalContext = `. The stock is trading ${Math.abs(distanceFrom200).toFixed(1)}% below its 200-day moving average`;
-              }
-            }
-          }
-          
-          // If no MA context, use RSI
-          if (!technicalContext && polygonData.rsi !== undefined) {
+          // Use RSI if available (no moving averages)
+          if (polygonData.rsi !== undefined) {
             const rsiValue = polygonData.rsi.toFixed(1);
             if (polygonData.rsiSignal === 'overbought') {
               technicalContext = ` with an RSI of ${rsiValue} suggesting overbought conditions`;
@@ -2044,11 +1997,11 @@ Original text: "${smartPriceActionText}"
 
 Requirements:
 - Keep the header format exactly: "${symbol} Price Action: " at the beginning
-- Keep ALL factual data EXACTLY as provided: percentages, prices, timeframes, RSI values, moving average relationships, 52-week range info
+- Keep ALL factual data EXACTLY as provided: percentages, prices, timeframes, RSI values, 52-week range info
 - CRITICAL: If the text says "X% below its 52-week high" or "X% above its 52-week low", keep those EXACT percentages and phrasing
-- CRITICAL: If the text says "X% above/below its 50-day moving average" or "X% above/below its 200-day moving average", keep those EXACT percentages
 - CRITICAL: DO NOT round, adjust, or modify ANY numbers - copy them character-for-character (e.g., if it says "8.1%" keep it as "8.1%" not "8.8%")
-- CRITICAL: If the text mentions technical indicators (RSI, moving averages, intraday range), you MUST preserve these details with exact numbers
+- CRITICAL: If the text mentions technical indicators (RSI, intraday range), you MUST preserve these details with exact numbers
+- CRITICAL: DO NOT mention moving averages (50-day, 100-day, 200-day, etc.) at all - remove any references to moving averages from the text
 - IMPORTANT: If the text includes "at the time of publication on [Day]" or "in premarket trading" or "in after-hours trading", you MUST keep this phrase intact
 - If the text mentions "intraday range", keep that phrase clear and descriptive
 - Use casual, conversational tone - avoid formal/AI words like "notable", "remarkable", "impressive", "significant"
