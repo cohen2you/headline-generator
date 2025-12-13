@@ -635,7 +635,7 @@ function calculateSupportResistance(historicalData: { h: number; l: number; c: n
   const sixtyDaysAgo = now - (60 * 24 * 60 * 60 * 1000);
   
   // Filter resistance: above current price, within 20% (expanded from 15%), prioritize recent and well-tested
-  let resistanceCandidates = clusteredHighs
+  const resistanceCandidates = clusteredHighs
     .filter(c => c.avgPrice > currentPrice && c.avgPrice < currentPrice * 1.20)
     .map(c => ({
       price: c.avgPrice,
@@ -652,7 +652,7 @@ function calculateSupportResistance(historicalData: { h: number; l: number; c: n
     });
   
   // Filter support: below current price, within 20% (expanded from 15%), prioritize recent and well-tested
-  let supportCandidates = clusteredLows
+  const supportCandidates = clusteredLows
     .filter(c => c.avgPrice < currentPrice && c.avgPrice > currentPrice * 0.80)
     .map(c => ({
       price: c.avgPrice,
