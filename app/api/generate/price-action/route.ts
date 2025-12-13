@@ -523,7 +523,7 @@ async function fetchETFs(symbol: string): Promise<Array<ETFHolder & { ticker?: s
     };
     
     // Filter to only ETFs (exclude non-ETF funds if needed)
-    let allETFs = data
+    const allETFs = data
       .filter((item: ETFHolder) => item.fund_name && parseFloat(item.sharepercentage || '0') > 0)
       .map((item: ETFHolder) => ({
         ...item,
@@ -604,7 +604,7 @@ async function fetchETFs(symbol: string): Promise<Array<ETFHolder & { ticker?: s
     
     const etfs = sortedETFs
       .slice(0, 3)
-      .map(({ _parsedMarketCap, ...etf }) => etf); // Remove the helper field
+      .map(({ _parsedMarketCap: _, ...etf }) => etf); // Remove the helper field
     
     // Log selected ETFs for debugging
     console.log(`Selected top 3 ETFs for ${symbol} (by market cap):`, etfs.map(etf => ({
