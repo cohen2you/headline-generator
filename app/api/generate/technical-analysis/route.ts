@@ -553,68 +553,125 @@ function analyzeTurningPoints(
 
 // Calculate support/resistance from historical data
 function calculateSupportResistance(historicalData: { h: number; l: number; c: number; t?: number }[], currentPrice: number) {
-  if (!historicalData || historicalData.length < 20) {
+  if (!historicalData || historicalData.length < 30) {
+    console.log('[SUPPORT/RESISTANCE] Not enough data (need at least 30 days)');
     return { support: null, resistance: null };
   }
 
-  const last20Days = historicalData.slice(-20);
-  const last60Days = historicalData.slice(-60);
+  // Use larger timeframes for more significant levels
+  const last90Days = historicalData.slice(-90);  // Last 3 months
+  const last180Days = historicalData.slice(-180); // Last 6 months
+  const last252Days = historicalData.slice(-252); // Last year (trading days)
   
-  const findSwings = (data: typeof historicalData) => {
+  // Use larger swing detection window (5 days instead of 2) for more significant swings
+  const findSwings = (data: typeof historicalData, windowSize: number = 5) => {
     const swingHighs: Array<{price: number; timestamp: number}> = [];
     const swingLows: Array<{price: number; timestamp: number}> = [];
     
-    for (let i = 2; i < data.length - 2; i++) {
+    for (let i = windowSize; i < data.length - windowSize; i++) {
       const current = data[i];
-      const prev2 = data[i - 2];
-      const prev1 = data[i - 1];
-      const next1 = data[i + 1];
-      const next2 = data[i + 2];
+      let isSwingHigh = true;
+      let isSwingLow = true;
       
-      if (current.h > prev2.h && current.h > prev1.h && current.h > next1.h && current.h > next2.h) {
+      // Check if current high is higher than all surrounding days within the window
+      for (let j = i - windowSize; j <= i + windowSize; j++) {
+        if (j !== i) {
+          if (current.h <= data[j].h) isSwingHigh = false;
+          if (current.l >= data[j].l) isSwingLow = false;
+        }
+      }
+      
+      if (isSwingHigh) {
         swingHighs.push({price: current.h, timestamp: current.t || 0});
       }
-      if (current.l < prev2.l && current.l < prev1.l && current.l < next1.l && current.l < next2.l) {
+      if (isSwingLow) {
         swingLows.push({price: current.l, timestamp: current.t || 0});
       }
     }
     return { swingHighs, swingLows };
   };
   
-  const recent = findSwings(last20Days);
-  const extended = findSwings(last60Days);
-  const allSwingHighs = [...recent.swingHighs, ...extended.swingHighs];
-  const allSwingLows = [...recent.swingLows, ...extended.swingLows];
+  // Find swings with larger window (5 days) for more significant levels
+  const recent = findSwings(last90Days, 5);
+  const extended = findSwings(last180Days, 5);
+  const fullYear = findSwings(last252Days, 5);
   
-  const uniqueHighs = allSwingHighs.filter((swing, index, arr) => 
-    arr.findIndex(s => Math.abs(s.price - swing.price) < 0.5) === index
-  );
-  const uniqueLows = allSwingLows.filter((swing, index, arr) => 
-    arr.findIndex(s => Math.abs(s.price - swing.price) < 0.5) === index
-  );
+  // Combine all swings, prioritizing more recent ones
+  const allSwingHighs = [...recent.swingHighs, ...extended.swingHighs, ...fullYear.swingHighs];
+  const allSwingLows = [...recent.swingLows, ...extended.swingLows, ...fullYear.swingLows];
+  
+  console.log(`[SUPPORT/RESISTANCE] Found ${allSwingHighs.length} swing highs and ${allSwingLows.length} swing lows`);
+  
+  // Cluster swings that are close together (within $1.00) and count touches
+  // This helps identify levels that have been tested multiple times (more significant)
+  const clusterSwings = (swings: Array<{price: number; timestamp: number}>, clusterSize: number = 1.0) => {
+    const clusters: Array<{price: number; touches: number; avgPrice: number}> = [];
+    
+    swings.forEach(swing => {
+      // Find existing cluster within clusterSize
+      const existingCluster = clusters.find(c => Math.abs(c.avgPrice - swing.price) <= clusterSize);
+      
+      if (existingCluster) {
+        // Add to existing cluster
+        existingCluster.touches++;
+        existingCluster.avgPrice = (existingCluster.avgPrice * (existingCluster.touches - 1) + swing.price) / existingCluster.touches;
+      } else {
+        // Create new cluster
+        clusters.push({ price: swing.price, touches: 1, avgPrice: swing.price });
+      }
+    });
+    
+    return clusters.sort((a, b) => b.touches - a.touches); // Sort by number of touches (most tested first)
+  };
+  
+  const clusteredHighs = clusterSwings(allSwingHighs, 1.0);
+  const clusteredLows = clusterSwings(allSwingLows, 1.0);
+  
+  console.log(`[SUPPORT/RESISTANCE] Found ${allSwingHighs.length} swing highs and ${allSwingLows.length} swing lows`);
+  console.log(`[SUPPORT/RESISTANCE] After clustering: ${clusteredHighs.length} resistance clusters, ${clusteredLows.length} support clusters`);
+  console.log(`[SUPPORT/RESISTANCE] Current price: $${currentPrice.toFixed(2)}`);
   
   const now = Date.now();
-  const twentyDaysAgo = now - (20 * 24 * 60 * 60 * 1000);
+  const sixtyDaysAgo = now - (60 * 24 * 60 * 60 * 1000);
   
-  let resistanceCandidates = uniqueHighs
-    .filter(s => s.price > currentPrice && s.price < currentPrice * 1.15 && s.timestamp > twentyDaysAgo)
-    .sort((a, b) => a.price - b.price);
+  // Filter resistance: above current price, within 20% (expanded from 15%), prioritize recent and well-tested
+  let resistanceCandidates = clusteredHighs
+    .filter(c => c.avgPrice > currentPrice && c.avgPrice < currentPrice * 1.20)
+    .map(c => ({
+      price: c.avgPrice,
+      touches: c.touches,
+      // Check if any swing in this cluster is recent
+      isRecent: allSwingHighs.some(s => Math.abs(s.price - c.avgPrice) <= 1.0 && s.timestamp > sixtyDaysAgo)
+    }))
+    .sort((a, b) => {
+      // Prioritize: 1) Recent levels, 2) More touches, 3) Closer to current price
+      if (a.isRecent && !b.isRecent) return -1;
+      if (!a.isRecent && b.isRecent) return 1;
+      if (a.touches !== b.touches) return b.touches - a.touches;
+      return a.price - b.price;
+    });
   
-  if (resistanceCandidates.length === 0) {
-    resistanceCandidates = uniqueHighs
-      .filter(s => s.price > currentPrice && s.price < currentPrice * 1.15)
-      .sort((a, b) => a.price - b.price);
-  }
+  // Filter support: below current price, within 20% (expanded from 15%), prioritize recent and well-tested
+  let supportCandidates = clusteredLows
+    .filter(c => c.avgPrice < currentPrice && c.avgPrice > currentPrice * 0.80)
+    .map(c => ({
+      price: c.avgPrice,
+      touches: c.touches,
+      // Check if any swing in this cluster is recent
+      isRecent: allSwingLows.some(s => Math.abs(s.price - c.avgPrice) <= 1.0 && s.timestamp > sixtyDaysAgo)
+    }))
+    .sort((a, b) => {
+      // Prioritize: 1) Recent levels, 2) More touches, 3) Closer to current price
+      if (a.isRecent && !b.isRecent) return -1;
+      if (!a.isRecent && b.isRecent) return 1;
+      if (a.touches !== b.touches) return b.touches - a.touches;
+      return b.price - a.price; // Descending for support (higher is better)
+    });
   
-  let supportCandidates = uniqueLows
-    .filter(s => s.price < currentPrice && s.price > currentPrice * 0.85 && s.timestamp > twentyDaysAgo)
-    .sort((a, b) => b.price - a.price);
-  
-  if (supportCandidates.length === 0) {
-    supportCandidates = uniqueLows
-      .filter(s => s.price < currentPrice && s.price > currentPrice * 0.85)
-      .sort((a, b) => b.price - a.price);
-  }
+  console.log(`[SUPPORT/RESISTANCE] Resistance candidates (above $${currentPrice.toFixed(2)}, within 20%):`, 
+    resistanceCandidates.map(c => `$${c.price.toFixed(2)} (${c.touches} touches${c.isRecent ? ', recent' : ''})`).join(', ') || 'none');
+  console.log(`[SUPPORT/RESISTANCE] Support candidates (below $${currentPrice.toFixed(2)}, within 20%):`, 
+    supportCandidates.map(c => `$${c.price.toFixed(2)} (${c.touches} touches${c.isRecent ? ', recent' : ''})`).join(', ') || 'none');
   
   // Round to nearest $0.50 for cleaner levels (traders don't need penny precision)
   const resistance = resistanceCandidates.length > 0 
@@ -623,6 +680,8 @@ function calculateSupportResistance(historicalData: { h: number; l: number; c: n
   const support = supportCandidates.length > 0 
     ? Math.round(supportCandidates[0].price * 2) / 2  // Round to nearest $0.50
     : null;
+  
+  console.log(`[SUPPORT/RESISTANCE] Final levels - Support: $${support?.toFixed(2) || 'N/A'}, Resistance: $${resistance?.toFixed(2) || 'N/A'}`);
   
   return { support, resistance };
 }
@@ -1044,11 +1103,16 @@ CRITICAL RULES - PARAGRAPH LENGTH IS MANDATORY:
     }
 
     // Use provider-specific model and token limits
+    // Get the actual current provider (may have changed if fallback occurred)
     const currentProvider = aiProvider.getCurrentProvider();
     const model = currentProvider === 'gemini' 
       ? 'gemini-2.5-flash' 
       : 'gpt-4o-mini';
     const maxTokens = currentProvider === 'gemini' ? 8192 : 800;
+
+    // Only pass provider override if it's actually available
+    // This prevents forcing an unavailable provider
+    const providerOverride = (provider && provider === currentProvider) ? provider : undefined;
 
     const response = await aiProvider.generateCompletion(
       [{ role: 'user', content: prompt }],
@@ -1057,7 +1121,7 @@ CRITICAL RULES - PARAGRAPH LENGTH IS MANDATORY:
         temperature: 0.3,
         maxTokens,
       },
-      provider
+      providerOverride
     );
 
     return response.content.trim();
