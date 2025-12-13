@@ -604,7 +604,11 @@ async function fetchETFs(symbol: string): Promise<Array<ETFHolder & { ticker?: s
     
     const etfs = sortedETFs
       .slice(0, 3)
-      .map(({ _parsedMarketCap: _, ...etf }) => etf); // Remove the helper field
+      .map((etf) => {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { _parsedMarketCap, ...rest } = etf;
+        return rest;
+      }); // Remove the helper field
     
     // Log selected ETFs for debugging
     console.log(`Selected top 3 ETFs for ${symbol} (by market cap):`, etfs.map(etf => ({
