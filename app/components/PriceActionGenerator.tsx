@@ -421,28 +421,28 @@ const PriceActionGenerator = forwardRef<PriceActionGeneratorRef>((props, ref) =>
         <button
           onClick={() => generatePriceActionWithETFs()}
           disabled={loadingPriceAction || !tickers.trim()}
-          className="bg-yellow-500 text-white px-4 py-2 rounded disabled:bg-yellow-300"
+          className="bg-blue-500 text-white px-4 py-2 rounded disabled:bg-blue-300"
         >
           {loadingPriceAction ? 'Generating...' : 'Price Action w/ ETFs'}
         </button>
         <button
           onClick={() => generateBriefAnalysis()}
           disabled={loadingPriceAction || !tickers.trim()}
-          className="bg-yellow-400 text-white px-4 py-2 rounded disabled:bg-yellow-300"
+          className="bg-orange-500 text-white px-4 py-2 rounded disabled:bg-orange-300"
         >
           {loadingPriceAction ? 'Generating...' : 'Brief Analysis'}
         </button>
         <button
           onClick={generatePriceAction}
           disabled={loadingPriceAction || !tickers.trim()}
-          className="bg-yellow-600 text-white px-4 py-2 rounded disabled:bg-yellow-300"
+          className="bg-purple-600 text-white px-4 py-2 rounded disabled:bg-purple-300"
         >
           {loadingPriceAction ? 'Generating Price Action...' : 'Full Analysis'}
         </button>
         <button
           onClick={generateGroupedPriceAction}
           disabled={loadingPriceAction || !tickers.trim()}
-          className="bg-yellow-700 text-white px-4 py-2 rounded disabled:bg-yellow-300"
+          className="bg-slate-600 text-white px-4 py-2 rounded disabled:bg-slate-300"
         >
           {loadingPriceAction ? 'Generating...' : 'Grouped Price Action'}
         </button>

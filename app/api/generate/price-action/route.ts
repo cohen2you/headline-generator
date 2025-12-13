@@ -478,16 +478,140 @@ async function fetchETFs(symbol: string): Promise<Array<ETFHolder & { ticker?: s
       return [];
     }
     
-    // Log first item to see if ticker/exchange are now in the API response
+    // Log first item to see all available fields in the API response
     if (data.length > 0) {
       console.log(`ETF API response sample for ${symbol}:`, JSON.stringify(data[0], null, 2));
+      console.log(`Available fields in ETF response for ${symbol}:`, Object.keys(data[0]));
+      
+      // Check for AUM or similar fields
+      const sample = data[0];
+      const aumFields = Object.keys(sample).filter(key => 
+        key.toLowerCase().includes('aum') || 
+        key.toLowerCase().includes('assets') || 
+        key.toLowerCase().includes('under') ||
+        key.toLowerCase().includes('management')
+      );
+      if (aumFields.length > 0) {
+        console.log(`Found potential AUM fields:`, aumFields);
+        aumFields.forEach(field => {
+          console.log(`  ${field}:`, sample[field]);
+        });
+      }
     }
     
-    // Filter to only ETFs (exclude non-ETF funds if needed) and sort by share percentage
-    const etfs = data
+    // Helper function to parse market cap string (e.g., "$3,224.44B" -> 3224.44, "$892.18B" -> 892.18)
+    const parseMarketCap = (marketCapStr: string): number => {
+      if (!marketCapStr) return 0;
+      // Remove $ and commas, then check for T/B/M suffix
+      const cleaned = marketCapStr.replace(/[$,]/g, '').trim().toUpperCase();
+      let multiplier = 1;
+      let numStr = cleaned;
+      
+      if (cleaned.endsWith('T')) {
+        multiplier = 1000; // Trillions to billions
+        numStr = cleaned.slice(0, -1);
+      } else if (cleaned.endsWith('B')) {
+        multiplier = 1; // Already in billions
+        numStr = cleaned.slice(0, -1);
+      } else if (cleaned.endsWith('M')) {
+        multiplier = 0.001; // Millions to billions
+        numStr = cleaned.slice(0, -1);
+      }
+      
+      const num = parseFloat(numStr);
+      return isNaN(num) ? 0 : num * multiplier;
+    };
+    
+    // Filter to only ETFs (exclude non-ETF funds if needed)
+    let allETFs = data
       .filter((item: ETFHolder) => item.fund_name && parseFloat(item.sharepercentage || '0') > 0)
-      .sort((a: ETFHolder, b: ETFHolder) => parseFloat(b.sharepercentage) - parseFloat(a.sharepercentage))
-      .slice(0, 3); // Get top 3 ETFs
+      .map((item: ETFHolder) => ({
+        ...item,
+        _parsedMarketCap: parseMarketCap(item.marketcapital || '')
+      }));
+    
+    // The marketcapital field from the holders API appears to be the stock's market cap, not the ETF's AUM
+    // We need to look up the actual ETF AUM from the Benzinga quote API for all ETFs
+    console.log(`Looking up actual ETF AUM from Benzinga quote API for ${allETFs.length} ETFs`);
+    
+    // Look up actual ETF AUMs in parallel (limit to top 20 to avoid too many API calls)
+    const aumLookups = await Promise.all(
+      allETFs.slice(0, 20).map(async (etf) => {
+        const ticker = etf.fund_symbol || etf.ticker || etf.symbol;
+        if (!ticker) {
+          console.log(`No ticker for ${etf.fund_name}, skipping AUM lookup`);
+          return { etf, aum: 0 };
+        }
+        
+        try {
+          const quoteUrl = `https://api.benzinga.com/api/v2/quoteDelayed?token=${process.env.BENZINGA_API_KEY}&symbols=${ticker}`;
+          const quoteRes = await fetch(quoteUrl);
+          if (quoteRes.ok) {
+            const quoteData = await quoteRes.json();
+            const quote = quoteData && quoteData[ticker];
+            if (quote) {
+              // Try to get AUM from marketcap field, or calculate from shares outstanding * price
+              let aum = 0;
+              if (quote.marketcap) {
+                aum = parseMarketCap(quote.marketcap);
+                console.log(`Found AUM for ${ticker} (${etf.fund_name}): ${quote.marketcap} -> ${aum}B`);
+              } else if (quote.sharesOutstanding && quote.lastTradePrice) {
+                // Calculate AUM: shares outstanding * price
+                aum = (parseFloat(quote.sharesOutstanding) * parseFloat(quote.lastTradePrice)) / 1000000000;
+                console.log(`Calculated AUM for ${ticker} (${etf.fund_name}): ${aum.toFixed(2)}B (${quote.sharesOutstanding} shares * $${quote.lastTradePrice})`);
+              }
+              return { etf, aum };
+            }
+          }
+        } catch (error) {
+          console.log(`Failed to lookup AUM for ${ticker}:`, error);
+        }
+        return { etf, aum: 0 };
+      })
+    );
+    
+    // Update AUMs in allETFs array (replace the incorrect marketcapital with actual AUM)
+    aumLookups.forEach(({ etf, aum }) => {
+      const index = allETFs.findIndex(e => e.fund_id === etf.fund_id);
+      if (index !== -1) {
+        allETFs[index]._parsedMarketCap = aum;
+        if (aum > 0) {
+          allETFs[index].marketcapital = `$${aum.toFixed(2)}B`; // Update with actual AUM
+        }
+      }
+    });
+    
+    // Log market caps for debugging
+    console.log(`ETF market caps for ${symbol} (before sorting):`, allETFs.map(etf => ({
+      name: etf.fund_name,
+      marketCap: etf.marketcapital,
+      parsed: etf._parsedMarketCap,
+      ticker: etf.fund_symbol || etf.ticker
+    })));
+    
+    // Sort by market cap (largest first) and take top 3
+    const sortedETFs = allETFs.sort((a, b) => {
+      // If both have market caps, sort by market cap
+      if (a._parsedMarketCap > 0 && b._parsedMarketCap > 0) {
+        return b._parsedMarketCap - a._parsedMarketCap;
+      }
+      // If only one has market cap, prioritize it
+      if (a._parsedMarketCap > 0) return -1;
+      if (b._parsedMarketCap > 0) return 1;
+      // If neither has market cap, fall back to share percentage
+      return parseFloat(b.sharepercentage || '0') - parseFloat(a.sharepercentage || '0');
+    });
+    
+    const etfs = sortedETFs
+      .slice(0, 3)
+      .map(({ _parsedMarketCap, ...etf }) => etf); // Remove the helper field
+    
+    // Log selected ETFs for debugging
+    console.log(`Selected top 3 ETFs for ${symbol} (by market cap):`, etfs.map(etf => ({
+      name: etf.fund_name,
+      marketCap: etf.marketcapital,
+      ticker: etf.fund_symbol || etf.ticker
+    })));
     
     // Lookup tickers for each ETF
     // First check if ticker/exchange are already in the API response (new feature)

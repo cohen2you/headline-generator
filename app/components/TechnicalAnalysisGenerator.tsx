@@ -33,6 +33,7 @@ const TechnicalAnalysisGenerator = forwardRef<TechnicalAnalysisGeneratorRef>((pr
   const [error, setError] = useState('');
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [provider, setProvider] = useState<'openai' | 'gemini'>('openai');
+  const [timestamp, setTimestamp] = useState<string>('');
 
   const analysisRefs = useRef<(HTMLDivElement | null)[]>([]);
 
@@ -42,6 +43,32 @@ const TechnicalAnalysisGenerator = forwardRef<TechnicalAnalysisGeneratorRef>((pr
     setLoading(false);
     setError('');
     setCopiedIndex(null);
+    setTimestamp('');
+  };
+
+  // Format timestamp in Eastern Time
+  const formatTimestampET = (): string => {
+    const now = new Date();
+    const etTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));
+    
+    const timeOptions: Intl.DateTimeFormatOptions = {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+      timeZone: 'America/New_York'
+    };
+    
+    const dateOptions: Intl.DateTimeFormatOptions = {
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric',
+      timeZone: 'America/New_York'
+    };
+    
+    const timeStr = etTime.toLocaleTimeString('en-US', timeOptions);
+    const dateStr = etTime.toLocaleDateString('en-US', dateOptions);
+    
+    return `${timeStr} ET on ${dateStr}`;
   };
 
   useImperativeHandle(ref, () => ({
@@ -68,6 +95,7 @@ const TechnicalAnalysisGenerator = forwardRef<TechnicalAnalysisGeneratorRef>((pr
       }
       const data = await res.json();
       setAnalyses(data.analyses || []);
+      setTimestamp(formatTimestampET());
     } catch (error: unknown) {
       console.error('Error generating technical analysis:', error);
       if (error instanceof Error) setError(error.message);
@@ -86,6 +114,12 @@ const TechnicalAnalysisGenerator = forwardRef<TechnicalAnalysisGeneratorRef>((pr
       const copyButton = clone.querySelector('button');
       if (copyButton) {
         copyButton.remove();
+      }
+      
+      // Remove timestamp if present
+      const timestampElement = clone.querySelector('[data-timestamp]');
+      if (timestampElement) {
+        timestampElement.remove();
       }
 
       const htmlContent = clone.innerHTML.trim();
@@ -175,6 +209,15 @@ const TechnicalAnalysisGenerator = forwardRef<TechnicalAnalysisGeneratorRef>((pr
                 ref={el => { analysisRefs.current[i] = el; }}
                 className="p-4 border border-blue-200 rounded bg-blue-50"
               >
+                {timestamp && (
+                  <p 
+                    data-timestamp
+                    className="text-sm text-gray-500 mb-3 italic"
+                  >
+                    Technical analysis data sourced via Massive API at {timestamp}
+                  </p>
+                )}
+                
                 <div className="flex justify-end items-start mb-3">
                   <button
                     onClick={() => copyAnalysisHTML(i)}
