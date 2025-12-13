@@ -926,14 +926,29 @@ async function generateTechnicalAnalysis(data: TechnicalAnalysisData, provider?:
     }
     
     // Check for MA crossovers
+    // Only mention golden/death cross if we have a historical date for it
+    // Otherwise, just describe the current relationship
     const crossovers = [];
     if (data.sma20 && data.sma50) {
       if (data.sma20 > data.sma50) crossovers.push('20-day SMA above 50-day SMA (bullish)');
       else crossovers.push('20-day SMA below 50-day SMA (bearish)');
     }
     if (data.sma50 && data.sma200) {
-      if (data.sma50 > data.sma200) crossovers.push('50-day SMA above 200-day SMA (golden cross)');
-      else crossovers.push('50-day SMA below 200-day SMA (death cross)');
+      if (data.sma50 > data.sma200) {
+        // Only call it "golden cross" if we have a historical date
+        if (data.turningPoints?.goldenCrossDate) {
+          crossovers.push('50-day SMA above 200-day SMA (golden cross)');
+        } else {
+          crossovers.push('50-day SMA above 200-day SMA (bullish long-term trend)');
+        }
+      } else {
+        // Only call it "death cross" if we have a historical date
+        if (data.turningPoints?.deathCrossDate) {
+          crossovers.push('50-day SMA below 200-day SMA (death cross)');
+        } else {
+          crossovers.push('50-day SMA below 200-day SMA (bearish long-term trend)');
+        }
+      }
     }
     
     const prompt = `You are a professional technical analyst writing a comprehensive stock analysis focused on longer-term trends and technical indicators. Today is ${dayOfWeek}, ${today.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}.
@@ -1059,7 +1074,7 @@ CRITICAL RULES - PARAGRAPH LENGTH IS MANDATORY:
 - SECOND PARAGRAPH (2 sentences max, RSI FOCUS): Include RSI level and signal (overbought/oversold/neutral) and explain what it means for the stock. Provide insight into what this RSI level suggests about momentum and potential price action. STOP AFTER 2 SENTENCES.
 - THIRD PARAGRAPH (2 sentences max, MACD FOCUS): Mention MACD status (whether MACD is above or below signal line) in simple terms - e.g., "MACD is below its signal line, indicating bearish pressure" or "MACD is above its signal line, indicating bullish momentum". DO NOT use the word "histogram" - just state whether MACD is above or below the signal line and what it indicates about momentum or trend strength. Provide insight into what this means for traders. STOP AFTER 2 SENTENCES.
 - FOURTH PARAGRAPH (2 sentences max, SUPPORT/RESISTANCE FOCUS): Mention key support and resistance levels (rounded to nearest $0.50, not penny-precise) and explain what traders should anticipate if these levels are hit or breached - will it signal a trend change, continuation, or potential reversal? These are critical for traders. DO NOT repeat support and resistance levels in later paragraphs - mention them once here and move on. STOP AFTER 2 SENTENCES.
-- FIFTH PARAGRAPH (2 sentences max, GOLDEN/DEATH CROSS IF RECENT): If a golden cross or death cross is mentioned in the KEY TURNING POINTS section above, mention it here with the EXACT MONTH NAME provided. Use proper capitalization for the month (e.g., "June" or "September", NOT "JUNE" or "SEPTEMBER" in all caps). The month name is EXPLICITLY STATED in brackets with CRITICAL INSTRUCTIONS - use that exact month name with proper case. DO NOT use the current month (December) unless it's explicitly stated in the turning points. DO NOT use vague terms like "recently" or "recent". If no crossovers are mentioned, discuss moving average relationships and what they indicate about trend strength. STOP AFTER 2 SENTENCES.
+- FIFTH PARAGRAPH (2 sentences max, GOLDEN/DEATH CROSS ONLY IF DATE EXISTS): CRITICAL: Only mention a golden cross or death cross if there is an EXPLICIT DATE listed in the KEY TURNING POINTS section above. If there is NO golden cross date or death cross date in KEY TURNING POINTS, DO NOT mention golden cross or death cross at all - even if the MOVING AVERAGE CROSSOVERS section shows "50-day SMA above 200-day SMA" or similar. NEVER infer, guess, or make up dates for golden/death crosses. NEVER say "the golden cross occurred in [month]" unless that exact date is listed in KEY TURNING POINTS. If a golden cross or death cross date IS listed in KEY TURNING POINTS, mention it here with the EXACT MONTH NAME provided. Use proper capitalization for the month (e.g., "June" or "September", NOT "JUNE" or "SEPTEMBER" in all caps). The month name is EXPLICITLY STATED in brackets with CRITICAL INSTRUCTIONS - use that exact month name with proper case. DO NOT use the current month (December) unless it's explicitly stated in the turning points. DO NOT use vague terms like "recently" or "recent". If no golden/death cross dates are mentioned in KEY TURNING POINTS, discuss moving average relationships and what they indicate about trend strength instead. STOP AFTER 2 SENTENCES.
 - DON'T overwhelm with numbers - use key numbers strategically to support your analysis, not as the main focus
 - Provide CONTEXT and EXPLANATION - explain what the numbers mean and why they matter, rather than just listing percentages
 - NATURALLY weave data points into sentences with context (e.g., "The stock is up 14.92% this week, reflecting strong short-term momentum" not just "Weekly performance: 14.92%")
@@ -1078,8 +1093,8 @@ CRITICAL RULES - PARAGRAPH LENGTH IS MANDATORY:
 - Identify key support and resistance levels and explain why they matter for traders - what happens if these levels are tested?
 - Discuss the stock's position within its 52-week range with context - is it near highs, lows, or middle? What does this positioning suggest about the stock's current state?
 - Provide context throughout - explain the "why" behind the numbers, not just the "what"
-- When turning points are provided, naturally mention them with dates (e.g., "RSI crossed into overbought territory in early January" or "The golden cross in late February signaled the start of the uptrend")
-- PRIORITIZE golden cross and death cross mentions - if they occurred RECENTLY (within last 3-4 months), mention them in paragraph 2 or 3 with the MONTH NAME (e.g., "In June" or "The golden cross in June"). DO NOT use vague terms like "recently" or "recent" - always use the actual month name from the date. DO NOT call a crossover from 6+ months ago "recent" - only mention if it's actually recent relative to the current date.
+- CRITICAL - NEVER INFER OR MAKE UP DATES: Only mention turning points (including golden cross, death cross, RSI events, MACD events, etc.) if there is an EXPLICIT DATE listed in the KEY TURNING POINTS section above. NEVER infer, guess, estimate, or make up dates for any event. NEVER say "the golden cross occurred in [month]" unless that exact date is explicitly listed in KEY TURNING POINTS. If a date is provided in KEY TURNING POINTS, naturally mention it with the exact date information provided (e.g., "RSI crossed into overbought territory in early January" or "The golden cross in late February signaled the start of the uptrend" - but ONLY if those dates are in KEY TURNING POINTS). If no date exists in KEY TURNING POINTS for an event, do not mention that event at all.
+- CRITICAL - GOLDEN/DEATH CROSS RULES: Only mention golden cross or death cross if there is an EXPLICIT DATE in the KEY TURNING POINTS section. NEVER infer, guess, or make up dates. If a golden cross or death cross date IS listed in KEY TURNING POINTS and occurred RECENTLY (within last 3-4 months), mention them in paragraph 2 or 3 with the MONTH NAME (e.g., "In June" or "The golden cross in June"). DO NOT use vague terms like "recently" or "recent" - always use the actual month name from the date. DO NOT call a crossover from 6+ months ago "recent" - only mention if it's actually recent relative to the current date. If no date exists in KEY TURNING POINTS, do not mention golden/death cross at all - even if the MOVING AVERAGE CROSSOVERS section shows the current state.
 - Only mention turning points that are relevant to the current analysis - don't list them all
 - DO NOT mention volume or volume analysis at all
 - REMEMBER: Every single paragraph must be 2 sentences or less - this is non-negotiable
