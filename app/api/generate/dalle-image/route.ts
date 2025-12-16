@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server';
 import OpenAI from 'openai';
+import { aiProvider, AIProvider } from '@/lib/aiProvider';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 export async function POST(request: Request) {
   try {
-    const { prompt, description } = await request.json();
+    const { prompt, description, provider } = await request.json();
 
     if (!prompt?.trim()) {
       return NextResponse.json({ imageUrl: '', altText: '', error: 'Prompt is required.' });
@@ -50,9 +51,29 @@ export async function POST(request: Request) {
     let altText = '';
     if (description) {
       try {
-        const altTextCompletion = await openai.chat.completions.create({
-          model: 'gpt-4o-mini',
-          messages: [{
+        // Set provider if specified (for alt-text generation only)
+        const aiProviderType: AIProvider | undefined = provider && (provider === 'openai' || provider === 'gemini')
+          ? provider
+          : undefined;
+        
+        if (aiProviderType) {
+          try {
+            aiProvider.setProvider(aiProviderType);
+          } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            console.warn(`Provider ${aiProviderType} not available for alt-text, using default:`, errorMessage);
+          }
+        }
+
+        // Use provider-specific model and token limits
+        const currentProvider = aiProvider.getCurrentProvider();
+        const model = currentProvider === 'gemini' 
+          ? 'gemini-2.5-flash' 
+          : 'gpt-4o-mini';
+        const maxTokens = currentProvider === 'gemini' ? 8192 : 100;
+
+        const altTextResponse = await aiProvider.generateCompletion(
+          [{
             role: 'user',
             content: `Create a concise, descriptive alt-text (50-80 characters) for an AI-generated image based on this description:
 
@@ -66,11 +87,15 @@ The alt-text should:
 
 Return ONLY the alt-text, nothing else.`
           }],
-          max_tokens: 100,
-          temperature: 0.3,
-        });
+          {
+            model,
+            temperature: 0.3,
+            maxTokens,
+          },
+          aiProviderType
+        );
 
-        altText = altTextCompletion.choices[0].message?.content?.trim() || description;
+        altText = altTextResponse.content.trim() || description;
       } catch (altError) {
         console.error('Error generating alt-text:', altError);
         // Fallback to description if alt-text generation fails

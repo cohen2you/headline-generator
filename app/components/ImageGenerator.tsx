@@ -25,6 +25,7 @@ const ImageGenerator = forwardRef<ImageGeneratorRef>((props, ref) => {
   const [copiedAltText, setCopiedAltText] = useState(false);
   const [copiedCutline, setCopiedCutline] = useState(false);
   const [error, setError] = useState('');
+  const [provider, setProvider] = useState<'openai' | 'gemini'>('openai');
 
   const cutline = 'Image created using artificial intelligence via DALL-E.';
 
@@ -46,7 +47,7 @@ const ImageGenerator = forwardRef<ImageGeneratorRef>((props, ref) => {
       const res = await fetch('/api/generate/image-ideas', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ articleText }),
+        body: JSON.stringify({ articleText, provider }),
       });
 
       if (!res.ok) throw new Error('Failed to generate image ideas');
@@ -72,7 +73,7 @@ const ImageGenerator = forwardRef<ImageGeneratorRef>((props, ref) => {
       const res = await fetch('/api/generate/dalle-image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: idea.prompt, description: idea.description }),
+        body: JSON.stringify({ prompt: idea.prompt, description: idea.description, provider }),
       });
 
       if (!res.ok) throw new Error('Failed to generate image');
@@ -121,7 +122,8 @@ const ImageGenerator = forwardRef<ImageGeneratorRef>((props, ref) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           prompt: optimizedPrompt,
-          description: customPrompt // Use the simple prompt as description for alt-text
+          description: customPrompt, // Use the simple prompt as description for alt-text
+          provider
         }),
       });
 
@@ -160,6 +162,22 @@ const ImageGenerator = forwardRef<ImageGeneratorRef>((props, ref) => {
   return (
     <section className="p-4 border border-indigo-500 rounded-md max-w-4xl mx-auto">
       <h2 className="text-lg font-semibold mb-4 text-indigo-700">Article Image Generator</h2>
+      
+      {/* AI Provider Selector */}
+      <div className="mb-4">
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          AI Provider (for text generation)
+        </label>
+        <select
+          value={provider}
+          onChange={(e) => setProvider(e.target.value as 'openai' | 'gemini')}
+          className="w-full p-2 border border-indigo-400 rounded"
+        >
+          <option value="openai">OpenAI (GPT-4o)</option>
+          <option value="gemini">Gemini (2.5 Flash)</option>
+        </select>
+        <p className="text-xs text-gray-500 mt-1">Note: Images are always generated with DALL-E. This setting controls text generation (image ideas and alt-text).</p>
+      </div>
 
       {/* Custom Prompt Input */}
       <div className="mb-6 p-4 bg-indigo-50 border border-indigo-300 rounded">

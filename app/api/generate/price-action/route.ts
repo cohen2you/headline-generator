@@ -478,27 +478,6 @@ async function fetchETFs(symbol: string): Promise<Array<ETFHolder & { ticker?: s
       return [];
     }
     
-    // Log first item to see all available fields in the API response
-    if (data.length > 0) {
-      console.log(`ETF API response sample for ${symbol}:`, JSON.stringify(data[0], null, 2));
-      console.log(`Available fields in ETF response for ${symbol}:`, Object.keys(data[0]));
-      
-      // Check for AUM or similar fields
-      const sample = data[0];
-      const aumFields = Object.keys(sample).filter(key => 
-        key.toLowerCase().includes('aum') || 
-        key.toLowerCase().includes('assets') || 
-        key.toLowerCase().includes('under') ||
-        key.toLowerCase().includes('management')
-      );
-      if (aumFields.length > 0) {
-        console.log(`Found potential AUM fields:`, aumFields);
-        aumFields.forEach(field => {
-          console.log(`  ${field}:`, sample[field]);
-        });
-      }
-    }
-    
     // Helper function to parse market cap string (e.g., "$3,224.44B" -> 3224.44, "$892.18B" -> 892.18)
     const parseMarketCap = (marketCapStr: string): number => {
       if (!marketCapStr) return 0;
@@ -522,21 +501,114 @@ async function fetchETFs(symbol: string): Promise<Array<ETFHolder & { ticker?: s
       return isNaN(num) ? 0 : num * multiplier;
     };
     
+    // Helper function to extract AUM from API response
+    const extractAUM = (item: ETFHolder): number => {
+      // Check for common AUM field names (case-insensitive)
+      const aumFields = ['aum', 'assets_under_management', 'total_assets', 'net_assets', 'assets', 'fund_aum'];
+      
+      for (const field of aumFields) {
+        // Check exact match first
+        if (item[field] !== undefined && item[field] !== null) {
+          const value = item[field];
+          // Skip empty strings
+          if (typeof value === 'string' && value.trim() === '') {
+            continue;
+          }
+          // Handle string or number
+          if (typeof value === 'string') {
+            const parsed = parseMarketCap(value);
+            if (parsed > 0) return parsed;
+          } else if (typeof value === 'number' && value > 0) {
+            // If number is very large (> 10000), assume it's in raw dollars, convert to billions
+            // If number is smaller, assume it's already in billions
+            return value > 10000 ? value / 1000000000 : value;
+          }
+        }
+        
+        // Check case-insensitive match
+        const lowerField = field.toLowerCase();
+        for (const key in item) {
+          if (key.toLowerCase() === lowerField && item[key] !== undefined && item[key] !== null) {
+            const value = item[key];
+            // Skip empty strings
+            if (typeof value === 'string' && value.trim() === '') {
+              continue;
+            }
+            if (typeof value === 'string') {
+              const parsed = parseMarketCap(value);
+              if (parsed > 0) return parsed;
+            } else if (typeof value === 'number' && value > 0) {
+              return value > 10000 ? value / 1000000000 : value;
+            }
+          }
+        }
+      }
+      return 0;
+    };
+    
+    // Log first item to see all available fields in the API response
+    if (data.length > 0) {
+      console.log(`ETF API response sample for ${symbol}:`, JSON.stringify(data[0], null, 2));
+      console.log(`Available fields in ETF response for ${symbol}:`, Object.keys(data[0]));
+      
+      // Check for AUM or similar fields
+      const sample = data[0];
+      const aumFields = Object.keys(sample).filter(key => 
+        key.toLowerCase().includes('aum') || 
+        key.toLowerCase().includes('assets') || 
+        key.toLowerCase().includes('under') ||
+        key.toLowerCase().includes('management')
+      );
+      if (aumFields.length > 0) {
+        console.log(`Found potential AUM fields:`, aumFields);
+        aumFields.forEach(field => {
+          console.log(`  ${field}:`, sample[field]);
+        });
+      }
+      
+      // Test AUM extraction on sample
+      const sampleAUM = extractAUM(sample as ETFHolder);
+      if (sampleAUM > 0) {
+        console.log(`✓ AUM found directly in API response: ${sampleAUM.toFixed(2)}B`);
+      } else {
+        console.log(`⚠ AUM not found directly in API response, will use lookup fallback`);
+      }
+      
+      // Log ALL ETFs and their AUM values to see if any have AUM populated
+      console.log(`\n=== ALL ETFs AUM CHECK (${data.length} total) ===`);
+      data.forEach((etf: ETFHolder, index: number) => {
+        const aum = extractAUM(etf);
+        const fundAUM = etf.fund_aum || etf.aum || 'N/A';
+        console.log(`${index + 1}. ${etf.fund_name} (${etf.fund_symbol || 'N/A'}): fund_aum="${fundAUM}", extracted AUM=${aum > 0 ? aum.toFixed(2) + 'B' : '0'}`);
+      });
+      console.log(`=== END AUM CHECK ===\n`);
+    }
+    
     // Filter to only ETFs (exclude non-ETF funds if needed)
+    // First, try to extract AUM directly from API response
     const allETFs = data
       .filter((item: ETFHolder) => item.fund_name && parseFloat(item.sharepercentage || '0') > 0)
-      .map((item: ETFHolder) => ({
-        ...item,
-        _parsedMarketCap: parseMarketCap(item.marketcapital || '')
-      }));
+      .map((item: ETFHolder) => {
+        // Try to get AUM directly from API response first
+        const directAUM = extractAUM(item);
+        return {
+          ...item,
+          _parsedMarketCap: directAUM > 0 ? directAUM : parseMarketCap(item.marketcapital || ''),
+          _aumFromAPI: directAUM > 0 // Flag to indicate if AUM came from API
+        };
+      });
     
-    // The marketcapital field from the holders API appears to be the stock's market cap, not the ETF's AUM
-    // We need to look up the actual ETF AUM from the Benzinga quote API for all ETFs
-    console.log(`Looking up actual ETF AUM from Benzinga quote API for ${allETFs.length} ETFs`);
+    // Count how many ETFs have AUM directly from API
+    const etfsWithDirectAUM = allETFs.filter(etf => etf._aumFromAPI).length;
+    console.log(`Found AUM directly in API for ${etfsWithDirectAUM} out of ${allETFs.length} ETFs`);
+    
+    // For ETFs without AUM from API, look up actual ETF AUM from the Benzinga quote API
+    const etfsNeedingLookup = allETFs.filter(etf => !etf._aumFromAPI || etf._parsedMarketCap === 0);
+    console.log(`Looking up actual ETF AUM from Benzinga quote API for ${etfsNeedingLookup.length} ETFs`);
     
     // Look up actual ETF AUMs in parallel (limit to top 20 to avoid too many API calls)
     const aumLookups = await Promise.all(
-      allETFs.slice(0, 20).map(async (etf) => {
+      etfsNeedingLookup.slice(0, 20).map(async (etf) => {
         const ticker = etf.fund_symbol || etf.ticker || etf.symbol;
         if (!ticker) {
           console.log(`No ticker for ${etf.fund_name}, skipping AUM lookup`);
@@ -570,14 +642,21 @@ async function fetchETFs(symbol: string): Promise<Array<ETFHolder & { ticker?: s
       })
     );
     
-    // Update AUMs in allETFs array (replace the incorrect marketcapital with actual AUM)
+    // Update AUMs in allETFs array (only for ETFs that needed lookup)
     aumLookups.forEach(({ etf, aum }) => {
-      const index = allETFs.findIndex(e => e.fund_id === etf.fund_id);
-      if (index !== -1) {
-        allETFs[index]._parsedMarketCap = aum;
-        if (aum > 0) {
+      if (aum > 0) {
+        const index = allETFs.findIndex(e => e.fund_id === etf.fund_id);
+        if (index !== -1) {
+          allETFs[index]._parsedMarketCap = aum;
           allETFs[index].marketcapital = `$${aum.toFixed(2)}B`; // Update with actual AUM
         }
+      }
+    });
+    
+    // Also update marketcapital for ETFs that had AUM from API
+    allETFs.forEach(etf => {
+      if (etf._aumFromAPI && etf._parsedMarketCap > 0) {
+        etf.marketcapital = `$${etf._parsedMarketCap.toFixed(2)}B`;
       }
     });
     
@@ -606,9 +685,9 @@ async function fetchETFs(symbol: string): Promise<Array<ETFHolder & { ticker?: s
       .slice(0, 3)
       .map((etf) => {
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const { _parsedMarketCap, ...rest } = etf;
+        const { _parsedMarketCap, _aumFromAPI, ...rest } = etf;
         return rest;
-      }); // Remove the helper field
+      }); // Remove the helper fields
     
     // Log selected ETFs for debugging
     console.log(`Selected top 3 ETFs for ${symbol} (by market cap):`, etfs.map(etf => ({

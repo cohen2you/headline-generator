@@ -1,11 +1,9 @@
 import { NextResponse } from 'next/server';
-import OpenAI from 'openai';
-
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+import { aiProvider, AIProvider } from '@/lib/aiProvider';
 
 export async function POST(request: Request) {
   try {
-    const { articleText } = await request.json();
+    const { articleText, provider } = await request.json();
 
     if (!articleText?.trim()) {
       return NextResponse.json({ ideas: [], error: 'Article text is required.' });
@@ -104,16 +102,51 @@ Return JSON format:
   ]
 }`;
 
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o',
-      messages: [{ role: 'user', content: prompt }],
-      max_tokens: 1500,
-      temperature: 0.8,
-      response_format: { type: 'json_object' }
-    });
+    // Set provider if specified
+    const aiProviderType: AIProvider | undefined = provider && (provider === 'openai' || provider === 'gemini')
+      ? provider
+      : undefined;
+    
+    if (aiProviderType) {
+      try {
+        aiProvider.setProvider(aiProviderType);
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        console.warn(`Provider ${aiProviderType} not available, using default:`, errorMessage);
+      }
+    }
 
-    const responseText = completion.choices[0].message?.content?.trim() || '{}';
-    const parsed = JSON.parse(responseText);
+    // Use provider-specific model and token limits
+    const currentProvider = aiProvider.getCurrentProvider();
+    const model = currentProvider === 'gemini' 
+      ? 'gemini-2.5-flash' 
+      : 'gpt-4o';
+    const maxTokens = currentProvider === 'gemini' ? 8192 : 1500;
+
+    const response = await aiProvider.generateCompletion(
+      [{ role: 'user', content: prompt }],
+      {
+        model,
+        temperature: 0.8,
+        maxTokens,
+        responseFormat: { type: 'json_object' },
+      },
+      aiProviderType
+    );
+
+    // Clean JSON response (especially for Gemini)
+    let cleanContent = response.content.trim();
+    cleanContent = cleanContent.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+    const jsonMatch = cleanContent.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      cleanContent = jsonMatch[0];
+    }
+    const lastBracketIndex = cleanContent.lastIndexOf('}');
+    if (lastBracketIndex !== -1) {
+      cleanContent = cleanContent.substring(0, lastBracketIndex + 1);
+    }
+
+    const parsed = JSON.parse(cleanContent);
     
     // Extract ideas array
     const ideas = parsed.ideas || [];
