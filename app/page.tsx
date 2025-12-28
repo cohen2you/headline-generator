@@ -12,6 +12,7 @@ import KeywordSearchGenerator, { KeywordSearchGeneratorRef } from './components/
 import EdgeRankingsGenerator, { EdgeRankingsGeneratorRef } from './components/EdgeRankingsGenerator';
 import AnalystRatingsGenerator, { AnalystRatingsGeneratorRef } from './components/AnalystRatingsGenerator';
 import StockMarketReport, { StockMarketReportRef } from './components/StockMarketReport';
+import EarningsFinancialsGenerator, { EarningsFinancialsGeneratorRef } from './components/EarningsFinancialsGenerator';
 import LeadGenerator, { LeadGeneratorRef } from './components/LeadGenerator';
 import SubheadGenerator, { SubheadGeneratorRef } from './components/SubheadGenerator';
 import AltTextGenerator, { AltTextGeneratorRef } from './components/AltTextGenerator';
@@ -32,6 +33,7 @@ export default function Page() {
   const edgeRankingsGeneratorRef = useRef<EdgeRankingsGeneratorRef>(null);
   const analystRatingsGeneratorRef = useRef<AnalystRatingsGeneratorRef>(null);
   const stockMarketReportRef = useRef<StockMarketReportRef>(null);
+  const earningsFinancialsRef = useRef<EarningsFinancialsGeneratorRef>(null);
   const leadGeneratorRef = useRef<LeadGeneratorRef>(null);
   const subheadGeneratorRef = useRef<SubheadGeneratorRef>(null);
   const altTextGeneratorRef = useRef<AltTextGeneratorRef>(null);
@@ -74,6 +76,9 @@ export default function Page() {
     }
     if (stockMarketReportRef.current?.clearData) {
       stockMarketReportRef.current.clearData();
+    }
+    if (earningsFinancialsRef.current?.clearData) {
+      earningsFinancialsRef.current.clearData();
     }
     if (leadGeneratorRef.current?.clearData) {
       leadGeneratorRef.current.clearData();
@@ -139,6 +144,11 @@ export default function Page() {
         {/* Stock Market Report */}
         <div className="mb-8">
           <StockMarketReport ref={stockMarketReportRef} />
+        </div>
+
+        {/* Earnings & Financials */}
+        <div className="mb-8">
+          <EarningsFinancialsGenerator ref={earningsFinancialsRef} />
         </div>
       </div>
 
