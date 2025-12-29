@@ -36,9 +36,13 @@ type PolygonSnapshot = {
       t: number; // timestamp
     };
     lastQuote?: {
-      p: number; // bid/ask price
-      s: number; // size
-      t: number; // timestamp
+      P?: number; // ask/last price (capital P - current quote price)
+      p?: number; // bid price (lowercase p)
+      S?: number; // ask size (capital S)
+      s?: number; // bid size (lowercase s)
+      b?: number; // bid (alternative structure)
+      a?: number; // ask (alternative structure)
+      t?: number; // timestamp
     };
   };
 }
@@ -1144,11 +1148,85 @@ async function fetchPolygonData(symbol: string): Promise<PolygonData> {
 
     // Extract data from snapshot
     const tickerData = snapshot.ticker;
-    const currentPrice = tickerData?.lastTrade?.p || tickerData?.day?.c || 0;
-    const lastTradeTime = tickerData?.lastTrade?.t ?? null;
-    const todaysChange = tickerData?.todaysChange || 0;
-    const todaysChangePerc = tickerData?.todaysChangePerc || 0;
     const previousClose = tickerData?.prevDay?.c || 0;
+    const dayClose = tickerData?.day?.c || 0;
+    // During premarket/afterhours, Polygon may provide lastQuote (bid/ask) instead of lastTrade
+    // During premarket, lastTrade might be stale from previous day, so prefer lastQuote if available
+    const lastTradePrice = tickerData?.lastTrade?.p;
+    const lastTradeTime = tickerData?.lastTrade?.t;
+    
+    // Polygon's lastQuote structure: P=ask/last price, p=bid price, S=ask size, s=bid size
+    // For premarket, use capital P (ask/last price) which is the more current price
+    const lastQuote = tickerData?.lastQuote;
+    let lastQuotePrice: number | undefined;
+    if (lastQuote) {
+      // Polygon uses capital P for ask/last price, lowercase p for bid
+      // During premarket, use P (capital) as it represents the current quote/ask price
+      if (lastQuote.P !== undefined) {
+        lastQuotePrice = lastQuote.P;
+      } else if (lastQuote.p !== undefined) {
+        // Fallback to lowercase p (bid) if P is not available
+        lastQuotePrice = lastQuote.p;
+      } else if (lastQuote.b !== undefined && lastQuote.a !== undefined) {
+        // Alternative structure: calculate midpoint from bid (b) and ask (a)
+        lastQuotePrice = (lastQuote.b + lastQuote.a) / 2;
+      }
+    }
+    
+    const quoteTime = lastQuote?.t || lastTradeTime || null;
+    
+    // Check if lastTrade is stale (from a previous day) during premarket
+    let isLastTradeStale = false;
+    if (dayClose === 0 && lastTradeTime) {
+      // During premarket, check if lastTrade timestamp is from today
+      const lastTradeDate = new Date(lastTradeTime);
+      const today = new Date();
+      const isFromToday = lastTradeDate.toDateString() === today.toDateString();
+      // Also check if it's very old (more than 24 hours)
+      const hoursSinceTrade = (today.getTime() - lastTradeDate.getTime()) / (1000 * 60 * 60);
+      isLastTradeStale = !isFromToday || hoursSinceTrade > 24;
+    }
+    
+    // Debug logging for premarket price selection
+    console.log(`Price selection for ${symbol}:`, {
+      dayClose,
+      lastTradePrice,
+      lastTradeTime: lastTradeTime ? new Date(lastTradeTime).toISOString() : 'null',
+      isLastTradeStale,
+      lastQuotePrice,
+      lastQuote: lastQuote ? JSON.stringify(lastQuote) : 'null',
+      previousClose
+    });
+    
+    // Determine if we're in premarket (dayClose is 0 indicates premarket)
+    // During premarket, prefer lastQuote over potentially stale lastTrade
+    let currentPrice: number;
+    if (dayClose === 0) {
+      // Premarket: use lastQuote if available (current bid/ask)
+      // If lastQuote not available, only use lastTrade if it's from today (not stale)
+      // Otherwise fall back to previousClose
+      if (lastQuotePrice) {
+        currentPrice = lastQuotePrice;
+        console.log(`Using lastQuote price ${lastQuotePrice} for premarket`);
+      } else if (lastTradePrice && !isLastTradeStale) {
+        currentPrice = lastTradePrice;
+        console.log(`Using lastTrade price ${lastTradePrice} for premarket (not stale)`);
+      } else {
+        // During premarket, if we don't have current quote data and lastTrade is stale,
+        // we should ideally get current quote data, but as fallback use previousClose
+        // This is not ideal but better than using stale data
+        currentPrice = previousClose;
+        console.log(`Using previousClose ${previousClose} for premarket (no current quote data, lastTrade is stale)`);
+      }
+    } else {
+      // Regular hours or after-hours: use lastTrade if available, otherwise lastQuote
+      currentPrice = lastTradePrice || lastQuotePrice || dayClose || previousClose || 0;
+    }
+    
+    const todaysChange = tickerData?.todaysChange || 0;
+    // During premarket, todaysChangePerc from Polygon is often 0 or incorrect
+    // We'll recalculate it later based on currentPrice vs previousClose
+    const todaysChangePerc = tickerData?.todaysChangePerc || 0;
     const volume = tickerData?.day?.v || 0;
     const open = tickerData?.day?.o || 0;
     const high = tickerData?.day?.h || 0;
@@ -1232,7 +1310,7 @@ async function fetchPolygonData(symbol: string): Promise<PolygonData> {
       lastTradePrice: currentPrice,
       previousClosePrice: previousClose,
       sector: industry, // Using industry as sector for now
-      lastTradeTime
+      lastTradeTime: quoteTime
     };
 
     console.log('Polygon data processed:', {
@@ -1929,18 +2007,30 @@ export async function POST(request: Request) {
         const symbol = polygonData.symbol;
         const companyName = polygonData.companyName;
         const shortCompanyName = normalizeCompanyName(companyName.split(' ')[0]);
-        const changePercent = polygonData.changePercent;
-        const lastPrice = formatPrice(polygonData.lastTradePrice);
-
-        if (!symbol || !polygonData.lastTradePrice) {
-          console.log(`Skipping invalid data for symbol: ${symbol}`);
+        
+        // Allow price to be 0 only if we have previousClose as fallback (market closed scenario)
+        // During premarket, we should have either currentPrice (which uses lastQuote) or previousClose price
+        if (!symbol || (!polygonData.currentPrice && !polygonData.lastTradePrice && !polygonData.previousClosePrice)) {
+          console.log(`Skipping invalid data for symbol: ${symbol} - no price data available`);
           return null;
         }
+        
+        // Use currentPrice (which correctly uses lastQuote during premarket) for effectivePrice
+        // This handles premarket/afterhours scenarios where Polygon provides quote data instead of trade data
+        const effectivePrice = polygonData.currentPrice || polygonData.lastTradePrice || polygonData.previousClosePrice || 0;
+        const lastPrice = formatPrice(effectivePrice);
 
         let effectiveMarketStatus = marketStatus;
         const tradeSession = classifySessionFromTimestamp(polygonData.lastTradeTime);
         if (tradeSession && tradeSession !== 'closed') {
           effectiveMarketStatus = tradeSession;
+        }
+        
+        // During premarket, Polygon's todaysChangePerc is often 0 or incorrect
+        // Recalculate change percent from current price vs previous close
+        let changePercent = polygonData.changePercent;
+        if (effectiveMarketStatus === 'premarket' && effectivePrice && polygonData.previousClosePrice) {
+          changePercent = ((effectivePrice - polygonData.previousClosePrice) / polygonData.previousClosePrice) * 100;
         }
 
         const marketStatusPhrase = getMarketStatusPhrase(effectiveMarketStatus);
@@ -1995,8 +2085,8 @@ export async function POST(request: Request) {
         }
 
         // Add 52-week range context if available
-        if (polygonData.fiftyTwoWeekLow && polygonData.fiftyTwoWeekHigh && polygonData.lastTradePrice) {
-          const currentPrice = polygonData.lastTradePrice;
+        if (polygonData.fiftyTwoWeekLow && polygonData.fiftyTwoWeekHigh && effectivePrice) {
+          const currentPrice = effectivePrice;
           const yearLow = polygonData.fiftyTwoWeekLow;
           const yearHigh = polygonData.fiftyTwoWeekHigh;
           
@@ -2074,12 +2164,12 @@ export async function POST(request: Request) {
           // Build smart narrative using Polygon data
           let narrativeType = 'range'; // default
           
-          // Use API data directly - no manual calculations
-          const currentPrice = polygonData.currentPrice;
-          const currentChange = changePercent;
+          // Use effectivePrice for display (handles premarket quote data when lastTrade is 0)
+          const displayPrice = effectivePrice;
           const timePhrase = getTimePhrase(effectiveMarketStatus);
 
-          let sessionChange = currentChange;
+          // sessionChange uses changePercent which is already recalculated for premarket above
+          let sessionChange = changePercent;
           if (effectiveMarketStatus === 'afterhours' && polygonData.close && polygonData.previousClosePrice) {
             sessionChange = hasAfterHoursData ? afterHoursChange : 0;
           }
@@ -2089,9 +2179,9 @@ export async function POST(request: Request) {
 
           let smartPriceActionText = '';
           if (sessionUpDown === 'unchanged') {
-            smartPriceActionText = `${symbol} Price Action: ${shortCompanyName} shares were unchanged at $${currentPrice.toFixed(2)}${timePhrase} on ${dayOfWeek}`;
+            smartPriceActionText = `${symbol} Price Action: ${shortCompanyName} shares were unchanged at $${displayPrice.toFixed(2)}${timePhrase} on ${dayOfWeek}`;
           } else {
-            smartPriceActionText = `${symbol} Price Action: ${shortCompanyName} shares were ${sessionUpDown} ${sessionAbsChange}% at $${currentPrice.toFixed(2)}${timePhrase} on ${dayOfWeek}`;
+            smartPriceActionText = `${symbol} Price Action: ${shortCompanyName} shares were ${sessionUpDown} ${sessionAbsChange}% at $${displayPrice.toFixed(2)}${timePhrase} on ${dayOfWeek}`;
           }
 
           if (effectiveMarketStatus === 'afterhours' && polygonData.close && polygonData.previousClosePrice) {
@@ -2531,12 +2621,14 @@ REQUIREMENTS:
             // Calculate effective 52-week range (adjust if current price is outside reported range)
             let effectiveYearLow = polygonData.fiftyTwoWeekLow;
             let effectiveYearHigh = polygonData.fiftyTwoWeekHigh;
-            if (polygonData.fiftyTwoWeekLow && polygonData.fiftyTwoWeekHigh && polygonData.lastTradePrice) {
-              if (polygonData.lastTradePrice < polygonData.fiftyTwoWeekLow) {
-                effectiveYearLow = polygonData.lastTradePrice; // Current price is new 52-week low
+            // Use currentPrice (which correctly uses lastQuote during premarket) for 52-week range checks
+            const priceForRangeCheck = polygonData.currentPrice || polygonData.lastTradePrice;
+            if (polygonData.fiftyTwoWeekLow && polygonData.fiftyTwoWeekHigh && priceForRangeCheck) {
+              if (priceForRangeCheck < polygonData.fiftyTwoWeekLow) {
+                effectiveYearLow = priceForRangeCheck; // Current price is new 52-week low
               }
-              if (polygonData.lastTradePrice > polygonData.fiftyTwoWeekHigh) {
-                effectiveYearHigh = polygonData.lastTradePrice; // Current price is new 52-week high
+              if (priceForRangeCheck > polygonData.fiftyTwoWeekHigh) {
+                effectiveYearHigh = priceForRangeCheck; // Current price is new 52-week high
               }
             }
             
