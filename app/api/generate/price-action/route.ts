@@ -1179,19 +1179,33 @@ async function fetchPolygonData(symbol: string): Promise<PolygonData> {
     let isLastTradeStale = false;
     if (dayClose === 0 && lastTradeTime) {
       // During premarket, check if lastTrade timestamp is from today
-      const lastTradeDate = new Date(lastTradeTime);
-      const today = new Date();
-      const isFromToday = lastTradeDate.toDateString() === today.toDateString();
-      // Also check if it's very old (more than 24 hours)
-      const hoursSinceTrade = (today.getTime() - lastTradeDate.getTime()) / (1000 * 60 * 60);
-      isLastTradeStale = !isFromToday || hoursSinceTrade > 24;
+      const lastTradeMs = convertPolygonTimestamp(lastTradeTime);
+      if (lastTradeMs !== null) {
+        const lastTradeDate = new Date(lastTradeMs);
+        const today = new Date();
+        const isFromToday = lastTradeDate.toDateString() === today.toDateString();
+        // Also check if it's very old (more than 24 hours)
+        const hoursSinceTrade = (today.getTime() - lastTradeDate.getTime()) / (1000 * 60 * 60);
+        isLastTradeStale = !isFromToday || hoursSinceTrade > 24;
+      }
     }
     
-    // Debug logging for premarket price selection
+    // Debug logging for premarket price selection (safely handle timestamp conversion)
+    const lastTradeTimeFormatted = (() => {
+      if (!lastTradeTime) return 'null';
+      const ms = convertPolygonTimestamp(lastTradeTime);
+      if (ms === null) return 'invalid';
+      try {
+        return new Date(ms).toISOString();
+      } catch {
+        return 'invalid';
+      }
+    })();
+    
     console.log(`Price selection for ${symbol}:`, {
       dayClose,
       lastTradePrice,
-      lastTradeTime: lastTradeTime ? new Date(lastTradeTime).toISOString() : 'null',
+      lastTradeTime: lastTradeTimeFormatted,
       isLastTradeStale,
       lastQuotePrice,
       lastQuote: lastQuote ? JSON.stringify(lastQuote) : 'null',
@@ -1924,13 +1938,30 @@ function applyAfterHoursBuffer(
   return session;
 }
 
-function classifySessionFromTimestamp(timestamp?: number | string | null): ('open' | 'premarket' | 'afterhours' | 'closed') | null {
+// Helper to convert Polygon timestamp (nanoseconds) to milliseconds for JavaScript Date
+function convertPolygonTimestamp(timestamp: number | string | null | undefined): number | null {
   if (timestamp === undefined || timestamp === null) return null;
-
+  
   const parsed = typeof timestamp === 'string' ? parseInt(timestamp, 10) : timestamp;
   if (typeof parsed !== 'number' || !isFinite(parsed)) return null;
+  
+  // Polygon timestamps are in nanoseconds (very large numbers > 1e12)
+  // JavaScript Date expects milliseconds, so divide by 1,000,000
+  // If timestamp is > 1e12, it's likely nanoseconds, convert to milliseconds
+  const milliseconds = parsed > 1e12 ? Math.floor(parsed / 1e6) : parsed;
+  
+  // Validate the converted timestamp
+  const date = new Date(milliseconds);
+  if (isNaN(date.getTime())) return null;
+  
+  return milliseconds;
+}
 
-  const date = new Date(parsed);
+function classifySessionFromTimestamp(timestamp?: number | string | null): ('open' | 'premarket' | 'afterhours' | 'closed') | null {
+  const milliseconds = convertPolygonTimestamp(timestamp);
+  if (milliseconds === null) return null;
+
+  const date = new Date(milliseconds);
   if (isNaN(date.getTime())) return null;
 
   const { dayIndex, hour, minute } = getEasternTimeParts(date);
@@ -2899,7 +2930,10 @@ REQUIREMENTS:
         const upDown = changePercent > 0 ? 'up' : changePercent < 0 ? 'down' : 'unchanged';
         const absChange = Math.abs(changePercent).toFixed(2);
 
-        const date = q.closeDate ? new Date(q.closeDate) : new Date();
+        // For premarket/open/afterhours, use current date. Only use closeDate when market is closed.
+        const date = (marketStatus === 'premarket' || marketStatus === 'open' || marketStatus === 'afterhours') 
+          ? new Date() 
+          : (q.closeDate ? new Date(q.closeDate) : new Date());
         const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
         const dayOfWeek = dayNames[date.getDay()];
 
