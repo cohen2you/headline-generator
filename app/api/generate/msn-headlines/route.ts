@@ -116,9 +116,10 @@ LEVEL 3 (MAXIMUM):
     const text = completion.choices[0].message?.content || '';
     
     // Parse the response to extract headlines by level
-    const level1Matches = text.match(/LEVEL 1[^]*?1\.\s*(.+?)\n2\.\s*(.+?)\n3\.\s*(.+?)(?=\n\n|LEVEL 2|$)/is);
-    const level2Matches = text.match(/LEVEL 2[^]*?1\.\s*(.+?)\n2\.\s*(.+?)\n3\.\s*(.+?)(?=\n\n|LEVEL 3|$)/is);
-    const level3Matches = text.match(/LEVEL 3[^]*?1\.\s*(.+?)\n2\.\s*(.+?)\n3\.\s*(.+?)(?=\n\n|$)/is);
+    // Using [\s\S] instead of . with s flag for ES2017 compatibility
+    const level1Matches = text.match(/LEVEL 1[\s\S]*?1\.\s*(.+?)\n2\.\s*(.+?)\n3\.\s*(.+?)(?=\n\n|LEVEL 2|$)/i);
+    const level2Matches = text.match(/LEVEL 2[\s\S]*?1\.\s*(.+?)\n2\.\s*(.+?)\n3\.\s*(.+?)(?=\n\n|LEVEL 3|$)/i);
+    const level3Matches = text.match(/LEVEL 3[\s\S]*?1\.\s*(.+?)\n2\.\s*(.+?)\n3\.\s*(.+?)(?=\n\n|$)/i);
 
     const parseHeadlines = (matches: RegExpMatchArray | null): string[] => {
       if (!matches) return [];
@@ -131,7 +132,7 @@ LEVEL 3 (MAXIMUM):
 
     // Fallback: if structured parsing fails, try to extract numbered headlines
     const fallbackParse = (text: string, level: string): string[] => {
-      const levelSection = text.split(new RegExp(`${level}[^]*?`, 'i'))[1];
+      const levelSection = text.split(new RegExp(`${level}[\\s\\S]*?`, 'i'))[1];
       if (!levelSection) return [];
       
       const headlines = levelSection
