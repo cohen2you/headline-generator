@@ -2,9 +2,8 @@
 
 import { forwardRef, useImperativeHandle, useState } from 'react';
 
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface ImageGeneratorRef {
-  // No external methods needed for now
+  clearData: () => void;
 }
 
 interface ImageIdea {
@@ -29,7 +28,21 @@ const ImageGenerator = forwardRef<ImageGeneratorRef>((props, ref) => {
 
   const cutline = 'Image created using artificial intelligence via DALL-E.';
 
-  useImperativeHandle(ref, () => ({}));
+  const clearData = () => {
+    setArticleText('');
+    setCustomPrompt('');
+    setImageIdeas([]);
+    setSelectedIdea(null);
+    setGeneratedImageUrl('');
+    setAltText('');
+    setError('');
+    setCopiedAltText(false);
+    setCopiedCutline(false);
+  };
+
+  useImperativeHandle(ref, () => ({
+    clearData
+  }));
 
   async function generateImageIdeas() {
     if (!articleText.trim()) {
