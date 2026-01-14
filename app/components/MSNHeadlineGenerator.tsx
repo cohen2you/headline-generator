@@ -89,13 +89,15 @@ const MSNHeadlineGenerator = forwardRef<MSNHeadlineGeneratorRef>((props, ref) =>
           className="w-full p-3 border border-gray-300 rounded-md resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           placeholder="Paste article text here..."
           value={articleText}
-          onChange={(e) => setArticleText(e.target.value)}
+          onChange={(e) => {
+            setArticleText(e.target.value);
+          }}
         />
       </div>
 
       <button
         onClick={generateHeadlines}
-        disabled={loading || !articleText.trim()}
+        disabled={loading || articleText.trim().length === 0}
         className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-6 py-2 rounded-md transition-colors font-medium"
       >
         {loading ? 'Generating Headlines...' : 'Generate Headlines'}
