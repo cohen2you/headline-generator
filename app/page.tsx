@@ -17,6 +17,7 @@ import LeadGenerator, { LeadGeneratorRef } from './components/LeadGenerator';
 import SubheadGenerator, { SubheadGeneratorRef } from './components/SubheadGenerator';
 import AltTextGenerator, { AltTextGeneratorRef } from './components/AltTextGenerator';
 import ImageGenerator, { ImageGeneratorRef } from './components/ImageGenerator';
+import MSNHeadlineGenerator, { MSNHeadlineGeneratorRef } from './components/MSNHeadlineGenerator';
 
 export default function Page() {
   const [articleText, setArticleText] = useState('');
@@ -38,6 +39,7 @@ export default function Page() {
   const subheadGeneratorRef = useRef<SubheadGeneratorRef>(null);
   const altTextGeneratorRef = useRef<AltTextGeneratorRef>(null);
   const imageGeneratorRef = useRef<ImageGeneratorRef>(null);
+  const msnHeadlineGeneratorRef = useRef<MSNHeadlineGeneratorRef>(null);
 
   const clearAllData = () => {
     // Clear main article text
@@ -88,6 +90,12 @@ export default function Page() {
     }
     if (altTextGeneratorRef.current?.clearData) {
       altTextGeneratorRef.current.clearData();
+    }
+    if (imageGeneratorRef.current?.clearData) {
+      imageGeneratorRef.current.clearData();
+    }
+    if (msnHeadlineGeneratorRef.current?.clearData) {
+      msnHeadlineGeneratorRef.current.clearData();
     }
   };
 
@@ -211,6 +219,11 @@ export default function Page() {
       {/* Image Generator */}
       <div className="mb-8">
         <ImageGenerator ref={imageGeneratorRef} />
+      </div>
+
+      {/* MSN Headline Generator */}
+      <div className="mb-8">
+        <MSNHeadlineGenerator ref={msnHeadlineGeneratorRef} />
       </div>
     </main>
   );
