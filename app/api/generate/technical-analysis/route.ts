@@ -1065,6 +1065,12 @@ ${!data.turningPoints || Object.keys(data.turningPoints).length === 0 ? '- No si
 
 TASK: Write a conversational, direct technical analysis that focuses on longer-term trends (12-month). Lead with the most important technical takeaways for traders - what they need to know first. Weave data points naturally into your analysis rather than listing them. Write like you're explaining the stock's technical picture to a colleague - clear, direct, and engaging. When relevant, mention key turning points and when they occurred to provide context for the current technical setup. Think like a trader: prioritize actionable insights and key technical signals over routine price updates.
 
+CRITICAL FORMATTING RULES:
+- DO NOT include any headers like "Technical Analysis", "Bullish Momentum Signals", "Key Technical Levels", etc. - start directly with the analysis content
+- DO NOT use section headers or subheadings - write in flowing paragraphs only
+- When referring to the stock, use the company name with possessive form (e.g., "Boeing's stock", "Microsoft's stock", "Apple's stock") instead of "The stock" or "the stock"
+- Company name: ${data.companyName} - use this exact name with possessive form (e.g., "${data.companyName}'s stock")
+
 CRITICAL RULES - PARAGRAPH LENGTH IS MANDATORY:
 - EVERY PARAGRAPH MUST BE EXACTLY 2 SENTENCES OR LESS - NO EXCEPTIONS. If you find yourself writing a third sentence, start a new paragraph instead.
 - Write in a CONVERSATIONAL, DIRECT tone - avoid robotic or overly formal language
@@ -1077,7 +1083,7 @@ CRITICAL RULES - PARAGRAPH LENGTH IS MANDATORY:
 - FIFTH PARAGRAPH (2 sentences max, GOLDEN/DEATH CROSS ONLY IF DATE EXISTS): CRITICAL: Only mention a golden cross or death cross if there is an EXPLICIT DATE listed in the KEY TURNING POINTS section above. If there is NO golden cross date or death cross date in KEY TURNING POINTS, DO NOT mention golden cross or death cross at all - even if the MOVING AVERAGE CROSSOVERS section shows "50-day SMA above 200-day SMA" or similar. NEVER infer, guess, or make up dates for golden/death crosses. NEVER say "the golden cross occurred in [month]" unless that exact date is listed in KEY TURNING POINTS. If a golden cross or death cross date IS listed in KEY TURNING POINTS, mention it here with the EXACT MONTH NAME provided. Use proper capitalization for the month (e.g., "June" or "September", NOT "JUNE" or "SEPTEMBER" in all caps). The month name is EXPLICITLY STATED in brackets with CRITICAL INSTRUCTIONS - use that exact month name with proper case. DO NOT use the current month (December) unless it's explicitly stated in the turning points. DO NOT use vague terms like "recently" or "recent". If no golden/death cross dates are mentioned in KEY TURNING POINTS, discuss moving average relationships and what they indicate about trend strength instead. STOP AFTER 2 SENTENCES.
 - DON'T overwhelm with numbers - use key numbers strategically to support your analysis, not as the main focus
 - Provide CONTEXT and EXPLANATION - explain what the numbers mean and why they matter, rather than just listing percentages
-- NATURALLY weave data points into sentences with context (e.g., "The stock is up 14.92% this week, reflecting strong short-term momentum" not just "Weekly performance: 14.92%")
+- NATURALLY weave data points into sentences with context - use company name with possessive (e.g., "${data.companyName}'s stock is up 14.92% this week" instead of "The stock is up 14.92%")
 - Focus on LONGER-TERM trends and patterns, not daily fluctuations
 - After RSI, MACD, support/resistance, and golden/death cross discussion, discuss the 12-month performance in a dedicated paragraph and provide context about what it reveals about the longer-term trend - but keep each paragraph to 2 sentences max
 - DO NOT mention 12-month performance in the first paragraph - save it for later in the analysis
@@ -1086,9 +1092,10 @@ CRITICAL RULES - PARAGRAPH LENGTH IS MANDATORY:
 - DO NOT repeat support and resistance levels after mentioning them in the second paragraph - they should only appear once
 - Discuss moving average relationships naturally - explain what they mean for the stock's trend and what traders should watch for, not just list percentages
 - CRITICAL: When price is ABOVE a moving average, that's BULLISH (positive). When price is BELOW a moving average, that's BEARISH (negative). If a stock is trading above its 20-day, 50-day, and 100-day SMAs, that indicates strength, not weakness. Only describe it as "struggling" if the stock is below key moving averages.
-- Be precise with moving average interpretation: ALWAYS phrase it as "the stock is trading X% above/below the moving average" or "trading X% above/below its 50-day SMA". NEVER say "the 50-day SMA is X% below" or "the moving averages are X% below" - this is confusing and incorrect. The percentage always refers to the STOCK's position relative to the MA, not the MA's position.
+- Be precise with moving average interpretation: ALWAYS phrase it using the company name with possessive (e.g., "${data.companyName}'s stock is trading X% above/below the moving average" or "${data.companyName}'s stock is trading X% above/below its 50-day SMA"). NEVER say "the 50-day SMA is X% below" or "the moving averages are X% below" - this is confusing and incorrect. The percentage always refers to the STOCK's position relative to the MA, not the MA's position.
 - WRONG: "the 100-day and 200-day SMAs, which are 9.8% and 4.1% below" - this is confusing
-- CORRECT: "the stock is trading 9.8% below its 100-day SMA and 4.1% below its 200-day SMA" - this is clear
+- WRONG: "The stock is trading 9.8% below" - use company name instead
+- CORRECT: "${data.companyName}'s stock is trading 9.8% below its 100-day SMA and 4.1% below its 200-day SMA" - this is clear
 - Explain RSI levels in plain terms with context - what does overbought/oversold actually mean for this stock? What should traders watch for?
 - Identify key support and resistance levels and explain why they matter for traders - what happens if these levels are tested?
 - Discuss the stock's position within its 52-week range with context - is it near highs, lows, or middle? What does this positioning suggest about the stock's current state?
