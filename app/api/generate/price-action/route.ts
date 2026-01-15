@@ -2046,22 +2046,56 @@ export async function POST(request: Request) {
           return null;
         }
         
-        // Use currentPrice (which correctly uses lastQuote during premarket) for effectivePrice
-        // This handles premarket/afterhours scenarios where Polygon provides quote data instead of trade data
-        const effectivePrice = polygonData.currentPrice || polygonData.lastTradePrice || polygonData.previousClosePrice || 0;
-        const lastPrice = formatPrice(effectivePrice);
-
+        // Determine effective market status first
         let effectiveMarketStatus = marketStatus;
         const tradeSession = classifySessionFromTimestamp(polygonData.lastTradeTime);
         if (tradeSession && tradeSession !== 'closed') {
           effectiveMarketStatus = tradeSession;
         }
         
+        // Use currentPrice (which correctly uses lastQuote during premarket) for effectivePrice
+        // This handles premarket/afterhours scenarios where Polygon provides quote data instead of trade data
+        let effectivePrice = polygonData.currentPrice || polygonData.lastTradePrice || polygonData.previousClosePrice || 0;
+        
+        // During premarket, validate that the price makes sense
+        // If there's no actual premarket activity, price should be very close to previous close
+        // If price differs significantly (>5%) from previous close, validate it's from recent quote data
+        if (effectiveMarketStatus === 'premarket' && polygonData.previousClosePrice && polygonData.previousClosePrice > 0) {
+          const priceDiff = Math.abs((effectivePrice - polygonData.previousClosePrice) / polygonData.previousClosePrice) * 100;
+          // If price differs by more than 5% from previous close, it might be incorrect/stale
+          // Check timestamp to ensure data is recent (within last 2 hours)
+          if (priceDiff > 5 && polygonData.lastTradeTime) {
+            const quoteMs = convertPolygonTimestamp(polygonData.lastTradeTime);
+            if (quoteMs) {
+              const hoursAgo = (Date.now() - quoteMs) / (1000 * 60 * 60);
+              // If data is more than 2 hours old, it's likely stale - use previousClose instead
+              if (hoursAgo > 2) {
+                console.log(`[${symbol}] Premarket data is stale (${hoursAgo.toFixed(1)} hours old, ${priceDiff.toFixed(1)}% diff from prevClose), using previousClose`);
+                effectivePrice = polygonData.previousClosePrice;
+              }
+            } else {
+              // Invalid timestamp - use previousClose to be safe
+              console.log(`[${symbol}] Invalid timestamp for premarket data, using previousClose`);
+              effectivePrice = polygonData.previousClosePrice;
+            }
+          }
+        }
+        
+        const lastPrice = formatPrice(effectivePrice);
+        
         // During premarket, Polygon's todaysChangePerc is often 0 or incorrect
         // Recalculate change percent from current price vs previous close
+        // But if effectivePrice equals previousClose (no premarket activity), changePercent should be 0
         let changePercent = polygonData.changePercent;
         if (effectiveMarketStatus === 'premarket' && effectivePrice && polygonData.previousClosePrice) {
-          changePercent = ((effectivePrice - polygonData.previousClosePrice) / polygonData.previousClosePrice) * 100;
+          // Calculate change from effectivePrice (which may have been set to previousClose if data was stale)
+          const priceDiff = Math.abs(effectivePrice - polygonData.previousClosePrice);
+          if (priceDiff > 0.01) {
+            changePercent = ((effectivePrice - polygonData.previousClosePrice) / polygonData.previousClosePrice) * 100;
+          } else {
+            // Price is essentially unchanged (either truly unchanged or we defaulted to previousClose due to stale data)
+            changePercent = 0;
+          }
         }
 
         const marketStatusPhrase = getMarketStatusPhrase(effectiveMarketStatus);
@@ -2257,8 +2291,6 @@ export async function POST(request: Request) {
           } else if (Math.abs(dailyChange) > 4 || intradayRange > 6) {
             // High volatility move
             narrativeType = 'volatility';
-            const moveSignificance = Math.abs(dailyChange) / 2.5; // vs average daily range
-            smartPriceActionText += `, delivering one of the stock's ${moveSignificance > 1.5 ? 'bigger' : 'more notable'} single-day moves`;
 
             if (intradayRange > 3) {
               smartPriceActionText += `. The stock reached a high of $${formatPrice(polygonHigh)} and a low of $${formatPrice(polygonLow)}`;
@@ -2330,6 +2362,7 @@ Requirements:
 - CRITICAL: DO NOT round, adjust, or modify ANY numbers - copy them character-for-character (e.g., if it says "8.1%" keep it as "8.1%" not "8.8%")
 - CRITICAL: If the text mentions technical indicators (RSI, intraday range), you MUST preserve these details with exact numbers
 - CRITICAL: DO NOT mention moving averages (50-day, 100-day, 200-day, etc.) at all - remove any references to moving averages from the text
+- CRITICAL: DO NOT include phrases about the significance of daily moves - remove phrases like "This is one of the stock's bigger single-day moves", "marking one of the stock's bigger moves in a single day", "one of the biggest moves", "one of the stock's bigger single-day jumps", or any similar statements about move significance. If you see ANY phrase mentioning "bigger", "biggest", "notable", or "significant" in relation to daily moves, REMOVE IT COMPLETELY.
 - IMPORTANT: If the text includes "at the time of publication on [Day]" or "in premarket trading" or "in after-hours trading", you MUST keep this phrase intact
 - If the text mentions "intraday range", keep that phrase clear and descriptive
 - Use casual, conversational tone - avoid formal/AI words like "notable", "remarkable", "impressive", "significant"
@@ -2902,7 +2935,27 @@ REQUIREMENTS:
           return null;
         }
 
-        const changePercent = typeof q.changePercent === 'number' ? q.changePercent : 0;
+        // During premarket/afterhours, use extended hours price (ethPrice) if available
+        // Otherwise fall back to lastTradePrice (which might be yesterday's close during premarket)
+        let effectivePrice: number;
+        if ((marketStatus === 'premarket' || marketStatus === 'afterhours') && q.ethPrice && q.ethPrice > 0) {
+          effectivePrice = q.ethPrice;
+          console.log(`[${symbol}] Using extended hours price (ethPrice): $${effectivePrice} for ${marketStatus}`);
+        } else {
+          effectivePrice = q.lastTradePrice || 0;
+        }
+        
+        // Use Benzinga's changePercent if provided - don't override it with manual calculations
+        // During open market hours, if changePercent is 0, it might not be updated yet by Benzinga's delayed feed
+        // In that case, we'll skip showing the percentage to avoid misleading "unchanged 0.00%" messages
+        let changePercent = typeof q.changePercent === 'number' ? q.changePercent : undefined;
+        
+        // During premarket, if we're using ethPrice but changePercent is based on lastTradePrice,
+        // recalculate changePercent using ethPrice vs previousClose
+        if (marketStatus === 'premarket' && q.ethPrice && q.ethPrice > 0 && q.previousClosePrice && q.previousClosePrice > 0) {
+          changePercent = ((q.ethPrice - q.previousClosePrice) / q.previousClosePrice) * 100;
+          console.log(`[${symbol}] Recalculated changePercent for premarket: ${changePercent.toFixed(2)}% (ethPrice: $${q.ethPrice}, prevClose: $${q.previousClosePrice})`);
+        }
         
         // Calculate regular session and after-hours changes separately
         let regularSessionChange = 0;
@@ -2910,25 +2963,33 @@ REQUIREMENTS:
         let regularUpDown = '';
         let afterHoursUpDown = '';
         
-        if (marketStatus === 'afterhours' && q.close && q.lastTradePrice && q.previousClosePrice) {
+        if (marketStatus === 'afterhours' && q.close && effectivePrice && q.previousClosePrice) {
           // Regular session change: (regular_close - previous_close) / previous_close * 100
           regularSessionChange = ((q.close - q.previousClosePrice) / q.previousClosePrice) * 100;
           regularUpDown = regularSessionChange > 0 ? 'up' : regularSessionChange < 0 ? 'down' : 'unchanged';
           
           // After-hours change: (current - regular_close) / regular_close * 100
-          afterHoursChange = ((q.lastTradePrice - q.close) / q.close) * 100;
+          afterHoursChange = ((effectivePrice - q.close) / q.close) * 100;
           afterHoursUpDown = afterHoursChange > 0 ? 'up' : afterHoursChange < 0 ? 'down' : 'unchanged';
           
           console.log(`[${symbol}] Regular session: Previous: $${q.previousClosePrice}, Close: $${q.close}, Change: ${regularSessionChange.toFixed(2)}%`);
-          console.log(`[${symbol}] After-hours: Regular close: $${q.close}, Current: $${q.lastTradePrice}, Change: ${afterHoursChange.toFixed(2)}%`);
+          console.log(`[${symbol}] After-hours: Regular close: $${q.close}, Current: $${effectivePrice}, Change: ${afterHoursChange.toFixed(2)}%`);
         }
         
         // Format price to ensure exactly 2 decimal places - moved after validation
-        const lastPrice = formatPrice(q.lastTradePrice);
+        const lastPrice = formatPrice(effectivePrice);
         console.log(`[${symbol}] Raw lastTradePrice:`, q.lastTradePrice, `typeof:`, typeof q.lastTradePrice, `Formatted lastPrice:`, lastPrice, `typeof formatted:`, typeof lastPrice);
 
-        const upDown = changePercent > 0 ? 'up' : changePercent < 0 ? 'down' : 'unchanged';
-        const absChange = Math.abs(changePercent).toFixed(2);
+        // During open market hours, if changePercent is 0 or missing, skip the change percentage
+        // (Benzinga's delayed feed may not have updated it yet, showing 0.00% is misleading)
+        // For other market statuses (premarket, afterhours, closed), show 0 if provided (stock truly unchanged)
+        const shouldShowChangePercent = marketStatus === 'open' 
+          ? (changePercent !== undefined && changePercent !== 0)
+          : changePercent !== undefined;
+        
+        const changePercentForCalc = changePercent ?? 0;
+        const upDown = changePercentForCalc > 0 ? 'up' : changePercentForCalc < 0 ? 'down' : 'unchanged';
+        const absChange = Math.abs(changePercentForCalc).toFixed(2);
 
         // For premarket/open/afterhours, use current date. Only use closeDate when market is closed.
         const date = (marketStatus === 'premarket' || marketStatus === 'open' || marketStatus === 'afterhours') 
@@ -2942,8 +3003,13 @@ REQUIREMENTS:
         const priceString = String(lastPrice); // Ensure it's definitely a string
         
         if (marketStatus === 'open') {
-          priceActionText = `${symbol} Price Action: ${companyName} shares were ${upDown} ${absChange}% at $${priceString} at the time of publication on ${dayOfWeek}`;
-        } else if (marketStatus === 'afterhours' && q.close && q.lastTradePrice && q.previousClosePrice) {
+          if (shouldShowChangePercent) {
+            priceActionText = `${symbol} Price Action: ${companyName} shares were ${upDown} ${absChange}% at $${priceString} at the time of publication on ${dayOfWeek}`;
+          } else {
+            // Skip change percentage if it's 0 and we couldn't calculate it (Benzinga hasn't updated yet)
+            priceActionText = `${symbol} Price Action: ${companyName} shares were trading at $${priceString} at the time of publication on ${dayOfWeek}`;
+          }
+        } else         if (marketStatus === 'afterhours' && q.close && effectivePrice && q.previousClosePrice) {
           // Show both regular session and after-hours moves when we have the necessary data
           const absRegularChange = Math.abs(regularSessionChange).toFixed(2);
           const absAfterHoursChange = Math.abs(afterHoursChange).toFixed(2);
@@ -2953,8 +3019,8 @@ REQUIREMENTS:
         }
 
         // Add 52-week range context if available
-        if (q.fiftyTwoWeekLow && q.fiftyTwoWeekHigh && q.lastTradePrice) {
-          const currentPrice = q.lastTradePrice;
+        if (q.fiftyTwoWeekLow && q.fiftyTwoWeekHigh && effectivePrice) {
+          const currentPrice = effectivePrice;
           const yearLow = q.fiftyTwoWeekLow;
           const yearHigh = q.fiftyTwoWeekHigh;
           
