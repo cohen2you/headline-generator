@@ -2362,7 +2362,7 @@ Requirements:
 - CRITICAL: DO NOT round, adjust, or modify ANY numbers - copy them character-for-character (e.g., if it says "8.1%" keep it as "8.1%" not "8.8%")
 - CRITICAL: If the text mentions technical indicators (RSI, intraday range), you MUST preserve these details with exact numbers
 - CRITICAL: DO NOT mention moving averages (50-day, 100-day, 200-day, etc.) at all - remove any references to moving averages from the text
-- CRITICAL: DO NOT include phrases about the significance of daily moves - remove phrases like "This is one of the stock's bigger single-day moves", "marking one of the stock's bigger moves in a single day", "one of the biggest moves", "one of the stock's bigger single-day jumps", or any similar statements about move significance. If you see ANY phrase mentioning "bigger", "biggest", "notable", or "significant" in relation to daily moves, REMOVE IT COMPLETELY.
+- CRITICAL: DO NOT include phrases about the significance of daily moves - remove phrases like "This is one of the stock's bigger single-day moves", "marking one of the stock's bigger moves in a single day", "one of the biggest moves", "one of the stock's bigger single-day jumps", "This marks one of the stock's bigger single-day moves", or any similar statements about move significance. If you see ANY phrase mentioning "bigger", "biggest", "notable", "significant", "marks one of", or any statement about the significance or size of daily moves, REMOVE IT COMPLETELY. Never mention how significant, notable, or unusual a daily move is.
 - IMPORTANT: If the text includes "at the time of publication on [Day]" or "in premarket trading" or "in after-hours trading", you MUST keep this phrase intact
 - If the text mentions "intraday range", keep that phrase clear and descriptive
 - Use casual, conversational tone - avoid formal/AI words like "notable", "remarkable", "impressive", "significant"
@@ -2396,8 +2396,21 @@ Return only the enhanced text, no explanations.`;
               temperature: 0.8, // Higher temperature for more variety
             });
 
-            const enhancedText = completion.choices[0]?.message?.content?.trim();
+            let enhancedText = completion.choices[0]?.message?.content?.trim();
             if (enhancedText && enhancedText.length > 50) {
+              // Post-process to remove any phrases about move significance that might have slipped through
+              // Remove the exact phrase and variations
+              enhancedText = enhancedText.replace(/This marks one of the stock's bigger single-day moves\.?/gi, '');
+              enhancedText = enhancedText.replace(/This is one of the stock's bigger single-day moves\.?/gi, '');
+              enhancedText = enhancedText.replace(/marking one of the stock's bigger moves in a single day\.?/gi, '');
+              enhancedText = enhancedText.replace(/one of the stock's bigger single-day jumps\.?/gi, '');
+              enhancedText = enhancedText.replace(/one of the biggest moves\.?/gi, '');
+              // Remove any sentence containing "marks one of" or "bigger" + "single-day" or "daily move"
+              enhancedText = enhancedText.replace(/[^.]*marks one of[^.]*\./gi, '');
+              enhancedText = enhancedText.replace(/[^.]*bigger.*single-day[^.]*\./gi, '');
+              enhancedText = enhancedText.replace(/[^.]*bigger.*daily move[^.]*\./gi, '');
+              // Clean up any double spaces or periods that might result
+              enhancedText = enhancedText.replace(/\s+/g, ' ').replace(/\.\s*\./g, '.').trim();
               smartPriceActionText = enhancedText;
               console.log(`Enhanced price action text for ${symbol}`);
             }
