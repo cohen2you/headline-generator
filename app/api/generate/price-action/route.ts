@@ -2215,23 +2215,20 @@ export async function POST(request: Request) {
           
           // For smart analysis, we'll use the 52-week range data we already calculated
           // and focus on the current day's performance and range position
+          // Use effectivePrice for display (handles premarket quote data when lastTrade is 0)
+          const displayPrice = effectivePrice;
+          const timePhrase = getTimePhrase(effectiveMarketStatus);
+          
           console.log('Using 52-week range for smart analysis:', {
             high: polygonData.fiftyTwoWeekHigh,
             low: polygonData.fiftyTwoWeekLow,
             current: polygonClose,
-            currentPrice: polygonData.currentPrice
+            currentPrice: polygonData.currentPrice,
+            effectivePrice: displayPrice
           });
-          
-          // Calculate distance from 52-week high/low using Polygon data
-          const distanceFromHigh = polygonData.fiftyTwoWeekHigh && polygonClose ? 
-            ((polygonClose - polygonData.fiftyTwoWeekHigh) / polygonData.fiftyTwoWeekHigh) * 100 : 0;
           
           // Build smart narrative using Polygon data
           let narrativeType = 'range'; // default
-          
-          // Use effectivePrice for display (handles premarket quote data when lastTrade is 0)
-          const displayPrice = effectivePrice;
-          const timePhrase = getTimePhrase(effectiveMarketStatus);
 
           // sessionChange uses changePercent which is already recalculated for premarket above
           let sessionChange = changePercent;
@@ -2278,67 +2275,88 @@ export async function POST(request: Request) {
           }
 
           // Determine narrative type using Polygon data
-          const dailyChange = ((polygonClose - polygonOpen) / polygonOpen) * 100;
-          const intradayRange = ((polygonHigh - polygonLow) / polygonLow) * 100;
+          // Use effectivePrice (current price) for 52-week distance calculations, not polygonClose (which is 0 during premarket)
+          const priceFor52WeekCalc = displayPrice; // Use the effective current price
+          const dailyChange = polygonClose > 0 ? ((polygonClose - polygonOpen) / polygonOpen) * 100 : 0;
+          const intradayRange = polygonLow > 0 && polygonHigh > 0 ? ((polygonHigh - polygonLow) / polygonLow) * 100 : 0;
           // Volume analysis removed per user request
 
-            if (Math.abs(distanceFromHigh) < 5) {
-            // Near 52-week high
+          // Calculate distance from 52-week high/low using current price (effectivePrice), not close price
+          const distanceFromHigh = polygonData.fiftyTwoWeekHigh && priceFor52WeekCalc > polygonData.fiftyTwoWeekHigh
+            ? ((priceFor52WeekCalc - polygonData.fiftyTwoWeekHigh) / polygonData.fiftyTwoWeekHigh) * 100 // Above high
+            : polygonData.fiftyTwoWeekHigh && priceFor52WeekCalc
+            ? ((polygonData.fiftyTwoWeekHigh - priceFor52WeekCalc) / polygonData.fiftyTwoWeekHigh) * 100 // Below high
+            : 0;
+          const distanceFromLow = polygonData.fiftyTwoWeekLow && priceFor52WeekCalc
+            ? ((priceFor52WeekCalc - polygonData.fiftyTwoWeekLow) / polygonData.fiftyTwoWeekLow) * 100
+            : 0;
+
+            if (Math.abs(distanceFromHigh) < 5 && priceFor52WeekCalc <= polygonData.fiftyTwoWeekHigh) {
+            // Near 52-week high (within 5% and not above it)
             narrativeType = 'momentum';
             const distanceFromHighPct = Math.abs(distanceFromHigh).toFixed(1);
             smartPriceActionText += `, trading ${distanceFromHighPct}% below its 52-week high`;
+            if (technicalContext) smartPriceActionText += `${technicalContext}`;
+          } else if (priceFor52WeekCalc > polygonData.fiftyTwoWeekHigh) {
+            // Above 52-week high
+            narrativeType = 'momentum';
+            const aboveHighPct = distanceFromHigh.toFixed(1);
+            smartPriceActionText += `, trading ${aboveHighPct}% above its 52-week high`;
             if (technicalContext) smartPriceActionText += `${technicalContext}`;
           } else if (Math.abs(dailyChange) > 4 || intradayRange > 6) {
             // High volatility move
             narrativeType = 'volatility';
 
-            if (intradayRange > 3) {
+            if (intradayRange > 3 && polygonHigh > 0 && polygonLow > 0) {
               smartPriceActionText += `. The stock reached a high of $${formatPrice(polygonHigh)} and a low of $${formatPrice(polygonLow)}`;
             }
             
             // Add volume for significant moves
-            if (polygonVolume) {
+            if (polygonVolume && polygonVolume > 0) {
               const volumeInMillions = (polygonVolume / 1000000).toFixed(1);
               smartPriceActionText += `. Volume was ${volumeInMillions} million shares`;
             }
 
-            if (polygonData.fiftyTwoWeekLow && polygonData.fiftyTwoWeekHigh && polygonClose) {
-              // Calculate distance from both high and low
-              console.log(`${symbol} 52-week range: High=$${polygonData.fiftyTwoWeekHigh}, Low=$${polygonData.fiftyTwoWeekLow}, Current=$${polygonClose}`);
-              const distFromHigh = ((polygonData.fiftyTwoWeekHigh - polygonClose) / polygonData.fiftyTwoWeekHigh) * 100;
-              const distFromLow = ((polygonClose - polygonData.fiftyTwoWeekLow) / polygonData.fiftyTwoWeekLow) * 100;
-              console.log(`${symbol} distances: ${distFromHigh.toFixed(1)}% from high, ${distFromLow.toFixed(1)}% from low`);
+            if (polygonData.fiftyTwoWeekLow && polygonData.fiftyTwoWeekHigh && priceFor52WeekCalc) {
+              // Calculate distance from both high and low using current price
+              console.log(`${symbol} 52-week range: High=$${polygonData.fiftyTwoWeekHigh}, Low=$${polygonData.fiftyTwoWeekLow}, Current=$${priceFor52WeekCalc}`);
               
               // Show distance from whichever is closer
-              if (distFromHigh < distFromLow) {
+              if (distanceFromHigh < distanceFromLow) {
                 // Closer to high
-                smartPriceActionText += `. The stock is ${distFromHigh.toFixed(1)}% below its 52-week high`;
+                if (priceFor52WeekCalc > polygonData.fiftyTwoWeekHigh) {
+                  smartPriceActionText += `. The stock is ${distanceFromHigh.toFixed(1)}% above its 52-week high`;
+                } else {
+                  smartPriceActionText += `. The stock is ${distanceFromHigh.toFixed(1)}% below its 52-week high`;
+                }
               } else {
                 // Closer to low
-                smartPriceActionText += `. The stock is ${distFromLow.toFixed(1)}% above its 52-week low`;
+                smartPriceActionText += `. The stock is ${distanceFromLow.toFixed(1)}% above its 52-week low`;
               }
+              console.log(`${symbol} distances: ${distanceFromHigh.toFixed(1)}% from high, ${distanceFromLow.toFixed(1)}% from low`);
             }
             if (technicalContext) smartPriceActionText += `${technicalContext}`;
           } else {
             // Range-bound trading
             narrativeType = 'range';
 
-            if (polygonData.fiftyTwoWeekLow && polygonData.fiftyTwoWeekHigh && polygonClose) {
-              // Calculate distance from both high and low
-              const distFromHigh = ((polygonData.fiftyTwoWeekHigh - polygonClose) / polygonData.fiftyTwoWeekHigh) * 100;
-              const distFromLow = ((polygonClose - polygonData.fiftyTwoWeekLow) / polygonData.fiftyTwoWeekLow) * 100;
-              
+            if (polygonData.fiftyTwoWeekLow && polygonData.fiftyTwoWeekHigh && priceFor52WeekCalc) {
+              // Calculate distance from both high and low using current price
               // Show distance from whichever is closer
-              if (distFromHigh < distFromLow) {
+              if (distanceFromHigh < distanceFromLow) {
                 // Closer to high
-                smartPriceActionText += `, trading ${distFromHigh.toFixed(1)}% below its 52-week high`;
+                if (priceFor52WeekCalc > polygonData.fiftyTwoWeekHigh) {
+                  smartPriceActionText += `, trading ${distanceFromHigh.toFixed(1)}% above its 52-week high`;
+                } else {
+                  smartPriceActionText += `, trading ${distanceFromHigh.toFixed(1)}% below its 52-week high`;
+                }
               } else {
                 // Closer to low
-                smartPriceActionText += `, trading ${distFromLow.toFixed(1)}% above its 52-week low`;
+                smartPriceActionText += `, trading ${distanceFromLow.toFixed(1)}% above its 52-week low`;
               }
             }
 
-            if (intradayRange > 3) {
+            if (intradayRange > 3 && polygonHigh > 0 && polygonLow > 0) {
               smartPriceActionText += `. Today's range was from a low of $${formatPrice(polygonLow)} to a high of $${formatPrice(polygonHigh)}`;
             }
             
