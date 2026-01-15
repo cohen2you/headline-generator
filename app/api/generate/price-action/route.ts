@@ -2981,11 +2981,11 @@ REQUIREMENTS:
         // In that case, we'll skip showing the percentage to avoid misleading "unchanged 0.00%" messages
         let changePercent = typeof q.changePercent === 'number' ? q.changePercent : undefined;
         
-        // During premarket, if we're using ethPrice but changePercent is based on lastTradePrice,
-        // recalculate changePercent using ethPrice vs previousClose
-        if (marketStatus === 'premarket' && q.ethPrice && q.ethPrice > 0 && q.previousClosePrice && q.previousClosePrice > 0) {
-          changePercent = ((q.ethPrice - q.previousClosePrice) / q.previousClosePrice) * 100;
-          console.log(`[${symbol}] Recalculated changePercent for premarket: ${changePercent.toFixed(2)}% (ethPrice: $${q.ethPrice}, prevClose: $${q.previousClosePrice})`);
+        // During premarket, if we're using ethPrice, recalculate changePercent using ethPrice vs yesterday's close
+        // Use q.close (yesterday's close) instead of q.previousClosePrice (which may be from an earlier day)
+        if (marketStatus === 'premarket' && q.ethPrice && q.ethPrice > 0 && q.close && q.close > 0) {
+          changePercent = ((q.ethPrice - q.close) / q.close) * 100;
+          console.log(`[${symbol}] Recalculated changePercent for premarket: ${changePercent.toFixed(2)}% (ethPrice: $${q.ethPrice}, yesterday's close: $${q.close})`);
         }
         
         // Calculate regular session and after-hours changes separately
