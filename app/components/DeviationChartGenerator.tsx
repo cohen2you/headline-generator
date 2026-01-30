@@ -128,35 +128,35 @@ const DeviationChartGenerator = forwardRef<DeviationChartGeneratorRef>((props, r
     try {
       setCopySuccess(false);
       
+      // Wait a bit for the chart to fully render (SVG needs time to render)
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
       let blob: Blob | null = null;
       
       // Try dom-to-image-more first (handles modern CSS better) - dynamic import for client-side only
       try {
         const domtoimageModule = await import('dom-to-image-more');
         const domtoimage = domtoimageModule.default || domtoimageModule;
-        blob = await domtoimage.toBlob(chartOnlyRef.current, {
+        const element = chartOnlyRef.current;
+        blob = await domtoimage.toBlob(element, {
           quality: 1,
           bgcolor: '#ffffff',
-          width: chartOnlyRef.current.offsetWidth,
-          height: chartOnlyRef.current.offsetHeight,
-          style: {
-            transform: 'scale(2)',
-            transformOrigin: 'top left',
-            width: chartOnlyRef.current.offsetWidth + 'px',
-            height: chartOnlyRef.current.offsetHeight + 'px'
-          }
+          width: element.offsetWidth,
+          height: element.offsetHeight
         });
       } catch (domError) {
         console.log('dom-to-image failed, trying html2canvas:', domError);
         
         // Fallback to html2canvas with error handling
         try {
-          const canvas = await html2canvas(chartOnlyRef.current, {
+          const element = chartOnlyRef.current;
+          const canvas = await html2canvas(element, {
             backgroundColor: '#ffffff',
             scale: 2,
             logging: false,
             useCORS: true,
             allowTaint: true,
+            // Don't constrain width/height - let html2canvas determine from element
             ignoreElements: () => {
               // Ignore elements that might cause issues
               return false;
