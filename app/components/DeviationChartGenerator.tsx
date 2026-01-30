@@ -135,8 +135,8 @@ const DeviationChartGenerator = forwardRef<DeviationChartGeneratorRef>((props, r
       
       // Try to find the SVG element directly for cleaner capture
       const element = chartOnlyRef.current;
-      const svgElement = element?.querySelector('svg') as HTMLElement;
-      const captureElement = svgElement || element;
+      const svgElement = element?.querySelector('svg');
+      const captureElement = (svgElement as HTMLElement | null) || element;
       
       // Try dom-to-image-more first (handles modern CSS better) - dynamic import for client-side only
       try {
@@ -166,20 +166,59 @@ const DeviationChartGenerator = forwardRef<DeviationChartGeneratorRef>((props, r
             }
           });
           
-          // Crop the bottom to remove any black framing/borders
-          // Remove bottom 20 pixels (10px at scale 2)
-          const croppedCanvas = document.createElement('canvas');
-          const cropHeight = canvas.height - 20; // Remove bottom 20px
-          croppedCanvas.width = canvas.width;
-          croppedCanvas.height = cropHeight;
-          const ctx = croppedCanvas.getContext('2d');
-          if (ctx) {
-            ctx.drawImage(canvas, 0, 0, canvas.width, cropHeight, 0, 0, canvas.width, cropHeight);
+          // Crop to remove any black borders - find the actual content bounds
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            blob = await new Promise<Blob | null>((resolve) => {
+              canvas.toBlob((b) => resolve(b), 'image/png');
+            });
+          } else {
+            // Get image data to find content bounds
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const data = imageData.data;
+            
+            // Find top, bottom, left, right bounds of non-white content
+            let top = canvas.height;
+            let bottom = 0;
+            let left = canvas.width;
+            let right = 0;
+            
+            for (let y = 0; y < canvas.height; y++) {
+              for (let x = 0; x < canvas.width; x++) {
+                const idx = (y * canvas.width + x) * 4;
+                const r = data[idx];
+                const g = data[idx + 1];
+                const b = data[idx + 2];
+                // Check if pixel is not white (or very close to white)
+                if (r < 250 || g < 250 || b < 250) {
+                  if (y < top) top = y;
+                  if (y > bottom) bottom = y;
+                  if (x < left) left = x;
+                  if (x > right) right = x;
+                }
+              }
+            }
+            
+            // Add small padding (10px at scale 2 = 5px actual)
+            const padding = 10;
+            top = Math.max(0, top - padding);
+            bottom = Math.min(canvas.height, bottom + padding);
+            left = Math.max(0, left - padding);
+            right = Math.min(canvas.width, right + padding);
+            
+            // Create cropped canvas with only the content area
+            const croppedCanvas = document.createElement('canvas');
+            croppedCanvas.width = right - left;
+            croppedCanvas.height = bottom - top;
+            const croppedCtx = croppedCanvas.getContext('2d');
+            if (croppedCtx) {
+              croppedCtx.drawImage(canvas, left, top, right - left, bottom - top, 0, 0, right - left, bottom - top);
+            }
+            
+            blob = await new Promise<Blob | null>((resolve) => {
+              (croppedCtx ? croppedCanvas : canvas).toBlob((b) => resolve(b), 'image/png');
+            });
           }
-          
-          blob = await new Promise<Blob | null>((resolve) => {
-            (ctx ? croppedCanvas : canvas).toBlob((b) => resolve(b), 'image/png');
-          });
         } catch (html2canvasError) {
           console.error('html2canvas also failed:', html2canvasError);
           // Check if it's the oklch error
@@ -295,7 +334,7 @@ const DeviationChartGenerator = forwardRef<DeviationChartGeneratorRef>((props, r
             <p>Mean Deviation: {chartData.meanDeviation.toFixed(2)}%</p>
           </div>
 
-          <div ref={chartOnlyRef} className="w-full" style={{ height: '500px' }}>
+          <div ref={chartOnlyRef} className="w-full" style={{ height: '500px', padding: 0, margin: 0, border: 'none', overflow: 'hidden' }}>
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={chartDataFormatted} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
