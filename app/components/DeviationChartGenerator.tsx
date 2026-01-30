@@ -133,24 +133,27 @@ const DeviationChartGenerator = forwardRef<DeviationChartGeneratorRef>((props, r
       
       let blob: Blob | null = null;
       
+      // Try to find the SVG element directly for cleaner capture
+      const element = chartOnlyRef.current;
+      const svgElement = element?.querySelector('svg') as HTMLElement;
+      const captureElement = svgElement || element;
+      
       // Try dom-to-image-more first (handles modern CSS better) - dynamic import for client-side only
       try {
         const domtoimageModule = await import('dom-to-image-more');
         const domtoimage = domtoimageModule.default || domtoimageModule;
-        const element = chartOnlyRef.current;
-        blob = await domtoimage.toBlob(element, {
+        blob = await domtoimage.toBlob(captureElement, {
           quality: 1,
           bgcolor: '#ffffff',
-          width: element.offsetWidth,
-          height: element.offsetHeight
+          width: captureElement.offsetWidth,
+          height: captureElement.offsetHeight
         });
       } catch (domError) {
         console.log('dom-to-image failed, trying html2canvas:', domError);
         
         // Fallback to html2canvas with error handling
         try {
-          const element = chartOnlyRef.current;
-          const canvas = await html2canvas(element, {
+          const canvas = await html2canvas(captureElement, {
             backgroundColor: '#ffffff',
             scale: 2,
             logging: false,
@@ -163,8 +166,19 @@ const DeviationChartGenerator = forwardRef<DeviationChartGeneratorRef>((props, r
             }
           });
           
+          // Crop the bottom to remove any black framing/borders
+          // Remove bottom 20 pixels (10px at scale 2)
+          const croppedCanvas = document.createElement('canvas');
+          const cropHeight = canvas.height - 20; // Remove bottom 20px
+          croppedCanvas.width = canvas.width;
+          croppedCanvas.height = cropHeight;
+          const ctx = croppedCanvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(canvas, 0, 0, canvas.width, cropHeight, 0, 0, canvas.width, cropHeight);
+          }
+          
           blob = await new Promise<Blob | null>((resolve) => {
-            canvas.toBlob((b) => resolve(b), 'image/png');
+            (ctx ? croppedCanvas : canvas).toBlob((b) => resolve(b), 'image/png');
           });
         } catch (html2canvasError) {
           console.error('html2canvas also failed:', html2canvasError);
