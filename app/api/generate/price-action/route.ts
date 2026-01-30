@@ -739,6 +739,215 @@ async function fetchETFs(symbol: string): Promise<Array<ETFHolder & { ticker?: s
   }
 }
 
+// Interface for Polygon ETF constituent data
+interface PolygonETFConstituent {
+  composite_ticker: string;
+  constituent_ticker: string;
+  weight: number;
+  market_value: number;
+  shares_held: number;
+  constituent_rank: number;
+}
+
+// Interface for Polygon ETF data
+interface PolygonETF {
+  ticker: string;
+  name: string;
+  weight?: number;
+  marketValue?: number;
+}
+
+// Function to fetch ETFs that hold a specific stock from Polygon API
+async function fetchPolygonETFs(symbol: string): Promise<PolygonETF[]> {
+  try {
+    console.log(`Fetching ETFs that hold ${symbol} from Polygon ETF constituents API`);
+
+    // Use Polygon's ETF constituents API to find ETFs that hold this stock
+    const constituentsUrl = `https://api.polygon.io/etf-global/v1/constituents?constituent_ticker=${symbol.toUpperCase()}&limit=100&sort=weight.desc&apikey=${process.env.POLYGON_API_KEY}`;
+    
+    const constituentsRes = await fetch(constituentsUrl);
+    if (!constituentsRes.ok) {
+      // If API returns 403 (Forbidden) or other errors, fall back to curated list
+      if (constituentsRes.status === 403) {
+        console.log(`ETF constituents API not available (403 Forbidden), falling back to curated major ETFs for ${symbol}`);
+        return await fetchPolygonETFsFallback(symbol);
+      }
+      console.error(`Failed to fetch ETF constituents for ${symbol}: ${constituentsRes.status} ${constituentsRes.statusText}`);
+      // Fall back to curated list on any error
+      return await fetchPolygonETFsFallback(symbol);
+    }
+
+    const constituentsData = await constituentsRes.json();
+    if (!constituentsData?.results || !Array.isArray(constituentsData.results) || constituentsData.results.length === 0) {
+      console.log(`No ETFs found holding ${symbol}`);
+      return [];
+    }
+
+    console.log(`Found ${constituentsData.results.length} ETFs holding ${symbol}`);
+
+    // Get unique ETF tickers (in case there are multiple entries for the same ETF)
+    const uniqueETFTickers: string[] = Array.from(
+      new Set(constituentsData.results.map((item: PolygonETFConstituent) => item.composite_ticker))
+    ).slice(0, 10) as string[]; // Get top 10 unique ETFs to fetch names for
+
+    // Fetch ETF names from Polygon ticker reference API
+    const etfNamePromises = uniqueETFTickers.map(async (etfTicker: string) => {
+      try {
+        const overviewUrl = `https://api.polygon.io/v3/reference/tickers/${etfTicker}?apikey=${process.env.POLYGON_API_KEY}`;
+        const overviewRes = await fetch(overviewUrl);
+        
+        if (!overviewRes.ok) {
+          return { ticker: etfTicker, name: etfTicker, weight: 0, marketValue: 0 };
+        }
+
+        const overview = await overviewRes.json();
+        const etfName = overview?.results?.name || overview?.results?.description || etfTicker;
+
+        // Find the constituent data for this ETF to get weight and market value
+        const constituentData = constituentsData.results.find(
+          (item: PolygonETFConstituent) => item.composite_ticker === etfTicker
+        );
+
+        return {
+          ticker: etfTicker,
+          name: etfName,
+          weight: constituentData?.weight || 0,
+          marketValue: constituentData?.market_value || 0
+        } as PolygonETF;
+      } catch (error) {
+        console.error(`Error fetching ETF name for ${etfTicker}:`, error);
+        // Find the constituent data for this ETF
+        const constituentData = constituentsData.results.find(
+          (item: PolygonETFConstituent) => item.composite_ticker === etfTicker
+        );
+        return {
+          ticker: etfTicker,
+          name: etfTicker,
+          weight: constituentData?.weight || 0,
+          marketValue: constituentData?.market_value || 0
+        } as PolygonETF;
+      }
+    });
+
+    const etfResults = await Promise.all(etfNamePromises);
+    
+    // Sort by weight (descending) to get ETFs with highest holdings, then take top 3
+    const sortedETFs = etfResults
+      .filter(etf => (etf.weight || 0) > 0) // Only include ETFs with actual weight
+      .sort((a, b) => (b.weight || 0) - (a.weight || 0))
+      .slice(0, 3);
+
+    console.log(`Selected top ${sortedETFs.length} ETFs for ${symbol} by weight:`, sortedETFs.map(e => `${e.ticker} (${((e.weight || 0) * 100).toFixed(3)}%)`));
+    return sortedETFs;
+  } catch (error) {
+    console.error(`Error fetching Polygon ETFs for ${symbol}:`, error);
+    // Fall back to curated list on any error
+    return await fetchPolygonETFsFallback(symbol);
+  }
+}
+
+// Fallback function to fetch major ETFs from Polygon when constituents API is unavailable
+async function fetchPolygonETFsFallback(symbol: string): Promise<PolygonETF[]> {
+  try {
+    console.log(`Using fallback: Fetching major ETFs from Polygon for ${symbol}`);
+    
+    // Curated list of major ETFs that commonly hold stocks across sectors
+    const majorETFs = [
+      'SPY',   // S&P 500
+      'QQQ',   // Nasdaq 100
+      'DIA',   // Dow Jones
+      'IWM',   // Russell 2000
+      'VTI',   // Total Stock Market
+      'VOO',   // S&P 500 (Vanguard)
+      'IVV',   // S&P 500 (iShares)
+      'XLK',   // Technology Sector
+      'XLF',   // Financial Sector
+      'XLE',   // Energy Sector
+      'XLV',   // Healthcare Sector
+      'XLI',   // Industrial Sector
+      'XLP',   // Consumer Staples
+      'XLY',   // Consumer Discretionary
+      'XLU',   // Utilities
+      'XLRE',  // Real Estate
+      'XLC',   // Communication
+      'XLB'    // Materials
+    ];
+
+    // Fetch ticker details for major ETFs in parallel
+    const etfPromises = majorETFs.map(async (etfTicker: string) => {
+      try {
+        const overviewUrl = `https://api.polygon.io/v3/reference/tickers/${etfTicker}?apikey=${process.env.POLYGON_API_KEY}`;
+        const overviewRes = await fetch(overviewUrl);
+        
+        if (!overviewRes.ok) {
+          return null;
+        }
+
+        const overview = await overviewRes.json();
+        if (!overview?.results) {
+          return null;
+        }
+
+        const etfName = overview.results.name || overview.results.description || etfTicker;
+
+        return {
+          ticker: etfTicker,
+          name: etfName,
+          weight: undefined,
+          marketValue: undefined
+        } as PolygonETF;
+      } catch (error) {
+        console.error(`Error fetching ETF name for ${etfTicker}:`, error);
+        return null;
+      }
+    });
+
+    const etfResults = await Promise.all(etfPromises);
+    const validETFs = etfResults.filter((etf): etf is PolygonETF => etf !== null);
+
+    // Return top 3 ETFs (prioritize broad market ETFs)
+    const prioritizedETFs = validETFs.sort((a, b) => {
+      // Prioritize SPY, QQQ, VTI, VOO, IVV
+      const priorityA = ['SPY', 'QQQ', 'VTI', 'VOO', 'IVV'].includes(a.ticker) ? 1 : 0;
+      const priorityB = ['SPY', 'QQQ', 'VTI', 'VOO', 'IVV'].includes(b.ticker) ? 1 : 0;
+      if (priorityA !== priorityB) {
+        return priorityB - priorityA;
+      }
+      return a.ticker.localeCompare(b.ticker);
+    });
+
+    console.log(`Selected ${prioritizedETFs.slice(0, 3).length} major ETFs from fallback for ${symbol}`);
+    return prioritizedETFs.slice(0, 3);
+  } catch (error) {
+    console.error(`Error in fallback ETF fetch for ${symbol}:`, error);
+    return [];
+  }
+}
+
+// Function to format ETF sentence from Polygon data
+function formatPolygonETFSentence(companyName: string, etfs: PolygonETF[]): string {
+  if (etfs.length === 0) {
+    return '';
+  }
+  
+  // Format ETF with ticker
+  const formatETF = (etf: PolygonETF): string => {
+    const boldName = `<strong>${etf.name}</strong>`;
+    return `${boldName} (${etf.ticker})`;
+  };
+  
+  const etfList = etfs.map(formatETF);
+  
+  if (etfList.length === 1) {
+    return `Investors can gain exposure to ${companyName} through ETFs like ${etfList[0]}`;
+  } else if (etfList.length === 2) {
+    return `Investors can gain exposure to ${companyName} through ETFs like ${etfList[0]} and ${etfList[1]}`;
+  } else {
+    const lastETF = etfList.pop();
+    return `Investors can gain exposure to ${companyName} through ETFs like ${etfList.join(', ')}, and ${lastETF}`;
+  }
+}
+
 // Function to format ETF sentence
 function formatETFSentence(companyName: string, etfs: Array<ETFHolder & { ticker?: string; exchange?: string }>): string {
   if (etfs.length === 0) {
@@ -1985,7 +2194,7 @@ function getTimePhrase(status: 'open' | 'premarket' | 'afterhours' | 'closed'): 
 
 export async function POST(request: Request) {
   try {
-    const { tickers, priceActionOnly, briefAnalysis, grouped, smartAnalysis, primaryTicker, comparisonTickers, vsAnalysis, includeETFs } = await request.json();
+    const { tickers, priceActionOnly, briefAnalysis, grouped, smartAnalysis, primaryTicker, comparisonTickers, vsAnalysis, includeETFs, smartAnalysisWithETFsPolygonOnly } = await request.json();
 
     if (!tickers?.trim() && !vsAnalysis) {
       return NextResponse.json({ priceActions: [], error: 'Ticker(s) required.' });
@@ -2015,10 +2224,10 @@ export async function POST(request: Request) {
     console.log('=== PRICE ACTION DEBUG ===');
     console.log('Original tickers:', tickers);
     console.log('Cleaned tickers:', cleanedTickers);
-    console.log('Mode:', { smartAnalysis, vsAnalysis, briefAnalysis, priceActionOnly, grouped });
+    console.log('Mode:', { smartAnalysis, vsAnalysis, briefAnalysis, priceActionOnly, grouped, smartAnalysisWithETFsPolygonOnly });
 
     // Use different data sources based on mode
-    if (smartAnalysis || vsAnalysis) {
+    if (smartAnalysis || vsAnalysis || smartAnalysisWithETFsPolygonOnly) {
       // Smart Price Action and Vs Analysis use Polygon API
       // Detect market status using Polygon API
       const marketStatus = await getMarketStatus();
@@ -2198,7 +2407,7 @@ export async function POST(request: Request) {
         priceActionText = priceActionText.replace(/,\s*according to Polygon data\.?$/, '');
         
         // Smart Analysis - automatically choose the best narrative
-        if (smartAnalysis) {
+        if (smartAnalysis || smartAnalysisWithETFsPolygonOnly) {
           // Don't add attribution yet - we'll add it at the end of smart analysis
           // Use the already fetched Polygon data for smart analysis
           console.log(`=== USING POLYGON DATA FOR SMART ANALYSIS: ${symbol} ===`);
@@ -2436,6 +2645,20 @@ Return only the enhanced text, no explanations.`;
             console.log(`OpenAI enhancement failed for ${symbol}, using original text:`, error);
             // Fallback to original text without attribution (Smart Price Action doesn't need it)
             // smartPriceActionText remains as is
+          }
+
+          // Add Polygon ETFs if requested (Polygon-only mode)
+          if (smartAnalysisWithETFsPolygonOnly) {
+            const polygonETFs = await fetchPolygonETFs(symbol);
+            if (polygonETFs.length > 0) {
+              const etfSentence = formatPolygonETFSentence(companyName, polygonETFs);
+              if (etfSentence) {
+                // Remove any existing attribution from priceActionText if present
+                smartPriceActionText = smartPriceActionText.replace(/,\s*according to Polygon\.?$/, '');
+                smartPriceActionText = smartPriceActionText.replace(/,\s*according to Polygon data\.?$/, '');
+                smartPriceActionText += '\n\n' + etfSentence + ', according to Polygon data.';
+              }
+            }
           }
 
           return {

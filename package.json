@@ -11,11 +11,14 @@
   "dependencies": {
     "@google-cloud/vision": "^4.0.2",
     "@google/generative-ai": "^0.24.1",
+    "dom-to-image-more": "^3.7.2",
+    "html2canvas": "^1.4.1",
     "multer": "^1.4.5-lts.1",
     "next": "15.3.4",
     "openai": "^5.8.2",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "recharts": "^3.7.0",
     "sharp": "^0.32.6"
   },
   "devDependencies": {

@@ -220,6 +220,35 @@ const PriceActionGenerator = forwardRef<PriceActionGeneratorRef>((props, ref) =>
     }
   }
 
+  async function generateSmartPriceActionWithETFs() {
+    if (!tickers.trim()) {
+      setPriceActionError('Please enter ticker(s) first.');
+      return;
+    }
+    setPriceActions([]);
+    setPriceActionError('');
+    setLoadingPriceAction(true);
+    try {
+      const res = await fetch('/api/generate/price-action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tickers,
+          smartAnalysisWithETFsPolygonOnly: true
+        }),
+      });
+      if (!res.ok) throw new Error('Failed to generate smart price action with ETFs');
+      const data = await res.json();
+      setPriceActions(data.priceActions);
+    } catch (error: unknown) {
+      console.error('Error generating smart price action with ETFs:', error);
+      if (error instanceof Error) setPriceActionError(error.message);
+      else setPriceActionError(String(error));
+    } finally {
+      setLoadingPriceAction(false);
+    }
+  }
+
   async function generateVsSmartPriceAction() {
     if (!primaryTicker.trim() || !comparisonTickers.trim()) {
       setPriceActionError('Please enter both primary ticker and comparison ticker(s).');
@@ -410,6 +439,13 @@ const PriceActionGenerator = forwardRef<PriceActionGeneratorRef>((props, ref) =>
           className="bg-green-600 text-white px-4 py-2 rounded disabled:bg-green-300 font-semibold"
         >
           {loadingPriceAction ? 'Analyzing...' : '🧠 Smart Price Action'}
+        </button>
+        <button
+          onClick={() => generateSmartPriceActionWithETFs()}
+          disabled={loadingPriceAction || !tickers.trim()}
+          className="bg-green-700 text-white px-4 py-2 rounded disabled:bg-green-300 font-semibold"
+        >
+          {loadingPriceAction ? 'Analyzing...' : '🧠 Smart Price Action w/ ETFs'}
         </button>
         <button
           onClick={() => generatePriceActionOnly()}

@@ -18,6 +18,7 @@ import SubheadGenerator, { SubheadGeneratorRef } from './components/SubheadGener
 import AltTextGenerator, { AltTextGeneratorRef } from './components/AltTextGenerator';
 import ImageGenerator, { ImageGeneratorRef } from './components/ImageGenerator';
 import MSNHeadlineGenerator, { MSNHeadlineGeneratorRef } from './components/MSNHeadlineGenerator';
+import DeviationChartGenerator, { DeviationChartGeneratorRef } from './components/DeviationChartGenerator';
 
 export default function Page() {
   const [articleText, setArticleText] = useState('');
@@ -40,6 +41,7 @@ export default function Page() {
   const altTextGeneratorRef = useRef<AltTextGeneratorRef>(null);
   const imageGeneratorRef = useRef<ImageGeneratorRef>(null);
   const msnHeadlineGeneratorRef = useRef<MSNHeadlineGeneratorRef>(null);
+  const deviationChartGeneratorRef = useRef<DeviationChartGeneratorRef>(null);
 
   const clearAllData = () => {
     // Clear main article text
@@ -97,6 +99,9 @@ export default function Page() {
     if (msnHeadlineGeneratorRef.current?.clearData) {
       msnHeadlineGeneratorRef.current.clearData();
     }
+    if (deviationChartGeneratorRef.current?.clearData) {
+      deviationChartGeneratorRef.current.clearData();
+    }
   };
 
   return (
@@ -122,6 +127,11 @@ export default function Page() {
         {/* Technical Analysis Generator - Second */}
         <div className="mb-6">
           <TechnicalAnalysisGenerator ref={technicalAnalysisGeneratorRef} />
+        </div>
+
+        {/* Deviation Chart Generator */}
+        <div className="mb-6">
+          <DeviationChartGenerator ref={deviationChartGeneratorRef} />
         </div>
 
         {/* SEO Headline Generator - Third */}
