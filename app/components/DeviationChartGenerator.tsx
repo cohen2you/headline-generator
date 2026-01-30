@@ -299,11 +299,14 @@ const DeviationChartGenerator = forwardRef<DeviationChartGeneratorRef>((props, r
                   label={{ value: '% Deviation', angle: -90, position: 'insideLeft' }}
                 />
                 <Tooltip
-                  formatter={(value: number, name: string) => {
-                    if (name === 'deviation') {
+                  formatter={(value: any, name: string) => {
+                    if (name === 'deviation' && typeof value === 'number') {
                       return [`${value.toFixed(2)}%`, '% Deviation'];
                     }
-                    return [value, name];
+                    if (typeof value === 'number') {
+                      return [value, name];
+                    }
+                    return [String(value ?? ''), name];
                   }}
                   labelFormatter={(label) => {
                     const point = chartDataFormatted.find(p => p.dateFormatted === label);
