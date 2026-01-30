@@ -142,8 +142,8 @@ const DeviationChartGenerator = forwardRef<DeviationChartGeneratorRef>((props, r
           style: {
             transform: 'scale(2)',
             transformOrigin: 'top left',
-            width: chartContainerRef.current.offsetWidth + 'px',
-            height: chartContainerRef.current.offsetHeight + 'px'
+            width: chartOnlyRef.current.offsetWidth + 'px',
+            height: chartOnlyRef.current.offsetHeight + 'px'
           }
         });
       } catch (domError) {
