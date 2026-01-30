@@ -156,7 +156,7 @@ const DeviationChartGenerator = forwardRef<DeviationChartGeneratorRef>((props, r
             logging: false,
             useCORS: true,
             allowTaint: true,
-            ignoreElements: (element) => {
+            ignoreElements: () => {
               // Ignore elements that might cause issues
               return false;
             }
@@ -290,7 +290,6 @@ const DeviationChartGenerator = forwardRef<DeviationChartGeneratorRef>((props, r
                   angle={-45}
                   textAnchor="end"
                   height={80}
-                  interval="preserveStartEnd"
                   tick={{ fontSize: 11 }}
                   // For longer datasets, show fewer labels
                   interval={chartDataFormatted.length > 500 ? Math.floor(chartDataFormatted.length / 15) : 0}
