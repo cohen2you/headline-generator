@@ -42,6 +42,7 @@ const DeviationChartGenerator = forwardRef<DeviationChartGeneratorRef>((props, r
   const [error, setError] = useState<string | null>(null);
   const [copySuccess, setCopySuccess] = useState(false);
   const chartContainerRef = useRef<HTMLDivElement>(null);
+  const chartOnlyRef = useRef<HTMLDivElement>(null);
 
   useImperativeHandle(ref, () => ({
     clearData: () => {
@@ -122,7 +123,7 @@ const DeviationChartGenerator = forwardRef<DeviationChartGeneratorRef>((props, r
   const lowerBand = chartData ? -chartData.stdDev : 0;
 
   const copyChartToClipboard = async () => {
-    if (!chartContainerRef.current || typeof window === 'undefined') return;
+    if (!chartOnlyRef.current || typeof window === 'undefined') return;
 
     try {
       setCopySuccess(false);
@@ -133,11 +134,11 @@ const DeviationChartGenerator = forwardRef<DeviationChartGeneratorRef>((props, r
       try {
         const domtoimageModule = await import('dom-to-image-more');
         const domtoimage = domtoimageModule.default || domtoimageModule;
-        blob = await domtoimage.toBlob(chartContainerRef.current, {
+        blob = await domtoimage.toBlob(chartOnlyRef.current, {
           quality: 1,
           bgcolor: '#ffffff',
-          width: chartContainerRef.current.offsetWidth,
-          height: chartContainerRef.current.offsetHeight,
+          width: chartOnlyRef.current.offsetWidth,
+          height: chartOnlyRef.current.offsetHeight,
           style: {
             transform: 'scale(2)',
             transformOrigin: 'top left',
@@ -150,7 +151,7 @@ const DeviationChartGenerator = forwardRef<DeviationChartGeneratorRef>((props, r
         
         // Fallback to html2canvas with error handling
         try {
-          const canvas = await html2canvas(chartContainerRef.current, {
+          const canvas = await html2canvas(chartOnlyRef.current, {
             backgroundColor: '#ffffff',
             scale: 2,
             logging: false,
@@ -280,7 +281,7 @@ const DeviationChartGenerator = forwardRef<DeviationChartGeneratorRef>((props, r
             <p>Mean Deviation: {chartData.meanDeviation.toFixed(2)}%</p>
           </div>
 
-          <div className="w-full" style={{ height: '500px' }}>
+          <div ref={chartOnlyRef} className="w-full" style={{ height: '500px' }}>
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={chartDataFormatted} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
