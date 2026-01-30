@@ -166,57 +166,30 @@ const DeviationChartGenerator = forwardRef<DeviationChartGeneratorRef>((props, r
             }
           });
           
-          // Crop to remove any black borders - find the actual content bounds
-          const ctx = canvas.getContext('2d');
-          if (!ctx) {
-            blob = await new Promise<Blob | null>((resolve) => {
-              canvas.toBlob((b) => resolve(b), 'image/png');
-            });
-          } else {
-            // Get image data to find content bounds
-            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-            const data = imageData.data;
-            
-            // Find top, bottom, left, right bounds of non-white content
-            let top = canvas.height;
-            let bottom = 0;
-            let left = canvas.width;
-            let right = 0;
-            
-            for (let y = 0; y < canvas.height; y++) {
-              for (let x = 0; x < canvas.width; x++) {
-                const idx = (y * canvas.width + x) * 4;
-                const r = data[idx];
-                const g = data[idx + 1];
-                const b = data[idx + 2];
-                // Check if pixel is not white (or very close to white)
-                if (r < 250 || g < 250 || b < 250) {
-                  if (y < top) top = y;
-                  if (y > bottom) bottom = y;
-                  if (x < left) left = x;
-                  if (x > right) right = x;
-                }
-              }
-            }
-            
-            // Add small padding (10px at scale 2 = 5px actual)
-            const padding = 10;
-            top = Math.max(0, top - padding);
-            bottom = Math.min(canvas.height, bottom + padding);
-            left = Math.max(0, left - padding);
-            right = Math.min(canvas.width, right + padding);
-            
-            // Create cropped canvas with only the content area
+          // Simple crop: just remove bottom 20px to remove any black border
+          // Skip complex pixel scanning to avoid errors
+          try {
+            const cropHeight = Math.max(100, canvas.height - 20); // Remove bottom 20px, but keep at least 100px
             const croppedCanvas = document.createElement('canvas');
-            croppedCanvas.width = right - left;
-            croppedCanvas.height = bottom - top;
+            croppedCanvas.width = canvas.width;
+            croppedCanvas.height = cropHeight;
             const croppedCtx = croppedCanvas.getContext('2d');
             if (croppedCtx) {
-              croppedCtx.drawImage(canvas, left, top, right - left, bottom - top, 0, 0, right - left, bottom - top);
+              croppedCtx.drawImage(canvas, 0, 0, canvas.width, cropHeight, 0, 0, canvas.width, cropHeight);
+              blob = await new Promise<Blob | null>((resolve) => {
+                croppedCanvas.toBlob((b) => resolve(b), 'image/png');
+              });
+            } else {
+              // Fallback to original canvas if cropping fails
+              blob = await new Promise<Blob | null>((resolve) => {
+                canvas.toBlob((b) => resolve(b), 'image/png');
+              });
             }
-            
+          } catch (cropError) {
+            console.log('Cropping failed, using original canvas:', cropError);
+            // Fallback to original canvas if cropping fails
             blob = await new Promise<Blob | null>((resolve) => {
-              (croppedCtx ? croppedCanvas : canvas).toBlob((b) => resolve(b), 'image/png');
+              canvas.toBlob((b) => resolve(b), 'image/png');
             });
           }
         } catch (html2canvasError) {
