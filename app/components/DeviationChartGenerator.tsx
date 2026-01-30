@@ -315,8 +315,8 @@ const DeviationChartGenerator = forwardRef<DeviationChartGeneratorRef>((props, r
                 />
                 <Legend />
                 <ReferenceLine y={0} stroke="#999" strokeDasharray="2 2" />
-                <ReferenceLine y={upperBand} stroke="#ff6b6b" strokeDasharray="3 3" label={{ value: '+1 Std Dev', position: 'topRight' }} />
-                <ReferenceLine y={lowerBand} stroke="#ff6b6b" strokeDasharray="3 3" label={{ value: '-1 Std Dev', position: 'bottomRight' }} />
+                <ReferenceLine y={upperBand} stroke="#ff6b6b" strokeDasharray="3 3" label={{ value: '+1 Std Dev', position: 'top' }} />
+                <ReferenceLine y={lowerBand} stroke="#ff6b6b" strokeDasharray="3 3" label={{ value: '-1 Std Dev', position: 'bottom' }} />
                 <Line
                   type="monotone"
                   dataKey="deviation"
