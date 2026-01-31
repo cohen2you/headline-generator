@@ -189,17 +189,49 @@ const DeviationChartGenerator = forwardRef<DeviationChartGeneratorRef>((props, r
           }
         });
         
-        // Simple crop: remove bottom 20px to remove any black border
-        const cropHeight = Math.max(100, canvas.height - 20);
-        const croppedCanvas = document.createElement('canvas');
-        croppedCanvas.width = canvas.width;
-        croppedCanvas.height = cropHeight;
-        const croppedCtx = croppedCanvas.getContext('2d');
-        if (croppedCtx) {
-          croppedCtx.drawImage(canvas, 0, 0, canvas.width, cropHeight, 0, 0, canvas.width, cropHeight);
-          blob = await new Promise<Blob | null>((resolve) => {
-            croppedCanvas.toBlob((b) => resolve(b), 'image/png');
-          });
+        // Detect and remove bottom white space
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const data = imageData.data;
+          
+          // Find the bottom-most row with non-white content
+          let bottomRow = 0;
+          for (let y = canvas.height - 1; y >= 0; y--) {
+            let hasNonWhite = false;
+            for (let x = 0; x < canvas.width; x++) {
+              const idx = (y * canvas.width + x) * 4;
+              const r = data[idx];
+              const g = data[idx + 1];
+              const b = data[idx + 2];
+              // Check if pixel is not white (or very close to white - allow slight variations)
+              if (r < 245 || g < 245 || b < 245) {
+                hasNonWhite = true;
+                break;
+              }
+            }
+            if (hasNonWhite) {
+              bottomRow = y;
+              break;
+            }
+          }
+          
+          // Add small padding (10px) and crop
+          const cropHeight = Math.max(100, bottomRow + 10);
+          const croppedCanvas = document.createElement('canvas');
+          croppedCanvas.width = canvas.width;
+          croppedCanvas.height = cropHeight;
+          const croppedCtx = croppedCanvas.getContext('2d');
+          if (croppedCtx) {
+            croppedCtx.drawImage(canvas, 0, 0, canvas.width, cropHeight, 0, 0, canvas.width, cropHeight);
+            blob = await new Promise<Blob | null>((resolve) => {
+              croppedCanvas.toBlob((b) => resolve(b), 'image/png');
+            });
+          } else {
+            blob = await new Promise<Blob | null>((resolve) => {
+              canvas.toBlob((b) => resolve(b), 'image/png');
+            });
+          }
         } else {
           blob = await new Promise<Blob | null>((resolve) => {
             canvas.toBlob((b) => resolve(b), 'image/png');
