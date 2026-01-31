@@ -151,10 +151,42 @@ const DeviationChartGenerator = forwardRef<DeviationChartGeneratorRef>((props, r
         return;
       }
       
-      // Find the SVG element inside ResponsiveContainer
-      const svgElement = element.querySelector('svg');
+      // Find the main chart SVG element (not small icons)
+      // Recharts creates the main chart SVG, which should contain the actual chart data
+      const allSvgs = Array.from(element.querySelectorAll('svg'));
+      let svgElement: SVGElement | null = null;
+      
+      // First, try to find SVG with chart-specific elements (Recharts uses these)
+      // Look for elements that indicate it's the main chart, not an icon
+      for (const svg of allSvgs) {
+        // Check if this SVG has the actual chart line/path elements
+        const hasChartLine = svg.querySelector('path.recharts-line-curve, path.recharts-cartesian-grid-horizontal, .recharts-cartesian-axis') !== null;
+        // Or check if it has a large viewBox (chart SVGs have large viewBoxes, icons have small ones)
+        const viewBox = svg.getAttribute('viewBox');
+        const rect = svg.getBoundingClientRect();
+        
+        // Chart SVG should be large (at least 400x300) or have chart elements
+        if ((rect.width > 400 && rect.height > 300) || hasChartLine) {
+          svgElement = svg;
+          break;
+        }
+      }
+      
+      // Fallback: find the largest SVG
       if (!svgElement) {
-        console.error('SVG element not found in chart container');
+        let largestArea = 0;
+        allSvgs.forEach(svg => {
+          const rect = svg.getBoundingClientRect();
+          const area = rect.width * rect.height;
+          if (area > largestArea && area > 10000) { // Must be at least 100x100
+            largestArea = area;
+            svgElement = svg;
+          }
+        });
+      }
+      
+      if (!svgElement) {
+        console.error('Chart SVG element not found in container');
         setError('Chart SVG not found. Please wait for chart to render.');
         return;
       }
@@ -165,142 +197,69 @@ const DeviationChartGenerator = forwardRef<DeviationChartGeneratorRef>((props, r
       
       // Get the viewBox from the original SVG to preserve aspect ratio
       const originalViewBox = svgElement.getAttribute('viewBox');
+      const svgRect = svgElement.getBoundingClientRect();
       
       console.log('Attempting to capture chart:', {
         containerWidth: containerWidth,
         containerHeight: containerHeight,
-        svgWidth: svgElement.clientWidth,
-        svgHeight: svgElement.clientHeight,
-        viewBox: originalViewBox
+        svgWidth: svgRect.width,
+        svgHeight: svgRect.height,
+        viewBox: originalViewBox,
+        totalSvgs: allSvgs.length
       });
       
       let blob: Blob | null = null;
       
-      // Try to get SVG as data URL first (most reliable for SVG)
+      // Use html2canvas directly on the container (more reliable than SVG serialization)
       try {
-        // Clone the SVG to avoid modifying the original
-        const svgClone = svgElement.cloneNode(true) as SVGElement;
-        
-        // Set explicit width and height on the cloned SVG using container dimensions
-        svgClone.setAttribute('width', containerWidth.toString());
-        svgClone.setAttribute('height', containerHeight.toString());
-        
-        // Preserve the original viewBox if it exists, otherwise create one
-        if (originalViewBox) {
-          svgClone.setAttribute('viewBox', originalViewBox);
-        } else {
-          svgClone.setAttribute('viewBox', `0 0 ${containerWidth} ${containerHeight}`);
-        }
-        
-        const svgData = new XMLSerializer().serializeToString(svgClone);
-        const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
-        const svgUrl = URL.createObjectURL(svgBlob);
-        
-        // Convert SVG to PNG using canvas - properly await the conversion
-        blob = await new Promise<Blob | null>((resolve, reject) => {
-          const img = new Image();
-          
-          img.onload = () => {
-            try {
-              const canvas = document.createElement('canvas');
-              // Use container dimensions (which are correct) scaled up for quality
-              canvas.width = element.offsetWidth * 2;
-              canvas.height = element.offsetHeight * 2;
-              const ctx = canvas.getContext('2d');
-              if (!ctx) {
-                URL.revokeObjectURL(svgUrl);
-                reject(new Error('Could not get canvas context'));
-                return;
+        const canvas = await html2canvas(element, {
+          backgroundColor: '#ffffff',
+          scale: 2,
+          logging: false,
+          useCORS: true,
+          allowTaint: true,
+          width: containerWidth,
+          height: containerHeight,
+          onclone: (clonedDoc, clonedElement) => {
+            // Ensure the cloned element has proper dimensions
+            const el = clonedElement as HTMLElement;
+            el.style.width = containerWidth + 'px';
+            el.style.height = containerHeight + 'px';
+            el.style.position = 'relative';
+            // Hide any small icon SVGs that might interfere
+            const smallSvgs = el.querySelectorAll('svg');
+            smallSvgs.forEach(svg => {
+              const rect = svg.getBoundingClientRect();
+              if (rect.width < 100 || rect.height < 100) {
+                (svg as HTMLElement).style.display = 'none';
               }
-              
-              // Fill white background
-              ctx.fillStyle = '#ffffff';
-              ctx.fillRect(0, 0, canvas.width, canvas.height);
-              // Draw the SVG image scaled to fill the canvas
-              ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-              
-              // Crop bottom 20px
-              const cropHeight = Math.max(100, canvas.height - 20);
-              const croppedCanvas = document.createElement('canvas');
-              croppedCanvas.width = canvas.width;
-              croppedCanvas.height = cropHeight;
-              const croppedCtx = croppedCanvas.getContext('2d');
-              if (croppedCtx) {
-                croppedCtx.drawImage(canvas, 0, 0, canvas.width, cropHeight, 0, 0, canvas.width, cropHeight);
-                croppedCanvas.toBlob((b) => {
-                  URL.revokeObjectURL(svgUrl);
-                  resolve(b);
-                }, 'image/png');
-              } else {
-                canvas.toBlob((b) => {
-                  URL.revokeObjectURL(svgUrl);
-                  resolve(b);
-                }, 'image/png');
-              }
-            } catch (err) {
-              URL.revokeObjectURL(svgUrl);
-              reject(err);
-            }
-          };
-          
-          img.onerror = () => {
-            URL.revokeObjectURL(svgUrl);
-            reject(new Error('Failed to load SVG as image'));
-          };
-          
-          img.src = svgUrl;
-          
-          // Timeout after 5 seconds
-          setTimeout(() => {
-            URL.revokeObjectURL(svgUrl);
-            reject(new Error('SVG load timeout'));
-          }, 5000);
-        });
-        
-        console.log('SVG conversion succeeded');
-      } catch (svgError) {
-        console.log('SVG direct conversion failed, trying html2canvas:', svgError);
-        
-        // Fallback to html2canvas on the container
-        try {
-          const canvas = await html2canvas(element, {
-            backgroundColor: '#ffffff',
-            scale: 2,
-            logging: false,
-            useCORS: true,
-            allowTaint: true,
-            width: element.offsetWidth,
-            height: element.offsetHeight,
-            onclone: (clonedDoc, element) => {
-              // Ensure the cloned element has proper dimensions
-              const clonedElement = element as HTMLElement;
-              clonedElement.style.width = element.offsetWidth + 'px';
-              clonedElement.style.height = element.offsetHeight + 'px';
-            }
-          });
-          
-          // Simple crop: remove bottom 20px
-          const cropHeight = Math.max(100, canvas.height - 20);
-          const croppedCanvas = document.createElement('canvas');
-          croppedCanvas.width = canvas.width;
-          croppedCanvas.height = cropHeight;
-          const croppedCtx = croppedCanvas.getContext('2d');
-          if (croppedCtx) {
-            croppedCtx.drawImage(canvas, 0, 0, canvas.width, cropHeight, 0, 0, canvas.width, cropHeight);
-            blob = await new Promise<Blob | null>((resolve) => {
-              croppedCanvas.toBlob((b) => resolve(b), 'image/png');
-            });
-          } else {
-            blob = await new Promise<Blob | null>((resolve) => {
-              canvas.toBlob((b) => resolve(b), 'image/png');
             });
           }
-        } catch (html2canvasError) {
-          console.error('html2canvas failed:', html2canvasError);
-          const errorMessage = html2canvasError instanceof Error ? html2canvasError.message : String(html2canvasError);
-          setError(`Failed to capture chart: ${errorMessage}. Please use your browser's screenshot tool (Windows: Win+Shift+S, Mac: Cmd+Shift+4).`);
-          return;
+        });
+        
+        // Simple crop: remove bottom 20px to remove any black border
+        const cropHeight = Math.max(100, canvas.height - 20);
+        const croppedCanvas = document.createElement('canvas');
+        croppedCanvas.width = canvas.width;
+        croppedCanvas.height = cropHeight;
+        const croppedCtx = croppedCanvas.getContext('2d');
+        if (croppedCtx) {
+          croppedCtx.drawImage(canvas, 0, 0, canvas.width, cropHeight, 0, 0, canvas.width, cropHeight);
+          blob = await new Promise<Blob | null>((resolve) => {
+            croppedCanvas.toBlob((b) => resolve(b), 'image/png');
+          });
+        } else {
+          blob = await new Promise<Blob | null>((resolve) => {
+            canvas.toBlob((b) => resolve(b), 'image/png');
+          });
         }
+        
+        console.log('Chart captured successfully');
+      } catch (html2canvasError) {
+        console.error('html2canvas failed:', html2canvasError);
+        const errorMessage = html2canvasError instanceof Error ? html2canvasError.message : String(html2canvasError);
+        setError(`Failed to capture chart: ${errorMessage}. Please use your browser's screenshot tool (Windows: Win+Shift+S, Mac: Cmd+Shift+4).`);
+        return;
       }
       
       if (!blob) {
@@ -405,8 +364,9 @@ const DeviationChartGenerator = forwardRef<DeviationChartGeneratorRef>((props, r
             <p>Mean Deviation: {chartData.meanDeviation.toFixed(2)}%</p>
           </div>
 
-          <div ref={chartOnlyRef} className="w-full" style={{ height: '500px', padding: 0, margin: 0, border: 'none', overflow: 'hidden' }}>
-            <ResponsiveContainer width="100%" height="100%">
+          <div className="w-full" style={{ height: '500px', padding: 0, margin: 0, border: 'none', overflow: 'hidden' }}>
+            <div ref={chartOnlyRef} style={{ width: '100%', height: '100%' }}>
+              <ResponsiveContainer width="100%" height="100%">
               <LineChart data={chartDataFormatted} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
                 <XAxis
@@ -453,6 +413,7 @@ const DeviationChartGenerator = forwardRef<DeviationChartGeneratorRef>((props, r
                 />
               </LineChart>
             </ResponsiveContainer>
+            </div>
           </div>
         </div>
       )}
