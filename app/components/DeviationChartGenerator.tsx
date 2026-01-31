@@ -159,18 +159,40 @@ const DeviationChartGenerator = forwardRef<DeviationChartGeneratorRef>((props, r
         return;
       }
       
+      // Get the actual rendered dimensions from the container (not the SVG which may be tiny)
+      const containerWidth = element.offsetWidth;
+      const containerHeight = element.offsetHeight;
+      
+      // Get the viewBox from the original SVG to preserve aspect ratio
+      const originalViewBox = svgElement.getAttribute('viewBox');
+      
       console.log('Attempting to capture chart:', {
-        containerWidth: element.offsetWidth,
-        containerHeight: element.offsetHeight,
+        containerWidth: containerWidth,
+        containerHeight: containerHeight,
         svgWidth: svgElement.clientWidth,
-        svgHeight: svgElement.clientHeight
+        svgHeight: svgElement.clientHeight,
+        viewBox: originalViewBox
       });
       
       let blob: Blob | null = null;
       
       // Try to get SVG as data URL first (most reliable for SVG)
       try {
-        const svgData = new XMLSerializer().serializeToString(svgElement);
+        // Clone the SVG to avoid modifying the original
+        const svgClone = svgElement.cloneNode(true) as SVGElement;
+        
+        // Set explicit width and height on the cloned SVG using container dimensions
+        svgClone.setAttribute('width', containerWidth.toString());
+        svgClone.setAttribute('height', containerHeight.toString());
+        
+        // Preserve the original viewBox if it exists, otherwise create one
+        if (originalViewBox) {
+          svgClone.setAttribute('viewBox', originalViewBox);
+        } else {
+          svgClone.setAttribute('viewBox', `0 0 ${containerWidth} ${containerHeight}`);
+        }
+        
+        const svgData = new XMLSerializer().serializeToString(svgClone);
         const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
         const svgUrl = URL.createObjectURL(svgBlob);
         
@@ -181,8 +203,9 @@ const DeviationChartGenerator = forwardRef<DeviationChartGeneratorRef>((props, r
           img.onload = () => {
             try {
               const canvas = document.createElement('canvas');
-              canvas.width = img.width || svgElement.clientWidth || 800;
-              canvas.height = img.height || svgElement.clientHeight || 500;
+              // Use container dimensions (which are correct) scaled up for quality
+              canvas.width = element.offsetWidth * 2;
+              canvas.height = element.offsetHeight * 2;
               const ctx = canvas.getContext('2d');
               if (!ctx) {
                 URL.revokeObjectURL(svgUrl);
@@ -193,7 +216,8 @@ const DeviationChartGenerator = forwardRef<DeviationChartGeneratorRef>((props, r
               // Fill white background
               ctx.fillStyle = '#ffffff';
               ctx.fillRect(0, 0, canvas.width, canvas.height);
-              ctx.drawImage(img, 0, 0);
+              // Draw the SVG image scaled to fill the canvas
+              ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
               
               // Crop bottom 20px
               const cropHeight = Math.max(100, canvas.height - 20);
