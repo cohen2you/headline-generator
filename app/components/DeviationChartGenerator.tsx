@@ -183,7 +183,7 @@ const DeviationChartGenerator = forwardRef<DeviationChartGeneratorRef>((props, r
             smallSvgs.forEach(svg => {
               const rect = svg.getBoundingClientRect();
               if (rect.width < 100 || rect.height < 100) {
-                (svg as HTMLElement).style.display = 'none';
+                svg.style.display = 'none';
               }
             });
           }
