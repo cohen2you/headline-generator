@@ -123,83 +123,98 @@ const DeviationChartGenerator = forwardRef<DeviationChartGeneratorRef>((props, r
   const lowerBand = chartData ? -chartData.stdDev : 0;
 
   const copyChartToClipboard = async () => {
-    if (!chartOnlyRef.current || typeof window === 'undefined') return;
+    if (!chartOnlyRef.current || typeof window === 'undefined') {
+      console.error('Chart element not found or not in browser');
+      setError('Chart element not available');
+      return;
+    }
 
     try {
       setCopySuccess(false);
+      setError(null);
       
       // Wait a bit for the chart to fully render (SVG needs time to render)
-      await new Promise(resolve => setTimeout(resolve, 300));
+      await new Promise(resolve => setTimeout(resolve, 500));
       
       let blob: Blob | null = null;
       
-      // Try to find the SVG element directly for cleaner capture
+      // Use the container element directly (more reliable than finding SVG)
       const element = chartOnlyRef.current;
-      const svgElement = element?.querySelector('svg');
-      const captureElement = (svgElement as HTMLElement | null) || element;
       
-      // Try dom-to-image-more first (handles modern CSS better) - dynamic import for client-side only
-      try {
-        const domtoimageModule = await import('dom-to-image-more');
-        const domtoimage = domtoimageModule.default || domtoimageModule;
-        blob = await domtoimage.toBlob(captureElement, {
-          quality: 1,
-          bgcolor: '#ffffff',
-          width: captureElement.offsetWidth,
-          height: captureElement.offsetHeight
+      if (!element || !element.offsetWidth || !element.offsetHeight) {
+        console.error('Element has no dimensions:', { 
+          width: element?.offsetWidth, 
+          height: element?.offsetHeight 
         });
-      } catch (domError) {
-        console.log('dom-to-image failed, trying html2canvas:', domError);
+        setError('Chart element has no dimensions. Please wait for chart to load.');
+        return;
+      }
+      
+      console.log('Attempting to capture chart:', {
+        width: element.offsetWidth,
+        height: element.offsetHeight
+      });
+      
+      // Try html2canvas first (more reliable)
+      try {
+        console.log('Trying html2canvas...');
+        const canvas = await html2canvas(element, {
+          backgroundColor: '#ffffff',
+          scale: 2,
+          logging: true, // Enable logging to see what's happening
+          useCORS: true,
+          allowTaint: true,
+          width: element.offsetWidth,
+          height: element.offsetHeight
+        });
         
-        // Fallback to html2canvas with error handling
+        console.log('Canvas created:', { width: canvas.width, height: canvas.height });
+        
+        // Simple crop: just remove bottom 20px to remove any black border
         try {
-          const canvas = await html2canvas(captureElement, {
-            backgroundColor: '#ffffff',
-            scale: 2,
-            logging: false,
-            useCORS: true,
-            allowTaint: true,
-            // Don't constrain width/height - let html2canvas determine from element
-            ignoreElements: () => {
-              // Ignore elements that might cause issues
-              return false;
-            }
-          });
-          
-          // Simple crop: just remove bottom 20px to remove any black border
-          // Skip complex pixel scanning to avoid errors
-          try {
-            const cropHeight = Math.max(100, canvas.height - 20); // Remove bottom 20px, but keep at least 100px
-            const croppedCanvas = document.createElement('canvas');
-            croppedCanvas.width = canvas.width;
-            croppedCanvas.height = cropHeight;
-            const croppedCtx = croppedCanvas.getContext('2d');
-            if (croppedCtx) {
-              croppedCtx.drawImage(canvas, 0, 0, canvas.width, cropHeight, 0, 0, canvas.width, cropHeight);
-              blob = await new Promise<Blob | null>((resolve) => {
-                croppedCanvas.toBlob((b) => resolve(b), 'image/png');
-              });
-            } else {
-              // Fallback to original canvas if cropping fails
-              blob = await new Promise<Blob | null>((resolve) => {
-                canvas.toBlob((b) => resolve(b), 'image/png');
-              });
-            }
-          } catch (cropError) {
-            console.log('Cropping failed, using original canvas:', cropError);
-            // Fallback to original canvas if cropping fails
+          const cropHeight = Math.max(100, canvas.height - 20);
+          const croppedCanvas = document.createElement('canvas');
+          croppedCanvas.width = canvas.width;
+          croppedCanvas.height = cropHeight;
+          const croppedCtx = croppedCanvas.getContext('2d');
+          if (croppedCtx) {
+            croppedCtx.drawImage(canvas, 0, 0, canvas.width, cropHeight, 0, 0, canvas.width, cropHeight);
             blob = await new Promise<Blob | null>((resolve) => {
-              canvas.toBlob((b) => resolve(b), 'image/png');
+              croppedCanvas.toBlob((b) => resolve(b), 'image/png');
             });
+            console.log('Chart cropped successfully');
+          } else {
+            throw new Error('Could not get 2d context for cropped canvas');
           }
-        } catch (html2canvasError) {
-          console.error('html2canvas also failed:', html2canvasError);
-          // Check if it's the oklch error
+        } catch (cropError) {
+          console.log('Cropping failed, using original canvas:', cropError);
+          // Fallback to original canvas if cropping fails
+          blob = await new Promise<Blob | null>((resolve) => {
+            canvas.toBlob((b) => resolve(b), 'image/png');
+          });
+        }
+      } catch (html2canvasError) {
+        console.error('html2canvas failed:', html2canvasError);
+        
+        // Try dom-to-image-more as fallback
+        try {
+          console.log('Trying dom-to-image-more as fallback...');
+          const domtoimageModule = await import('dom-to-image-more');
+          const domtoimage = domtoimageModule.default || domtoimageModule;
+          blob = await domtoimage.toBlob(element, {
+            quality: 1,
+            bgcolor: '#ffffff',
+            width: element.offsetWidth,
+            height: element.offsetHeight
+          });
+          console.log('dom-to-image-more succeeded');
+        } catch (domError) {
+          console.error('dom-to-image-more also failed:', domError);
           const errorMessage = html2canvasError instanceof Error ? html2canvasError.message : String(html2canvasError);
           if (errorMessage.includes('oklch')) {
             setError('Chart capture failed due to unsupported color format. Please use your browser\'s screenshot tool (Windows: Win+Shift+S, Mac: Cmd+Shift+4) to capture the chart.');
           } else {
-            setError('Failed to capture chart. Please try a different browser or take a screenshot manually.');
+            setError(`Failed to capture chart: ${errorMessage}. Please try your browser's screenshot tool.`);
           }
           return;
         }
