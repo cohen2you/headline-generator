@@ -31,6 +31,7 @@ type ChartType =
   | 'rsi-heatmap'
   | 'macd-multi-panel'
   | 'volume-profile'
+  | 'edge-rankings'
   | 'price-comparison'
   | 'sector-performance'
   | 'relative-strength';
@@ -49,6 +50,7 @@ const CHART_TYPES: ChartTypeOption[] = [
   { value: 'rsi-heatmap', label: 'RSI Heatmap Timeline', requiresMultipleTickers: false, description: 'RSI values as color gradient' },
   { value: 'macd-multi-panel', label: 'MACD Multi-Panel Chart', requiresMultipleTickers: false, description: 'Price, MACD lines, and histogram' },
   { value: 'volume-profile', label: 'Volume Profile Chart', requiresMultipleTickers: false, description: '3D volume bars with depth' },
+  { value: 'edge-rankings', label: 'Benzinga Edge Rankings', requiresMultipleTickers: false, description: '3D bar chart with gradient fills' },
   { value: 'price-comparison', label: 'Price Comparison Chart', requiresMultipleTickers: true, description: 'Compare multiple tickers' },
   { value: 'sector-performance', label: 'Sector Performance Comparison', requiresMultipleTickers: true, description: 'Compare sector ETFs' },
   { value: 'relative-strength', label: 'Relative Strength Comparison', requiresMultipleTickers: true, description: 'Compare relative performance' },
@@ -75,7 +77,7 @@ const ChartGenerator = forwardRef<ChartGeneratorRef>((props, ref) => {
   const [chartType, setChartType] = useState<ChartType>('deviation');
   const [tickerInput, setTickerInput] = useState('');
   const [maPeriod, setMaPeriod] = useState<50 | 200>(200);
-  const [chartData, setChartData] = useState<any>(null);
+  const [chartData, setChartData] = useState<unknown>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copySuccess, setCopySuccess] = useState(false);
@@ -183,7 +185,7 @@ const ChartGenerator = forwardRef<ChartGeneratorRef>((props, ref) => {
 
         const data = await response.json();
         setChartData(data);
-      } else if (['price-moving-averages', 'rsi-heatmap', 'macd-multi-panel', 'volume-profile'].includes(chartType)) {
+      } else if (['price-moving-averages', 'rsi-heatmap', 'macd-multi-panel', 'volume-profile', 'edge-rankings'].includes(chartType)) {
         // New chart types use the unified chart route
         const response = await fetch('/api/generate/chart', {
           method: 'POST',
@@ -876,12 +878,6 @@ const ChartGenerator = forwardRef<ChartGeneratorRef>((props, ref) => {
         dateFull: formatTooltipDate(point.date)
       }));
 
-      // Color function for RSI
-      const getRSIColor = (rsi: number) => {
-        if (rsi <= 30) return '#10b981'; // Green for oversold
-        if (rsi >= 70) return '#ef4444'; // Red for overbought
-        return '#f59e0b'; // Yellow/Orange for neutral
-      };
 
       return (
         <div ref={chartContainerRef} className="mt-6">
@@ -1146,10 +1142,174 @@ const ChartGenerator = forwardRef<ChartGeneratorRef>((props, ref) => {
       );
     }
 
+    // Edge Rankings 3D Bar Chart
+    if (chartType === 'edge-rankings') {
+      const edgeData = chartData as { companyName: string; symbol: string; metrics: Array<{ name: string; value: number }> };
+      
+      if (!edgeData.metrics || edgeData.metrics.length === 0) {
+        return (
+          <div className="mt-6 p-4 bg-gray-100 rounded">
+            <p className="text-gray-600">No edge rankings data available for {edgeData.symbol}</p>
+          </div>
+        );
+      }
+
+      // Prepare data for Recharts BarChart
+      const barData = edgeData.metrics.map(metric => ({
+        name: metric.name,
+        value: metric.value,
+        // Color based on score
+        color: metric.value >= 80 ? '#10b981' : // Green
+               metric.value >= 60 ? '#3b82f6' : // Blue
+               metric.value >= 40 ? '#f59e0b' : // Yellow
+               metric.value >= 20 ? '#f97316' : // Orange
+               '#ef4444' // Red
+      }));
+
+      // Get gradient color based on score
+      const getGradientColor = (score: number) => {
+        if (score >= 80) return { start: '#10b981', end: '#059669' }; // Green gradient
+        if (score >= 60) return { start: '#3b82f6', end: '#2563eb' }; // Blue gradient
+        if (score >= 40) return { start: '#f59e0b', end: '#d97706' }; // Yellow gradient
+        if (score >= 20) return { start: '#f97316', end: '#ea580c' }; // Orange gradient
+        return { start: '#ef4444', end: '#dc2626' }; // Red gradient
+      };
+
+      // Get description based on score
+      const getScoreDescription = (score: number) => {
+        if (score >= 80) return 'Excellent';
+        if (score >= 60) return 'Strong';
+        if (score >= 40) return 'Moderate';
+        if (score >= 20) return 'Weak';
+        return 'Poor';
+      };
+
+      return (
+        <div ref={chartContainerRef} className="mt-6">
+          <div className="flex justify-between items-center mb-2">
+            <h3 className="text-lg font-semibold">
+              {edgeData.companyName} ({edgeData.symbol}) - Benzinga Edge Rankings
+            </h3>
+            <button
+              onClick={copyChartToClipboard}
+              className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors text-sm font-medium"
+            >
+              {copySuccess ? '✓ Saved!' : 'Save Chart'}
+            </button>
+          </div>
+          <div
+            ref={chartOnlyRef}
+            style={{
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              borderRadius: '12px',
+              padding: '20px',
+              boxShadow: '0 10px 25px rgba(0,0,0,0.2)'
+            }}
+          >
+            <div style={{ height: '500px', background: 'rgba(255, 255, 255, 0.95)', borderRadius: '8px', padding: '20px', boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.1)' }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={barData}
+                  margin={{ top: 30, right: 30, left: 20, bottom: 60 }}
+                >
+                  <defs>
+                    {barData.map((item, index) => {
+                      const gradient = getGradientColor(item.value);
+                      return (
+                        <linearGradient key={`gradient-${index}`} id={`gradient-${index}`} x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor={gradient.start} stopOpacity={1} />
+                          <stop offset="100%" stopColor={gradient.end} stopOpacity={0.8} />
+                        </linearGradient>
+                      );
+                    })}
+                    {/* 3D shadow gradients */}
+                    {barData.map((item, index) => (
+                      <linearGradient key={`shadow-${index}`} id={`shadow-${index}`} x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="rgba(0,0,0,0.3)" stopOpacity={0.4} />
+                        <stop offset="100%" stopColor="rgba(0,0,0,0.1)" stopOpacity={0.2} />
+                      </linearGradient>
+                    ))}
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} />
+                  <XAxis 
+                    dataKey="name" 
+                    stroke="#666"
+                    tick={{ fontSize: 14, fontWeight: 'bold' }}
+                    angle={-45}
+                    textAnchor="end"
+                    height={80}
+                  />
+                  <YAxis 
+                    stroke="#666"
+                    domain={[0, 100]}
+                    label={{ value: 'Score (0-100)', angle: -90, position: 'insideLeft', style: { fontSize: 14 } }}
+                    tick={{ fontSize: 12 }}
+                  />
+                  <Tooltip
+                    formatter={(value: unknown) => {
+                      if (typeof value === 'number') {
+                        return [`${value.toFixed(2)}/100`, 'Score'];
+                      }
+                      return [String(value), ''];
+                    }}
+                    labelFormatter={(label) => {
+                      const item = barData.find(d => d.name === label);
+                      if (item) {
+                        return `${label} - ${getScoreDescription(item.value)}`;
+                      }
+                      return label;
+                    }}
+                    contentStyle={{
+                      backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                      border: '1px solid #ccc',
+                      borderRadius: '8px',
+                      padding: '10px',
+                      boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+                    }}
+                  />
+                  <Legend />
+                  <Bar
+                    dataKey="value"
+                    radius={[8, 8, 0, 0]}
+                    name="Edge Score"
+                  >
+                    {barData.map((entry, index) => (
+                      <Cell 
+                        key={`cell-${index}`} 
+                        fill={`url(#gradient-${index})`}
+                        stroke={entry.color}
+                        strokeWidth={2}
+                        style={{
+                          filter: 'drop-shadow(0px 4px 6px rgba(0,0,0,0.3))',
+                          transform: 'perspective(500px) rotateX(-5deg)',
+                        }}
+                      />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+              {/* Score descriptions below chart */}
+              <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4">
+                {barData.map((item, index) => (
+                  <div key={index} className="text-center p-3 bg-gray-50 rounded-lg border border-gray-200">
+                    <div className="text-sm font-semibold text-gray-700 mb-1">{item.name}</div>
+                    <div className="text-2xl font-bold" style={{ color: item.color }}>
+                      {item.value.toFixed(1)}
+                    </div>
+                    <div className="text-xs text-gray-600 mt-1">{getScoreDescription(item.value)}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     // Placeholder for other chart types
     return (
       <div className="mt-6 p-4 bg-gray-100 rounded">
-        <p className="text-gray-600">Chart type "{CHART_TYPES.find(ct => ct.value === chartType)?.label}" is coming soon!</p>
+        <p className="text-gray-600">Chart type &quot;{CHART_TYPES.find(ct => ct.value === chartType)?.label}&quot; is coming soon!</p>
       </div>
     );
   };

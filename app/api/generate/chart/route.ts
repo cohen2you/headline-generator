@@ -9,17 +9,6 @@ interface HistoricalBar {
   v?: number;
 }
 
-// Helper function to get yesterday's date string
-function getYesterdayDate(): string {
-  const date = new Date();
-  const dayOfWeek = date.getDay();
-  if (dayOfWeek === 1) date.setDate(date.getDate() - 3); // Monday -> Friday
-  else if (dayOfWeek === 0) date.setDate(date.getDate() - 2); // Sunday -> Friday
-  else if (dayOfWeek === 6) date.setDate(date.getDate() - 1); // Saturday -> Friday
-  else date.setDate(date.getDate() - 1); // Other days -> yesterday
-  return date.toISOString().split('T')[0];
-}
-
 // Fetch historical bars
 async function fetchHistoricalBars(symbol: string, fromDate: string, toDate: string): Promise<HistoricalBar[]> {
   try {
@@ -74,26 +63,6 @@ async function fetchHistoricalSMA(symbol: string, window: number, fromDate: stri
   }
 }
 
-// Fetch historical EMA
-async function fetchHistoricalEMA(symbol: string, window: number, fromDate: string, toDate: string): Promise<Array<{ value: number; timestamp: number }>> {
-  try {
-    const url = `https://api.polygon.io/v1/indicators/ema/${symbol}?timestamp.gte=${fromDate}&timestamp.lte=${toDate}&timespan=day&adjusted=true&window=${window}&series_type=close&order=desc&limit=500&apikey=${process.env.POLYGON_API_KEY}`;
-    const response = await fetch(url);
-    if (!response.ok) return [];
-    const data = await response.json();
-    if (data.results?.values && data.results.values.length > 0) {
-      return data.results.values.map((v: { value: number; timestamp: number }) => ({
-        value: v.value,
-        timestamp: v.timestamp
-      })).sort((a: { timestamp: number }, b: { timestamp: number }) => a.timestamp - b.timestamp);
-    }
-    return [];
-  } catch (error) {
-    console.error(`Error fetching historical EMA-${window} for ${symbol}:`, error);
-    return [];
-  }
-}
-
 // Fetch historical MACD
 async function fetchHistoricalMACD(symbol: string, fromDate: string, toDate: string): Promise<Array<{ macd: number; signal: number; histogram: number; timestamp: number }>> {
   try {
@@ -121,17 +90,9 @@ async function fetchHistoricalMACD(symbol: string, fromDate: string, toDate: str
   }
 }
 
-// Calculate moving average manually (for price with MAs chart)
-function calculateMovingAverage(bars: HistoricalBar[], index: number, period: number): number {
-  if (index < period - 1) return 0;
-  const slice = bars.slice(index - period + 1, index + 1);
-  const sum = slice.reduce((acc, bar) => acc + bar.c, 0);
-  return sum / period;
-}
-
 export async function POST(request: NextRequest) {
   try {
-    const { symbol, chartType, maPeriod } = await request.json();
+    const { symbol, chartType } = await request.json();
 
     if (!symbol || !chartType) {
       return NextResponse.json(
@@ -278,6 +239,66 @@ export async function POST(request: NextRequest) {
           companyName,
           symbol: upperSymbol,
           dataPoints
+        });
+      }
+
+      case 'edge-rankings': {
+        // Fetch Edge Rankings from Benzinga Edge API
+        if (!process.env.BENZINGA_EDGE_API_KEY) {
+          return NextResponse.json(
+            { error: 'Edge API key not configured' },
+            { status: 500 }
+          );
+        }
+
+        const url = `https://data-api-next.benzinga.com/rest/v3/tickerDetail?apikey=${process.env.BENZINGA_EDGE_API_KEY}&symbols=${upperSymbol}`;
+        const edgeRes = await fetch(url);
+
+        if (!edgeRes.ok) {
+          return NextResponse.json(
+            { error: `Failed to fetch edge rankings. Status: ${edgeRes.status}` },
+            { status: 500 }
+          );
+        }
+
+        const edgeData = await edgeRes.json();
+        const result = edgeData.result && edgeData.result[0];
+        const rankings = result && result.rankings;
+
+        if (!rankings || !rankings.exists) {
+          return NextResponse.json(
+            { error: 'No edge rankings data found for ticker' },
+            { status: 404 }
+          );
+        }
+
+        // Extract metrics (only include non-null values)
+        const metrics = [];
+        if (rankings.momentum !== null && rankings.momentum !== undefined) {
+          metrics.push({ name: 'Momentum', value: rankings.momentum });
+        }
+        if (rankings.growth !== null && rankings.growth !== undefined) {
+          metrics.push({ name: 'Growth', value: rankings.growth });
+        }
+        if (rankings.quality !== null && rankings.quality !== undefined) {
+          metrics.push({ name: 'Quality', value: rankings.quality });
+        }
+        if (rankings.value !== null && rankings.value !== undefined) {
+          metrics.push({ name: 'Value', value: rankings.value });
+        }
+
+        if (metrics.length === 0) {
+          return NextResponse.json(
+            { error: 'No edge rankings metrics available for ticker' },
+            { status: 404 }
+          );
+        }
+
+        return NextResponse.json({
+          chartType: 'edge-rankings',
+          companyName,
+          symbol: upperSymbol,
+          metrics
         });
       }
 
