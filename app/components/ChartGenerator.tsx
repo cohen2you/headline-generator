@@ -999,12 +999,12 @@ const ChartGenerator = forwardRef<ChartGeneratorRef>((props, ref) => {
                   <Tooltip
                     formatter={(value: unknown, name: string) => {
                       if (name === 'price') {
-                        return typeof value === 'number' ? `$${value.toFixed(2)}` : '';
+                        return typeof value === 'number' ? [`$${value.toFixed(2)}`, 'Price'] : ['', 'Price'];
                       }
                       if (typeof value === 'number') {
-                        return value.toFixed(4);
+                        return [value.toFixed(4), name];
                       }
-                      return String(value);
+                      return [String(value), name];
                     }}
                     labelFormatter={(label) => {
                       const point = chartDataFormatted.find(p => p.dateFormatted === label);
@@ -1104,12 +1104,12 @@ const ChartGenerator = forwardRef<ChartGeneratorRef>((props, ref) => {
                   <Tooltip
                     formatter={(value: unknown, name: string) => {
                       if (name === 'volume') {
-                        return typeof value === 'number' ? value.toLocaleString() : '';
+                        return typeof value === 'number' ? [value.toLocaleString(), 'Volume'] : ['', 'Volume'];
                       }
                       if (typeof value === 'number') {
-                        return `$${value.toFixed(2)}`;
+                        return [`$${value.toFixed(2)}`, name];
                       }
-                      return String(value);
+                      return [String(value), name];
                     }}
                     labelFormatter={(label) => {
                       const point = chartDataFormatted.find(p => p.dateFormatted === label);
