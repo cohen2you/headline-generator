@@ -151,61 +151,13 @@ const DeviationChartGenerator = forwardRef<DeviationChartGeneratorRef>((props, r
         return;
       }
       
-      // Find the main chart SVG element (not small icons)
-      // Recharts creates the main chart SVG, which should contain the actual chart data
-      const allSvgs = Array.from(element.querySelectorAll('svg'));
-      let svgElement: SVGElement | null = null;
-      
-      // First, try to find SVG with chart-specific elements (Recharts uses these)
-      // Look for elements that indicate it's the main chart, not an icon
-      for (const svg of allSvgs) {
-        // Check if this SVG has the actual chart line/path elements
-        const hasChartLine = svg.querySelector('path.recharts-line-curve, path.recharts-cartesian-grid-horizontal, .recharts-cartesian-axis') !== null;
-        // Or check if it has a large viewBox (chart SVGs have large viewBoxes, icons have small ones)
-        const viewBox = svg.getAttribute('viewBox');
-        const rect = svg.getBoundingClientRect();
-        
-        // Chart SVG should be large (at least 400x300) or have chart elements
-        if ((rect.width > 400 && rect.height > 300) || hasChartLine) {
-          svgElement = svg;
-          break;
-        }
-      }
-      
-      // Fallback: find the largest SVG
-      if (!svgElement) {
-        let largestArea = 0;
-        allSvgs.forEach(svg => {
-          const rect = svg.getBoundingClientRect();
-          const area = rect.width * rect.height;
-          if (area > largestArea && area > 10000) { // Must be at least 100x100
-            largestArea = area;
-            svgElement = svg;
-          }
-        });
-      }
-      
-      if (!svgElement) {
-        console.error('Chart SVG element not found in container');
-        setError('Chart SVG not found. Please wait for chart to render.');
-        return;
-      }
-      
-      // Get the actual rendered dimensions from the container (not the SVG which may be tiny)
+      // Get the actual rendered dimensions from the container
       const containerWidth = element.offsetWidth;
       const containerHeight = element.offsetHeight;
       
-      // Get the viewBox from the original SVG to preserve aspect ratio
-      const originalViewBox = svgElement.getAttribute('viewBox');
-      const svgRect = svgElement.getBoundingClientRect();
-      
       console.log('Attempting to capture chart:', {
         containerWidth: containerWidth,
-        containerHeight: containerHeight,
-        svgWidth: svgRect.width,
-        svgHeight: svgRect.height,
-        viewBox: originalViewBox,
-        totalSvgs: allSvgs.length
+        containerHeight: containerHeight
       });
       
       let blob: Blob | null = null;
