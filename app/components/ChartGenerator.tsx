@@ -997,14 +997,15 @@ const ChartGenerator = forwardRef<ChartGeneratorRef>((props, ref) => {
                   <YAxis yAxisId="price" stroke="#666" label={{ value: 'Price ($)', angle: -90, position: 'insideLeft' }} />
                   <YAxis yAxisId="macd" orientation="right" stroke="#666" label={{ value: 'MACD', angle: 90, position: 'insideRight' }} />
                   <Tooltip
-                    formatter={(value: unknown, name: string) => {
-                      if (name === 'price') {
+                    formatter={(value: unknown, name?: string) => {
+                      const nameStr = name || '';
+                      if (nameStr === 'price') {
                         return typeof value === 'number' ? [`$${value.toFixed(2)}`, 'Price'] : ['', 'Price'];
                       }
                       if (typeof value === 'number') {
-                        return [value.toFixed(4), name];
+                        return [value.toFixed(4), nameStr];
                       }
-                      return [String(value), name];
+                      return [String(value), nameStr];
                     }}
                     labelFormatter={(label) => {
                       const point = chartDataFormatted.find(p => p.dateFormatted === label);
@@ -1102,14 +1103,15 @@ const ChartGenerator = forwardRef<ChartGeneratorRef>((props, ref) => {
                   <YAxis yAxisId="price" stroke="#666" label={{ value: 'Price ($)', angle: -90, position: 'insideLeft' }} />
                   <YAxis yAxisId="volume" orientation="right" stroke="#666" label={{ value: 'Volume', angle: 90, position: 'insideRight' }} />
                   <Tooltip
-                    formatter={(value: unknown, name: string) => {
-                      if (name === 'volume') {
+                    formatter={(value: unknown, name?: string) => {
+                      const nameStr = name || '';
+                      if (nameStr === 'volume') {
                         return typeof value === 'number' ? [value.toLocaleString(), 'Volume'] : ['', 'Volume'];
                       }
                       if (typeof value === 'number') {
-                        return [`$${value.toFixed(2)}`, name];
+                        return [`$${value.toFixed(2)}`, nameStr];
                       }
-                      return [String(value), name];
+                      return [String(value), nameStr];
                     }}
                     labelFormatter={(label) => {
                       const point = chartDataFormatted.find(p => p.dateFormatted === label);
